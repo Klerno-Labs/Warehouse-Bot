@@ -19,6 +19,7 @@ import {
   type TenantWithSites,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import bcrypt from "bcrypt";
 
 export interface IStorage {
   // Users
@@ -203,13 +204,14 @@ export class MemStorage implements IStorage {
       this.devices.set(id, device);
     });
 
-    // Create admin user
+    // Create admin user with hashed password
+    const hashedPassword = bcrypt.hashSync("password123", 10);
     const adminId = randomUUID();
     const adminUser: User = {
       id: adminId,
       tenantId,
       email: "admin@example.com",
-      password: "password123", // In production, this would be hashed
+      password: hashedPassword,
       firstName: "John",
       lastName: "Admin",
       role: "Admin",
@@ -232,7 +234,7 @@ export class MemStorage implements IStorage {
         id,
         tenantId,
         email: u.email,
-        password: "password123",
+        password: hashedPassword,
         firstName: u.firstName,
         lastName: u.lastName,
         role: u.role,
