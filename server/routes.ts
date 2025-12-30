@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
+import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { loginSchema } from "@shared/schema";
 import { z } from "zod";
@@ -81,7 +82,7 @@ export async function registerRoutes(
       const credentials = loginSchema.parse(req.body);
       
       const user = await storage.getUserByEmail(credentials.email);
-      if (!user || user.password !== credentials.password) {
+      if (!user || !bcrypt.compareSync(credentials.password, user.password)) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
@@ -229,10 +230,13 @@ export async function registerRoutes(
       return res.status(409).json({ error: "Email already exists" });
     }
 
+    // Hash password before storing
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = await storage.createUser({
       tenantId: currentUser.tenantId,
       email,
-      password,
+      password: hashedPassword,
       firstName,
       lastName,
       role: role || "Viewer",
@@ -266,9 +270,14 @@ export async function registerRoutes(
       return res.status(404).json({ error: "User not found" });
     }
 
-    const updates = req.body;
+    const updates = { ...req.body };
     delete updates.id;
     delete updates.tenantId;
+
+    // Hash password if being updated
+    if (updates.password) {
+      updates.password = await bcrypt.hash(updates.password, 10);
+    }
 
     const updated = await storage.updateUser(req.params.id, updates);
     
