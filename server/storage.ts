@@ -18,6 +18,13 @@ import {
   type SessionUser,
   type TenantWithSites,
 } from "@shared/schema";
+import {
+  type Item,
+  type Location,
+  type ReasonCode,
+  type InventoryEvent,
+  type InventoryBalance,
+} from "@shared/inventory";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 
@@ -72,6 +79,40 @@ export interface IStorage {
   getAuditEvents(tenantId: string, limit?: number): Promise<AuditEvent[]>;
   getAuditEventsByEntity(entityType: string, entityId: string): Promise<AuditEvent[]>;
 
+  // Inventory Items
+  getItemsByTenant(tenantId: string): Promise<Item[]>;
+  getItemById(id: string): Promise<Item | undefined>;
+  getItemBySku(tenantId: string, sku: string): Promise<Item | undefined>;
+  createItem(item: Omit<Item, "id">): Promise<Item>;
+  updateItem(id: string, updates: Partial<Item>): Promise<Item | undefined>;
+
+  // Inventory Locations
+  getLocationsBySite(siteId: string): Promise<Location[]>;
+  getLocationById(id: string): Promise<Location | undefined>;
+  getLocationByLabel(siteId: string, label: string): Promise<Location | undefined>;
+  createLocation(location: Omit<Location, "id">): Promise<Location>;
+  updateLocation(id: string, updates: Partial<Location>): Promise<Location | undefined>;
+
+  // Inventory Reason Codes
+  getReasonCodesByTenant(tenantId: string): Promise<ReasonCode[]>;
+  getReasonCodeById(id: string): Promise<ReasonCode | undefined>;
+  createReasonCode(reasonCode: Omit<ReasonCode, "id">): Promise<ReasonCode>;
+  updateReasonCode(id: string, updates: Partial<ReasonCode>): Promise<ReasonCode | undefined>;
+
+  // Inventory Events + Balances
+  createInventoryEvent(event: Omit<InventoryEvent, "id" | "createdAt">): Promise<InventoryEvent>;
+  getInventoryEventsByTenant(tenantId: string): Promise<InventoryEvent[]>;
+  getInventoryBalance(
+    tenantId: string,
+    siteId: string,
+    itemId: string,
+    locationId: string,
+  ): Promise<InventoryBalance | undefined>;
+  upsertInventoryBalance(
+    balance: Omit<InventoryBalance, "id">,
+  ): Promise<InventoryBalance>;
+  getInventoryBalancesBySite(siteId: string): Promise<InventoryBalance[]>;
+
   // Session helpers
   getSessionUser(userId: string): Promise<SessionUser | null>;
   getSitesForUser(userId: string): Promise<Site[]>;
@@ -86,6 +127,11 @@ export class MemStorage implements IStorage {
   private devices: Map<string, Device> = new Map();
   private badges: Map<string, Badge> = new Map();
   private auditEvents: Map<string, AuditEvent> = new Map();
+  private items: Map<string, Item> = new Map();
+  private locations: Map<string, Location> = new Map();
+  private reasonCodes: Map<string, ReasonCode> = new Map();
+  private inventoryEvents: Map<string, InventoryEvent> = new Map();
+  private inventoryBalances: Map<string, InventoryBalance> = new Map();
 
   constructor() {
     this.seedData();
@@ -202,6 +248,103 @@ export class MemStorage implements IStorage {
         status: "online",
       };
       this.devices.set(id, device);
+    });
+
+    // Seed inventory items
+    const itemsData: Omit<Item, "id">[] = [
+      {
+        tenantId,
+        sku: "PAPER-MEDIA",
+        name: "Paper Media",
+        description: "Pleater paper rolls",
+        category: "PRODUCTION",
+        baseUom: "FT",
+        allowedUoms: [
+          { uom: "FT", toBase: 1 },
+          { uom: "YD", toBase: 3 },
+          { uom: "ROLL", toBase: 100 },
+        ],
+        minQtyBase: null,
+        maxQtyBase: null,
+        reorderPointBase: null,
+        leadTimeDays: null,
+      },
+      {
+        tenantId,
+        sku: "CAPS",
+        name: "Caps",
+        description: "End caps",
+        category: "PACKAGING",
+        baseUom: "EA",
+        allowedUoms: [{ uom: "EA", toBase: 1 }],
+        minQtyBase: null,
+        maxQtyBase: null,
+        reorderPointBase: null,
+        leadTimeDays: null,
+      },
+      {
+        tenantId,
+        sku: "CORE-MAT",
+        name: "Core Material",
+        description: "Core material",
+        category: "PRODUCTION",
+        baseUom: "FT",
+        allowedUoms: [{ uom: "FT", toBase: 1 }],
+        minQtyBase: null,
+        maxQtyBase: null,
+        reorderPointBase: null,
+        leadTimeDays: null,
+      },
+    ];
+
+    itemsData.forEach((item) => {
+      const id = randomUUID();
+      this.items.set(id, { ...item, id });
+    });
+
+    // Seed inventory locations
+    const locationsData: Omit<Location, "id">[] = [
+      {
+        tenantId,
+        siteId,
+        zone: "RECEIVING",
+        bin: "01",
+        label: "RECEIVING-01",
+        type: "RECEIVING",
+      },
+      {
+        tenantId,
+        siteId,
+        zone: "STOCK",
+        bin: "A1",
+        label: "STOCK-A1",
+        type: "STOCK",
+      },
+      {
+        tenantId,
+        siteId,
+        zone: "PLEATER",
+        bin: "STAGE",
+        label: "PLEATER-STAGE",
+        type: "WIP",
+      },
+    ];
+
+    locationsData.forEach((location) => {
+      const id = randomUUID();
+      this.locations.set(id, { ...location, id });
+    });
+
+    // Seed reason codes
+    const reasonCodesData: Omit<ReasonCode, "id">[] = [
+      { tenantId, type: "SCRAP", code: "SCRAP-DAMAGE", description: "Damaged material" },
+      { tenantId, type: "ADJUST", code: "ADJUST-AUDIT", description: "Audit correction" },
+      { tenantId, type: "HOLD", code: "HOLD-QC", description: "QC hold" },
+    ];
+
+    reasonCodesData.forEach((reason) => {
+      const id = randomUUID();
+      this.reasonCodes.set(id, { ...reason, id });
     });
 
     // Create admin user with hashed password
@@ -480,6 +623,133 @@ export class MemStorage implements IStorage {
     return Array.from(this.auditEvents.values())
       .filter((e) => e.entityType === entityType && e.entityId === entityId)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+
+  // Inventory Items
+  async getItemsByTenant(tenantId: string): Promise<Item[]> {
+    return Array.from(this.items.values()).filter((i) => i.tenantId === tenantId);
+  }
+
+  async getItemById(id: string): Promise<Item | undefined> {
+    return this.items.get(id);
+  }
+
+  async getItemBySku(tenantId: string, sku: string): Promise<Item | undefined> {
+    return Array.from(this.items.values()).find(
+      (i) => i.tenantId === tenantId && i.sku.toLowerCase() === sku.toLowerCase(),
+    );
+  }
+
+  async createItem(item: Omit<Item, "id">): Promise<Item> {
+    const id = randomUUID();
+    const created: Item = { ...item, id };
+    this.items.set(id, created);
+    return created;
+  }
+
+  async updateItem(id: string, updates: Partial<Item>): Promise<Item | undefined> {
+    const item = this.items.get(id);
+    if (!item) return undefined;
+    const updated = { ...item, ...updates };
+    this.items.set(id, updated);
+    return updated;
+  }
+
+  // Inventory Locations
+  async getLocationsBySite(siteId: string): Promise<Location[]> {
+    return Array.from(this.locations.values()).filter((l) => l.siteId === siteId);
+  }
+
+  async getLocationById(id: string): Promise<Location | undefined> {
+    return this.locations.get(id);
+  }
+
+  async getLocationByLabel(siteId: string, label: string): Promise<Location | undefined> {
+    return Array.from(this.locations.values()).find(
+      (l) => l.siteId === siteId && l.label.toLowerCase() === label.toLowerCase(),
+    );
+  }
+
+  async createLocation(location: Omit<Location, "id">): Promise<Location> {
+    const id = randomUUID();
+    const created: Location = { ...location, id };
+    this.locations.set(id, created);
+    return created;
+  }
+
+  async updateLocation(id: string, updates: Partial<Location>): Promise<Location | undefined> {
+    const location = this.locations.get(id);
+    if (!location) return undefined;
+    const updated = { ...location, ...updates };
+    this.locations.set(id, updated);
+    return updated;
+  }
+
+  // Inventory Reason Codes
+  async getReasonCodesByTenant(tenantId: string): Promise<ReasonCode[]> {
+    return Array.from(this.reasonCodes.values()).filter((r) => r.tenantId === tenantId);
+  }
+
+  async getReasonCodeById(id: string): Promise<ReasonCode | undefined> {
+    return this.reasonCodes.get(id);
+  }
+
+  async createReasonCode(reasonCode: Omit<ReasonCode, "id">): Promise<ReasonCode> {
+    const id = randomUUID();
+    const created: ReasonCode = { ...reasonCode, id };
+    this.reasonCodes.set(id, created);
+    return created;
+  }
+
+  async updateReasonCode(id: string, updates: Partial<ReasonCode>): Promise<ReasonCode | undefined> {
+    const reasonCode = this.reasonCodes.get(id);
+    if (!reasonCode) return undefined;
+    const updated = { ...reasonCode, ...updates };
+    this.reasonCodes.set(id, updated);
+    return updated;
+  }
+
+  // Inventory Events + Balances
+  async createInventoryEvent(
+    event: Omit<InventoryEvent, "id" | "createdAt">,
+  ): Promise<InventoryEvent> {
+    const id = randomUUID();
+    const created: InventoryEvent = { ...event, id, createdAt: new Date() };
+    this.inventoryEvents.set(id, created);
+    return created;
+  }
+
+  async getInventoryEventsByTenant(tenantId: string): Promise<InventoryEvent[]> {
+    return Array.from(this.inventoryEvents.values())
+      .filter((e) => e.tenantId === tenantId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getInventoryBalance(
+    tenantId: string,
+    siteId: string,
+    itemId: string,
+    locationId: string,
+  ): Promise<InventoryBalance | undefined> {
+    const key = `${tenantId}|${siteId}|${itemId}|${locationId}`;
+    return this.inventoryBalances.get(key);
+  }
+
+  async upsertInventoryBalance(
+    balance: Omit<InventoryBalance, "id">,
+  ): Promise<InventoryBalance> {
+    const key = `${balance.tenantId}|${balance.siteId}|${balance.itemId}|${balance.locationId}`;
+    const existing = this.inventoryBalances.get(key);
+    const created: InventoryBalance = {
+      id: existing?.id || randomUUID(),
+      ...balance,
+    };
+    this.inventoryBalances.set(key, created);
+    return created;
+  }
+
+  async getInventoryBalancesBySite(siteId: string): Promise<InventoryBalance[]> {
+    return Array.from(this.inventoryBalances.values()).filter((b) => b.siteId === siteId);
   }
 
   // Session helpers

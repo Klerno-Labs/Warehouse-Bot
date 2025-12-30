@@ -19,6 +19,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import DashboardPage from "@/pages/dashboard";
 import ModulePlaceholderPage from "@/pages/module-placeholder";
+import InventoryDashboardPage from "@/pages/inventory";
+import InventoryItemsPage from "@/pages/inventory/items";
+import InventoryLocationsPage from "@/pages/inventory/locations";
+import InventoryBalancesPage from "@/pages/inventory/balances";
+import InventoryEventsPage from "@/pages/inventory/events";
+import InventoryReasonCodesPage from "@/pages/inventory/reason-codes";
 import AdminUsersPage from "@/pages/admin/users";
 import AdminFacilitiesPage from "@/pages/admin/facilities";
 import AdminAuditPage from "@/pages/admin/audit";
@@ -39,6 +45,11 @@ const breadcrumbLabels: Record<string, string> = {
   facilities: "Facilities",
   audit: "Audit Log",
   settings: "Settings",
+  items: "Items",
+  locations: "Locations",
+  balances: "Balances",
+  events: "Events",
+  "reason-codes": "Reason Codes",
 };
 
 export function MainLayout() {
@@ -128,6 +139,12 @@ export function MainLayout() {
           <main className="flex-1 overflow-auto">
             <Switch>
               <Route path="/" component={DashboardPage} />
+              <Route path="/modules/inventory" component={InventoryDashboardPage} />
+              <Route path="/modules/inventory/items" component={InventoryItemsPage} />
+              <Route path="/modules/inventory/locations" component={InventoryLocationsPage} />
+              <Route path="/modules/inventory/balances" component={InventoryBalancesPage} />
+              <Route path="/modules/inventory/events" component={InventoryEventsPage} />
+              <Route path="/modules/inventory/reason-codes" component={InventoryReasonCodesPage} />
               <Route path="/modules/:moduleId" component={ModulePlaceholderPage} />
               <Route path="/admin/users" component={AdminUsersPage} />
               <Route path="/admin/facilities" component={AdminFacilitiesPage} />

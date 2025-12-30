@@ -3,8 +3,18 @@ import { createServer, type Server } from "http";
 import session from "express-session";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
-import { loginSchema } from "@shared/schema";
+import { loginSchema } from "@shared/validation";
+import {
+  createInventoryEventSchema,
+  createItemSchema,
+  createLocationSchema,
+  createReasonCodeSchema,
+  updateItemSchema,
+  updateLocationSchema,
+  updateReasonCodeSchema,
+} from "@shared/inventory";
 import { z } from "zod";
+import { applyInventoryEvent, convertQuantity, InventoryError } from "./inventory";
 
 declare module "express-session" {
   interface SessionData {
@@ -434,6 +444,271 @@ export async function registerRoutes(
     const events = await storage.getAuditEvents(currentUser.tenantId, limit);
     res.json(events);
   });
+
+  // ============ Inventory Routes ============
+
+  app.get("/api/inventory/items", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user) return res.status(401).json({ error: "User not found" });
+    const items = await storage.getItemsByTenant(user.tenantId);
+    res.json(items);
+  });
+
+  app.post(
+    "/api/inventory/items",
+    requireRole("Admin", "Supervisor", "Inventory"),
+    async (req, res) => {
+      try {
+        const user = await storage.getUser(req.session.userId!);
+        if (!user) return res.status(401).json({ error: "User not found" });
+        const payload = createItemSchema.parse(req.body);
+        const existing = await storage.getItemBySku(user.tenantId, payload.sku);
+        if (existing) {
+          return res.status(409).json({ error: "SKU already exists" });
+        }
+        const item = await storage.createItem({
+          tenantId: user.tenantId,
+          ...payload,
+          description: payload.description || null,
+          minQtyBase: payload.minQtyBase ?? null,
+          maxQtyBase: payload.maxQtyBase ?? null,
+          reorderPointBase: payload.reorderPointBase ?? null,
+          leadTimeDays: payload.leadTimeDays ?? null,
+        });
+        res.status(201).json(item);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: "Invalid request", details: error.errors });
+        }
+        res.status(500).json({ error: "Internal server error" });
+      }
+    },
+  );
+
+  app.patch(
+    "/api/inventory/items/:id",
+    requireRole("Admin", "Supervisor", "Inventory"),
+    async (req, res) => {
+      try {
+        const user = await storage.getUser(req.session.userId!);
+        if (!user) return res.status(401).json({ error: "User not found" });
+        const item = await storage.getItemById(req.params.id);
+        if (!item || item.tenantId !== user.tenantId) {
+          return res.status(404).json({ error: "Item not found" });
+        }
+        const payload = updateItemSchema.parse(req.body);
+        if (payload.sku) {
+          const existing = await storage.getItemBySku(user.tenantId, payload.sku);
+          if (existing && existing.id !== item.id) {
+            return res.status(409).json({ error: "SKU already exists" });
+          }
+        }
+        const updated = await storage.updateItem(item.id, payload);
+        res.json(updated);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: "Invalid request", details: error.errors });
+        }
+        res.status(500).json({ error: "Internal server error" });
+      }
+    },
+  );
+
+  app.get("/api/inventory/locations", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user) return res.status(401).json({ error: "User not found" });
+    const siteId = (req.query.siteId as string) || user.siteIds[0];
+    const locations = await storage.getLocationsBySite(siteId);
+    res.json(locations.filter((l) => l.tenantId === user.tenantId));
+  });
+
+  app.post(
+    "/api/inventory/locations",
+    requireRole("Admin", "Supervisor", "Inventory"),
+    async (req, res) => {
+      try {
+        const user = await storage.getUser(req.session.userId!);
+        if (!user) return res.status(401).json({ error: "User not found" });
+        const payload = createLocationSchema.parse(req.body);
+        if (!user.siteIds.includes(payload.siteId)) {
+          return res.status(403).json({ error: "Site access denied" });
+        }
+        const existing = await storage.getLocationByLabel(payload.siteId, payload.label);
+        if (existing) {
+          return res.status(409).json({ error: "Location label already exists" });
+        }
+        const location = await storage.createLocation({
+          tenantId: user.tenantId,
+          ...payload,
+          zone: payload.zone || null,
+          bin: payload.bin || null,
+          type: payload.type || null,
+        });
+        res.status(201).json(location);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: "Invalid request", details: error.errors });
+        }
+        res.status(500).json({ error: "Internal server error" });
+      }
+    },
+  );
+
+  app.patch(
+    "/api/inventory/locations/:id",
+    requireRole("Admin", "Supervisor", "Inventory"),
+    async (req, res) => {
+      try {
+        const user = await storage.getUser(req.session.userId!);
+        if (!user) return res.status(401).json({ error: "User not found" });
+        const location = await storage.getLocationById(req.params.id);
+        if (!location || location.tenantId !== user.tenantId) {
+          return res.status(404).json({ error: "Location not found" });
+        }
+        const payload = updateLocationSchema.parse(req.body);
+        const updated = await storage.updateLocation(location.id, payload);
+        res.json(updated);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: "Invalid request", details: error.errors });
+        }
+        res.status(500).json({ error: "Internal server error" });
+      }
+    },
+  );
+
+  app.get("/api/inventory/reason-codes", requireAuth, async (req, res) => {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user) return res.status(401).json({ error: "User not found" });
+    const reasonCodes = await storage.getReasonCodesByTenant(user.tenantId);
+    res.json(reasonCodes);
+  });
+
+  app.post(
+    "/api/inventory/reason-codes",
+    requireRole("Admin", "Supervisor", "Inventory"),
+    async (req, res) => {
+      try {
+        const user = await storage.getUser(req.session.userId!);
+        if (!user) return res.status(401).json({ error: "User not found" });
+        const payload = createReasonCodeSchema.parse(req.body);
+        const reasonCode = await storage.createReasonCode({
+          tenantId: user.tenantId,
+          ...payload,
+          description: payload.description || null,
+        });
+        res.status(201).json(reasonCode);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: "Invalid request", details: error.errors });
+        }
+        res.status(500).json({ error: "Internal server error" });
+      }
+    },
+  );
+
+  app.patch(
+    "/api/inventory/reason-codes/:id",
+    requireRole("Admin", "Supervisor", "Inventory"),
+    async (req, res) => {
+      try {
+        const user = await storage.getUser(req.session.userId!);
+        if (!user) return res.status(401).json({ error: "User not found" });
+        const reason = await storage.getReasonCodeById(req.params.id);
+        if (!reason || reason.tenantId !== user.tenantId) {
+          return res.status(404).json({ error: "Reason code not found" });
+        }
+        const payload = updateReasonCodeSchema.parse(req.body);
+        const updated = await storage.updateReasonCode(reason.id, payload);
+        res.json(updated);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: "Invalid request", details: error.errors });
+        }
+        res.status(500).json({ error: "Internal server error" });
+      }
+    },
+  );
+
+  app.get(
+    "/api/inventory/events",
+    requireRole("Admin", "Supervisor", "Inventory"),
+    async (req, res) => {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ error: "User not found" });
+      const events = await storage.getInventoryEventsByTenant(user.tenantId);
+      res.json(events);
+    },
+  );
+
+  app.post("/api/inventory/events", requireAuth, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ error: "User not found" });
+      const sessionUser = await storage.getSessionUser(user.id);
+      if (!sessionUser) return res.status(401).json({ error: "User not found" });
+      const payload = createInventoryEventSchema.parse(req.body);
+      if (!user.siteIds.includes(payload.siteId)) {
+        return res.status(403).json({ error: "Site access denied" });
+      }
+
+      const eventType = payload.eventType;
+      if (eventType === "ADJUST" && !["Admin", "Supervisor"].includes(user.role)) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+      if (eventType === "COUNT" && !["Admin", "Supervisor", "Inventory"].includes(user.role)) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+
+      const { qtyBase } = await convertQuantity(
+        storage,
+        user.tenantId,
+        payload.itemId,
+        payload.qtyEntered,
+        payload.uomEntered,
+      );
+
+      const created = await applyInventoryEvent(storage, sessionUser, {
+        tenantId: user.tenantId,
+        siteId: payload.siteId,
+        eventType: payload.eventType,
+        itemId: payload.itemId,
+        qtyEntered: payload.qtyEntered,
+        uomEntered: payload.uomEntered,
+        qtyBase,
+        fromLocationId: payload.fromLocationId || null,
+        toLocationId: payload.toLocationId || null,
+        workcellId: payload.workcellId || null,
+        referenceId: payload.referenceId || null,
+        reasonCodeId: payload.reasonCodeId || null,
+        notes: payload.notes || null,
+        createdByUserId: user.id,
+        deviceId: payload.deviceId || null,
+      });
+
+      res.status(201).json(created);
+    } catch (error) {
+      if (error instanceof InventoryError) {
+        return res.status(error.status).json({ error: error.message });
+      }
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request", details: error.errors });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get(
+    "/api/inventory/balances",
+    requireRole("Admin", "Supervisor", "Inventory"),
+    async (req, res) => {
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ error: "User not found" });
+      const siteId = (req.query.siteId as string) || user.siteIds[0];
+      const balances = await storage.getInventoryBalancesBySite(siteId);
+      res.json(balances.filter((b) => b.tenantId === user.tenantId));
+    },
+  );
 
   return httpServer;
 }

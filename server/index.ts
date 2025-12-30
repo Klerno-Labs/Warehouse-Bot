@@ -74,7 +74,18 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
+    try {
+      serveStatic(app);
+    } catch (err) {
+      log(
+        `static build missing, falling back to Vite dev server: ${
+          err instanceof Error ? err.message : "unknown error"
+        }`,
+        "server",
+      );
+      const { setupVite } = await import("./vite");
+      await setupVite(httpServer, app);
+    }
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
@@ -85,14 +96,17 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
+  const host =
+    process.env.HOST ||
+    (process.platform === "win32" ? "127.0.0.1" : "0.0.0.0");
+
   httpServer.listen(
     {
       port,
-      host: "0.0.0.0",
-      reusePort: true,
+      host,
     },
     () => {
-      log(`serving on port ${port}`);
+      log(`serving on http://${host}:${port}`);
     },
   );
 })();

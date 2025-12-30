@@ -17,7 +17,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { loginSchema, type LoginCredentials } from "@shared/schema";
+import { loginSchema, type LoginCredentials } from "@shared/validation";
 
 export default function LoginPage() {
   const { login } = useAuth();

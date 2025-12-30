@@ -145,14 +145,6 @@ export const insertAuditEventSchema = createInsertSchema(auditEvents).omit({ id:
 export type InsertAuditEvent = z.infer<typeof insertAuditEventSchema>;
 export type AuditEvent = typeof auditEvents.$inferSelect;
 
-// Login schema for form validation
-export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
-export type LoginCredentials = z.infer<typeof loginSchema>;
-
 // Session user type (returned after login)
 export type SessionUser = {
   id: string;
