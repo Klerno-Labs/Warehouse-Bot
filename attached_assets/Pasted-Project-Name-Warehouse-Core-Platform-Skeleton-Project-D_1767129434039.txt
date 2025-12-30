@@ -1,0 +1,179 @@
+Project Name:
+
+Warehouse Core Platform Skeleton
+
+Project Description:
+
+Create the foundational architecture for a modular, multi-tenant web-based "warehouse-in-a-box" platform. This initial build will provide the core infrastructure to support future warehouse modules. The system should support authentication, multi-tenancy, role-based access control, facility modeling, module management, and event auditing. Each module (Inventory, Jobs, etc.) will be represented by placeholder pages/routes and configured per tenant.
+
+Target Platform:
+
+Web (Responsive, Desktop-first)
+
+Operating Environment:
+
+Online-first (standard web app), with PWA stub for potential offline support
+
+Hosting Options:
+
+Local development (SQLite), but code should be portable to Postgres for deployment. Hosting not included in this task.
+
+Interface Style:
+
+Minimalist, clean dashboard-style UI using TailwindCSS. Left-hand navigation with module placeholders.
+
+Example Applications:
+
+ERPNext, Odoo Warehouse, Katana MRP (for module inspiration, not implementation).
+
+Expected Outputs:
+
+Functional monorepo scaffolding with:
+
+Authentication and session handling
+
+Multi-tenant RBAC with tenant scoping
+
+Facility modeling entities (Workcells, Devices)
+
+Configurable module registry and placeholders
+
+Event audit framework
+
+Dev seed script and setup docs
+
+Unit + E2E smoke test integration
+
+README for developer onboarding
+
+Additional Features:
+
+Seed script with sample tenant, site, admin user, and workcells
+
+Basic login + tenant selector UI
+
+Placeholder module pages with dynamic nav
+
+💻 Tech Stack
+
+Use exactly this stack unless absolutely necessary:
+
+Framework: Next.js 14+ (App Router) with TypeScript
+
+Styling: TailwindCSS
+
+ORM: Prisma
+
+Database: SQLite (dev/local), compatible with Postgres
+
+Validation: Zod
+
+Testing:
+
+Unit: Vitest
+
+E2E: Playwright (smoke test)
+
+Optional: PWA stub (not fully implemented)
+
+📁 Required Architecture
+/apps
+  /web               # Next.js frontend
+/packages
+  /db                # Prisma schema and client
+  /shared            # Shared types, Zod schemas, utils
+/tests
+  /e2e               # Playwright tests
+  /unit              # Vitest tests
+
+🧩 Core Features to Scaffold
+✅ Auth + Session
+
+Email/password login (no OAuth)
+
+Session management with secure cookie
+
+✅ Multi-Tenant Model
+
+Entities:
+
+Tenant, Site, Department, Workcell, Device, User, Role, Badge
+
+All data scoped by tenantId
+
+✅ RBAC
+
+Roles:
+
+Admin, Supervisor, Inventory, Operator, Sales, Purchasing, Maintenance, QC, Viewer
+
+Middleware + helper for role checking
+
+✅ Module Registry
+
+Central list of modules with:
+
+id, name, navItems, enabledPerTenant
+
+Modules: Inventory, Jobs, Purchasing, CycleCounts, Maintenance, SalesATP, Dashboards
+
+Dynamic sidebar based on enabled modules
+
+✅ Facility Configuration
+
+Entities: Workcell, Device, Department under Site and Tenant
+
+Seed: Receiving, Stockroom/Kitting, Pleater 1, Packing/Shipping
+
+✅ Audit Framework
+
+Append-only AuditEvent table with:
+
+who, what, when
+
+Helper for modules to write logs
+
+✅ UI
+
+Login
+
+Tenant/site selector if user has access to multiple
+
+Minimal dashboard
+
+Module nav based on tenant configuration
+
+✅ Dev Experience
+
+Seed script with sample data
+
+.env.example
+
+README.md with setup, scripts, test commands
+
+✅ Acceptance Tests
+Unit Test
+npm test
+
+E2E Smoke Test
+npm run test:e2e
+
+
+Checks:
+
+Open home
+
+Login with seeded admin
+
+See dashboard
+
+See module nav based on registry
+
+Dev Commands
+npm install
+npx prisma migrate dev --name init
+npx prisma db seed
+
+🔑 Seed Login
+Email: admin@example.com
+Password: password123
