@@ -1,4 +1,5 @@
-import { useLocation, Link } from "wouter";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Package,
   Briefcase,
@@ -71,7 +72,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ enabledModules }: AppSidebarProps) {
-  const [location] = useLocation();
+  const pathname = usePathname();
   const { user, currentSite, availableSites, selectSite, logout } = useAuth();
 
   const userInitials = user
@@ -138,7 +139,7 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
                 const Icon = moduleIcons[moduleId as ModuleId] || Package;
                 const label = moduleLabels[moduleId as ModuleId] || moduleId;
                 const url = `/modules/${moduleId}`;
-                const isActive = location === url;
+                const isActive = pathname === url;
 
                 return (
                   <SidebarMenuItem key={moduleId}>
@@ -165,7 +166,7 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {adminItems.map((item) => {
-                    const isActive = location === item.url;
+                    const isActive = pathname === item.url;
                     return (
                       <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton asChild isActive={isActive}>

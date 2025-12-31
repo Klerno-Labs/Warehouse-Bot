@@ -83,7 +83,9 @@ export async function applyInventoryEvent(
     ensureLocation(toLocationId, "toLocationId");
   } else if (eventType === "ISSUE_TO_WORKCELL") {
     ensureLocation(fromLocationId, "fromLocationId");
+    ensureLocation(toLocationId, "toLocationId");
   } else if (eventType === "RETURN") {
+    ensureLocation(fromLocationId, "fromLocationId");
     ensureLocation(toLocationId, "toLocationId");
   } else if (eventType === "SCRAP") {
     ensureLocation(fromLocationId, "fromLocationId");
@@ -95,6 +97,10 @@ export async function applyInventoryEvent(
     ensureLocation(toLocationId, "toLocationId");
   } else if (eventType === "COUNT") {
     ensureLocation(toLocationId, "toLocationId");
+  } else if (eventType === "ADJUST") {
+    if (!fromLocationId && !toLocationId) {
+      throw new InventoryError("fromLocationId or toLocationId is required");
+    }
   }
 
   const deltas = new Map<string, number>();

@@ -1,10 +1,11 @@
 import { Menu, Search, Bell } from "lucide-react";
-import { Switch, Route } from "wouter";
+import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,23 +14,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
-
-import DashboardPage from "@/pages/dashboard";
-import ModulePlaceholderPage from "@/pages/module-placeholder";
-import InventoryDashboardPage from "@/pages/inventory";
-import InventoryItemsPage from "@/pages/inventory/items";
-import InventoryLocationsPage from "@/pages/inventory/locations";
-import InventoryBalancesPage from "@/pages/inventory/balances";
-import InventoryEventsPage from "@/pages/inventory/events";
-import InventoryReasonCodesPage from "@/pages/inventory/reason-codes";
-import AdminUsersPage from "@/pages/admin/users";
-import AdminFacilitiesPage from "@/pages/admin/facilities";
-import AdminAuditPage from "@/pages/admin/audit";
-import AdminSettingsPage from "@/pages/admin/settings";
-import NotFound from "@/pages/not-found";
 
 const breadcrumbLabels: Record<string, string> = {
   modules: "Modules",
@@ -52,8 +38,8 @@ const breadcrumbLabels: Record<string, string> = {
   "reason-codes": "Reason Codes",
 };
 
-export function MainLayout() {
-  const [location] = useLocation();
+export function MainLayout({ children }: { children?: React.ReactNode }) {
+  const pathname = usePathname();
   
   const { data: tenantData, isLoading } = useQuery<{ enabledModules: string[] }>({
     queryKey: ["/api/tenant/modules"],
@@ -69,7 +55,7 @@ export function MainLayout() {
     "dashboards",
   ];
 
-  const pathSegments = location.split("/").filter(Boolean);
+  const pathSegments = pathname.split("/").filter(Boolean);
 
   const sidebarStyle = {
     "--sidebar-width": "16rem",
@@ -100,7 +86,9 @@ export function MainLayout() {
             <Breadcrumb className="hidden md:flex">
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbLink href="/">Home</BreadcrumbLink>
+                  <BreadcrumbLink asChild>
+                    <Link href="/">Home</Link>
+                  </BreadcrumbLink>
                 </BreadcrumbItem>
                 {pathSegments.map((segment, idx) => (
                   <BreadcrumbItem key={segment}>
@@ -110,8 +98,10 @@ export function MainLayout() {
                         {breadcrumbLabels[segment] || segment}
                       </BreadcrumbPage>
                     ) : (
-                      <BreadcrumbLink href={`/${pathSegments.slice(0, idx + 1).join("/")}`}>
-                        {breadcrumbLabels[segment] || segment}
+                      <BreadcrumbLink asChild>
+                        <Link href={`/${pathSegments.slice(0, idx + 1).join("/")}`}>
+                          {breadcrumbLabels[segment] || segment}
+                        </Link>
                       </BreadcrumbLink>
                     )}
                   </BreadcrumbItem>
@@ -136,23 +126,7 @@ export function MainLayout() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto">
-            <Switch>
-              <Route path="/" component={DashboardPage} />
-              <Route path="/modules/inventory" component={InventoryDashboardPage} />
-              <Route path="/modules/inventory/items" component={InventoryItemsPage} />
-              <Route path="/modules/inventory/locations" component={InventoryLocationsPage} />
-              <Route path="/modules/inventory/balances" component={InventoryBalancesPage} />
-              <Route path="/modules/inventory/events" component={InventoryEventsPage} />
-              <Route path="/modules/inventory/reason-codes" component={InventoryReasonCodesPage} />
-              <Route path="/modules/:moduleId" component={ModulePlaceholderPage} />
-              <Route path="/admin/users" component={AdminUsersPage} />
-              <Route path="/admin/facilities" component={AdminFacilitiesPage} />
-              <Route path="/admin/audit" component={AdminAuditPage} />
-              <Route path="/admin/settings" component={AdminSettingsPage} />
-              <Route component={NotFound} />
-            </Switch>
-          </main>
+          <main className="flex-1 overflow-auto">{children ?? null}</main>
         </SidebarInset>
       </div>
     </SidebarProvider>

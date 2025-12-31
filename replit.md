@@ -4,8 +4,8 @@
 A modular, multi-tenant web-based "warehouse-in-a-box" platform providing core infrastructure for warehouse management. The system supports authentication, multi-tenancy, role-based access control (RBAC), facility modeling, module management, and event auditing.
 
 ## Tech Stack
-- **Frontend**: React 18 + TypeScript + Vite
-- **Backend**: Express.js + TypeScript
+- **Frontend**: Next.js App Router + React 18 + TypeScript
+- **Backend**: Next.js Route Handlers
 - **Styling**: TailwindCSS + shadcn/ui components
 - **State Management**: TanStack Query (React Query)
 - **Routing**: Wouter
@@ -95,6 +95,20 @@ Append-only event logging with:
 ### Audit
 - `GET /api/audit` - Get audit events (Admin/Supervisor)
 
+### Inventory
+- `GET /api/inventory/items` - List items
+- `POST /api/inventory/items` - Create item (Admin/Supervisor/Inventory)
+- `PATCH /api/inventory/items/:id` - Update item (Admin/Supervisor/Inventory)
+- `GET /api/inventory/locations` - List locations (query `siteId`)
+- `POST /api/inventory/locations` - Create location (Admin/Supervisor/Inventory)
+- `PATCH /api/inventory/locations/:id` - Update location (Admin/Supervisor/Inventory)
+- `GET /api/inventory/reason-codes` - List reason codes
+- `POST /api/inventory/reason-codes` - Create reason code (Admin/Supervisor/Inventory)
+- `PATCH /api/inventory/reason-codes/:id` - Update reason code (Admin/Supervisor/Inventory)
+- `GET /api/inventory/events` - List events (Admin/Supervisor/Inventory)
+- `POST /api/inventory/events` - Create event
+- `GET /api/inventory/balances` - List balances (query `siteId`)
+
 ## Seed Data
 Default login credentials:
 - Email: `admin@example.com`
@@ -107,6 +121,9 @@ The seed data includes:
 - 8 Workcells with descriptions
 - 6 Devices
 - 5 Users with different roles
+- Inventory items: Paper Media (FT base, FT/YD/ROLL entry), Caps (EA), Core Material (FT)
+- Inventory locations: RECEIVING-01, STOCK-A1, PLEATER-STAGE
+- Reason codes: SCRAP-DAMAGE, ADJUST-AUDIT, HOLD-QC
 
 ## Development
 
@@ -115,6 +132,21 @@ The seed data includes:
 npm run dev
 ```
 The application runs on port 5000.
+
+### Station Mode URLs
+- `http://localhost:5000/stations/receiving`
+- `http://localhost:5000/stations/stockroom`
+- `http://localhost:5000/stations/pleater1`
+- `http://localhost:5000/stations/packing`
+
+### Testing
+```bash
+npm test
+npm run test:e2e
+```
+
+### Scanning Simulation
+Most fields accept barcode-style input; scan or type the value and press Enter to move forward.
 
 ### Design Guidelines
 See `design_guidelines.md` for the complete design system including:

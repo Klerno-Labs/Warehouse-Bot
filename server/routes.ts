@@ -636,8 +636,13 @@ export async function registerRoutes(
     async (req, res) => {
       const user = await storage.getUser(req.session.userId!);
       if (!user) return res.status(401).json({ error: "User not found" });
+      const siteId = req.query.siteId as string | undefined;
+      if (siteId && !user.siteIds.includes(siteId)) {
+        return res.status(403).json({ error: "Site access denied" });
+      }
       const events = await storage.getInventoryEventsByTenant(user.tenantId);
-      res.json(events);
+      const filtered = siteId ? events.filter((e) => e.siteId === siteId) : events;
+      res.json(filtered);
     },
   );
 
@@ -658,6 +663,44 @@ export async function registerRoutes(
       }
       if (eventType === "COUNT" && !["Admin", "Supervisor", "Inventory"].includes(user.role)) {
         return res.status(403).json({ error: "Permission denied" });
+      }
+
+      const item = await storage.getItemById(payload.itemId);
+      if (!item || item.tenantId !== user.tenantId) {
+        return res.status(404).json({ error: "Item not found" });
+      }
+
+      const validateLocation = async (locationId?: string | null) => {
+        if (!locationId) return null;
+        const location = await storage.getLocationById(locationId);
+        if (!location || location.tenantId !== user.tenantId) {
+          return { error: "Location not found" };
+        }
+        if (location.siteId !== payload.siteId) {
+          return { error: "Location site mismatch" };
+        }
+        return null;
+      };
+
+      const fromLocationError = await validateLocation(payload.fromLocationId);
+      if (fromLocationError) {
+        return res.status(400).json({ error: fromLocationError.error });
+      }
+
+      const toLocationError = await validateLocation(payload.toLocationId);
+      if (toLocationError) {
+        return res.status(400).json({ error: toLocationError.error });
+      }
+
+      if (payload.reasonCodeId) {
+        const reasonCode = await storage.getReasonCodeById(payload.reasonCodeId);
+        if (!reasonCode || reasonCode.tenantId !== user.tenantId) {
+          return res.status(404).json({ error: "Reason code not found" });
+        }
+        const reasonMatch = reasonCode.type === eventType;
+        if (["SCRAP", "ADJUST", "HOLD"].includes(eventType) && !reasonMatch) {
+          return res.status(400).json({ error: "Reason code type mismatch" });
+        }
       }
 
       const { qtyBase } = await convertQuantity(

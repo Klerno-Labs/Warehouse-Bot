@@ -1,6 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InventoryNav } from "@/components/inventory-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Table,
   TableBody,
@@ -9,12 +16,71 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Location } from "@shared/inventory";
+import { useAuth } from "@/lib/auth-context";
+import { LOCATION_TYPES, type Location } from "@shared/inventory";
 
 export default function InventoryLocationsPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { currentSite } = useAuth();
+  const siteId = currentSite?.id || "";
   const { data: locations = [] } = useQuery<Location[]>({
-    queryKey: ["/api/inventory/locations"],
+    queryKey: [`/api/inventory/locations?siteId=${siteId}`],
+    enabled: !!siteId,
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [label, setLabel] = useState("");
+  const [zone, setZone] = useState("");
+  const [bin, setBin] = useState("");
+  const [type, setType] = useState<string>("");
+
+  const resetForm = () => {
+    setEditingId(null);
+    setLabel("");
+    setZone("");
+    setBin("");
+    setType("");
+  };
+
+  const submit = async () => {
+    if (!siteId) {
+      toast({ title: "Select a site", variant: "destructive" });
+      return;
+    }
+    const payload = {
+      siteId,
+      label,
+      zone: zone || undefined,
+      bin: bin || undefined,
+      type: type || undefined,
+    };
+    try {
+      if (editingId) {
+        await apiRequest("PATCH", `/api/inventory/locations/${editingId}`, payload);
+      } else {
+        await apiRequest("POST", "/api/inventory/locations", payload);
+      }
+      await queryClient.invalidateQueries({
+        queryKey: [`/api/inventory/locations?siteId=${siteId}`],
+      });
+      resetForm();
+      toast({ title: "Location saved" });
+    } catch (error) {
+      toast({
+        title: "Save failed",
+        description: error instanceof Error ? error.message : "Request failed",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startEdit = (location: Location) => {
+    setEditingId(location.id);
+    setLabel(location.label);
+    setZone(location.zone || "");
+    setBin(location.bin || "");
+    setType(location.type || "");
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -28,6 +94,50 @@ export default function InventoryLocationsPage() {
         </div>
         <Card>
           <CardHeader>
+            <CardTitle className="text-sm font-medium">
+              {editingId ? "Edit Location" : "Add Location"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="label">Label</Label>
+              <Input id="label" value={label} onChange={(event) => setLabel(event.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="zone">Zone</Label>
+              <Input id="zone" value={zone} onChange={(event) => setZone(event.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="bin">Bin</Label>
+              <Input id="bin" value={bin} onChange={(event) => setBin(event.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>Type</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LOCATION_TYPES.map((locType) => (
+                    <SelectItem key={locType} value={locType}>
+                      {locType}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap gap-2 md:col-span-2">
+              <Button onClick={submit}>{editingId ? "Update Location" : "Add Location"}</Button>
+              {editingId && (
+                <Button variant="outline" onClick={resetForm}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium">Location List</CardTitle>
           </CardHeader>
           <CardContent>
@@ -39,6 +149,7 @@ export default function InventoryLocationsPage() {
                     <TableHead>Zone</TableHead>
                     <TableHead>Bin</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -48,6 +159,11 @@ export default function InventoryLocationsPage() {
                       <TableCell>{location.zone || "-"}</TableCell>
                       <TableCell>{location.bin || "-"}</TableCell>
                       <TableCell>{location.type || "-"}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" onClick={() => startEdit(location)}>
+                          Edit
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

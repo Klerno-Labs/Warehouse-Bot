@@ -422,7 +422,17 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
+    const user: User = {
+      id,
+      tenantId: insertUser.tenantId,
+      email: insertUser.email,
+      password: insertUser.password,
+      firstName: insertUser.firstName,
+      lastName: insertUser.lastName,
+      role: insertUser.role || "Viewer",
+      siteIds: insertUser.siteIds || [],
+      isActive: insertUser.isActive ?? true,
+    };
     this.users.set(id, user);
     return user;
   }
@@ -450,7 +460,12 @@ export class MemStorage implements IStorage {
 
   async createTenant(insertTenant: InsertTenant): Promise<Tenant> {
     const id = randomUUID();
-    const tenant: Tenant = { ...insertTenant, id };
+    const tenant: Tenant = {
+      id,
+      name: insertTenant.name,
+      slug: insertTenant.slug,
+      enabledModules: insertTenant.enabledModules || [],
+    };
     this.tenants.set(id, tenant);
     return tenant;
   }
@@ -485,7 +500,12 @@ export class MemStorage implements IStorage {
 
   async createSite(insertSite: InsertSite): Promise<Site> {
     const id = randomUUID();
-    const site: Site = { ...insertSite, id };
+    const site: Site = {
+      id,
+      tenantId: insertSite.tenantId,
+      name: insertSite.name,
+      address: insertSite.address ?? null,
+    };
     this.sites.set(id, site);
     return site;
   }
@@ -537,7 +557,15 @@ export class MemStorage implements IStorage {
 
   async createWorkcell(insertWorkcell: InsertWorkcell): Promise<Workcell> {
     const id = randomUUID();
-    const workcell: Workcell = { ...insertWorkcell, id };
+    const workcell: Workcell = {
+      id,
+      tenantId: insertWorkcell.tenantId,
+      siteId: insertWorkcell.siteId,
+      departmentId: insertWorkcell.departmentId || null,
+      name: insertWorkcell.name,
+      description: insertWorkcell.description || null,
+      status: insertWorkcell.status || "active",
+    };
     this.workcells.set(id, workcell);
     return workcell;
   }
@@ -565,7 +593,16 @@ export class MemStorage implements IStorage {
 
   async createDevice(insertDevice: InsertDevice): Promise<Device> {
     const id = randomUUID();
-    const device: Device = { ...insertDevice, id };
+    const device: Device = {
+      id,
+      tenantId: insertDevice.tenantId,
+      siteId: insertDevice.siteId,
+      workcellId: insertDevice.workcellId || null,
+      name: insertDevice.name,
+      type: insertDevice.type,
+      serialNumber: insertDevice.serialNumber || null,
+      status: insertDevice.status || "online",
+    };
     this.devices.set(id, device);
     return device;
   }
@@ -595,7 +632,13 @@ export class MemStorage implements IStorage {
 
   async createBadge(insertBadge: InsertBadge): Promise<Badge> {
     const id = randomUUID();
-    const badge: Badge = { ...insertBadge, id };
+    const badge: Badge = {
+      id,
+      tenantId: insertBadge.tenantId,
+      userId: insertBadge.userId,
+      badgeNumber: insertBadge.badgeNumber,
+      isActive: insertBadge.isActive ?? true,
+    };
     this.badges.set(id, badge);
     return badge;
   }
@@ -604,8 +647,14 @@ export class MemStorage implements IStorage {
   async createAuditEvent(insertEvent: InsertAuditEvent): Promise<AuditEvent> {
     const id = randomUUID();
     const event: AuditEvent = {
-      ...insertEvent,
       id,
+      tenantId: insertEvent.tenantId,
+      userId: insertEvent.userId ?? null,
+      action: insertEvent.action,
+      entityType: insertEvent.entityType,
+      entityId: insertEvent.entityId ?? null,
+      details: insertEvent.details ?? null,
+      ipAddress: insertEvent.ipAddress ?? null,
       timestamp: new Date(),
     };
     this.auditEvents.set(id, event);

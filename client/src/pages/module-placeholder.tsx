@@ -1,4 +1,3 @@
-import { useRoute } from "wouter";
 import {
   Package,
   Briefcase,
@@ -127,9 +126,7 @@ const moduleConfig: Record<
   },
 };
 
-export default function ModulePlaceholderPage() {
-  const [, params] = useRoute("/modules/:moduleId");
-  const moduleId = params?.moduleId as ModuleId;
+export default function ModulePlaceholderPage({ moduleId }: { moduleId: ModuleId }) {
   
   const config = moduleConfig[moduleId];
   

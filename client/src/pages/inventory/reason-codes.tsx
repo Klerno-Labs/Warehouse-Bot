@@ -1,6 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InventoryNav } from "@/components/inventory-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import {
   Table,
   TableBody,
@@ -9,12 +16,52 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ReasonCode } from "@shared/inventory";
+import { REASON_TYPES, type ReasonCode } from "@shared/inventory";
 
 export default function InventoryReasonCodesPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: reasons = [] } = useQuery<ReasonCode[]>({
     queryKey: ["/api/inventory/reason-codes"],
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [type, setType] = useState<ReasonCode["type"]>(REASON_TYPES[0]);
+  const [code, setCode] = useState("");
+  const [description, setDescription] = useState("");
+
+  const resetForm = () => {
+    setEditingId(null);
+    setType(REASON_TYPES[0]);
+    setCode("");
+    setDescription("");
+  };
+
+  const submit = async () => {
+    const payload = { type, code, description };
+    try {
+      if (editingId) {
+        await apiRequest("PATCH", `/api/inventory/reason-codes/${editingId}`, payload);
+      } else {
+        await apiRequest("POST", "/api/inventory/reason-codes", payload);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["/api/inventory/reason-codes"] });
+      resetForm();
+      toast({ title: "Reason code saved" });
+    } catch (error) {
+      toast({
+        title: "Save failed",
+        description: error instanceof Error ? error.message : "Request failed",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startEdit = (reason: ReasonCode) => {
+    setEditingId(reason.id);
+    setType(reason.type);
+    setCode(reason.code);
+    setDescription(reason.description || "");
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -28,6 +75,50 @@ export default function InventoryReasonCodesPage() {
         </div>
         <Card>
           <CardHeader>
+            <CardTitle className="text-sm font-medium">
+              {editingId ? "Edit Reason Code" : "Add Reason Code"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label>Type</Label>
+              <Select value={type} onValueChange={(value) => setType(value as ReasonCode["type"])}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REASON_TYPES.map((reasonType) => (
+                    <SelectItem key={reasonType} value={reasonType}>
+                      {reasonType}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="code">Code</Label>
+              <Input id="code" value={code} onChange={(event) => setCode(event.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2 md:col-span-2">
+              <Label htmlFor="desc">Description</Label>
+              <Input
+                id="desc"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2 md:col-span-2">
+              <Button onClick={submit}>{editingId ? "Update Reason" : "Add Reason"}</Button>
+              {editingId && (
+                <Button variant="outline" onClick={resetForm}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
             <CardTitle className="text-sm font-medium">Reason Code List</CardTitle>
           </CardHeader>
           <CardContent>
@@ -38,6 +129,7 @@ export default function InventoryReasonCodesPage() {
                     <TableHead>Type</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Description</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -46,6 +138,11 @@ export default function InventoryReasonCodesPage() {
                       <TableCell className="font-medium">{reason.type}</TableCell>
                       <TableCell>{reason.code}</TableCell>
                       <TableCell>{reason.description || "-"}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" onClick={() => startEdit(reason)}>
+                          Edit
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
