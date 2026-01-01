@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+enum UomKind {
+  COUNT
+  LENGTH
+  VOLUME
+  WEIGHT
+  AREA
+  OTHER
+}
+
+enum InventoryTxnType {
+  RECEIVE
+  MOVE
+  ISSUE
+  ADJUST
+  COUNT
+}
+
+enum AdjustDirection {
+  ADD
+  SUBTRACT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  txns         InventoryTxn[] @relation("TxnCreatedBy")
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items     Item[]   @relation("ItemDefaultLocation")
+  balances  StockBalance[]
+  fromTxns  InventoryTxn[] @relation("TxnFromLocation")
+  toTxns    InventoryTxn[] @relation("TxnToLocation")
+}
+
+model Uom {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  kind      UomKind
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  baseItems Item[]   @relation("ItemBaseUom")
+  txns      InventoryTxn[]
+  fromConversions ItemUomConversion[] @relation("ConversionFrom")
+  toConversions   ItemUomConversion[] @relation("ConversionTo")
+}
+
+model Item {
+  id                String   @id @default(uuid())
+  publicCode        String   @unique
+  sku               String?  @unique
+  name              String
+  description       String?
+  photoUrl          String?
+  specs             Json?
+  baseUomId         String
+  baseUom           Uom      @relation("ItemBaseUom", fields: [baseUomId], references: [id])
+  defaultLocationId String?
+  defaultLocation   Location? @relation("ItemDefaultLocation", fields: [defaultLocationId], references: [id])
+  conversions       ItemUomConversion[]
+  txns              InventoryTxn[]
+  balances          StockBalance[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([name])
+}
+
+model ItemUomConversion {
+  id       String @id @default(uuid())
+  itemId   String
+  fromUomId String
+  toUomId   String
+  factor   Decimal @db.Decimal(18, 6)
+  item     Item   @relation(fields: [itemId], references: [id])
+  fromUom  Uom    @relation("ConversionFrom", fields: [fromUomId], references: [id])
+  toUom    Uom    @relation("ConversionTo", fields: [toUomId], references: [id])
+
+  @@unique([itemId, fromUomId, toUomId])
+}
+
+model InventoryTxn {
+  id             String           @id @default(uuid())
+  type           InventoryTxnType
+  itemId         String
+  item           Item             @relation(fields: [itemId], references: [id])
+  qty            Decimal          @db.Decimal(18, 4)
+  uomId          String
+  uom            Uom              @relation(fields: [uomId], references: [id])
+  fromLocationId String?
+  fromLocation   Location?        @relation("TxnFromLocation", fields: [fromLocationId], references: [id])
+  toLocationId   String?
+  toLocation     Location?        @relation("TxnToLocation", fields: [toLocationId], references: [id])
+  note           String?
+  referenceType  String?
+  referenceId    String?
+  direction      AdjustDirection?
+  countedQtyBase Decimal?         @db.Decimal(18, 4)
+  deltaBase      Decimal?         @db.Decimal(18, 4)
+  createdByUserId String
+  createdByUser  User             @relation("TxnCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt      DateTime         @default(now())
+
+  @@index([itemId, createdAt(sort: Desc)])
+}
+
+model StockBalance {
+  id         String   @id @default(uuid())
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id])
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id])
+  qtyBase    Decimal  @db.Decimal(18, 4)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([itemId, locationId])
+}

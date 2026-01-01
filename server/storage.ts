@@ -113,6 +113,8 @@ export interface IStorage {
   ): Promise<InventoryBalance>;
   getInventoryBalancesBySite(siteId: string): Promise<InventoryBalance[]>;
 
+  runTransaction<T>(fn: (tx: IStorage) => Promise<T>): Promise<T>;
+
   // Session helpers
   getSessionUser(userId: string): Promise<SessionUser | null>;
   getSitesForUser(userId: string): Promise<Site[]>;
@@ -801,6 +803,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.inventoryBalances.values()).filter((b) => b.siteId === siteId);
   }
 
+  async runTransaction<T>(fn: (tx: IStorage) => Promise<T>): Promise<T> {
+    return fn(this);
+  }
+
   // Session helpers
   async getSessionUser(userId: string): Promise<SessionUser | null> {
     const user = this.users.get(userId);
@@ -822,4 +828,5 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+
+export const storage: IStorage = new MemStorage();

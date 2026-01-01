@@ -1,1 +1,8 @@
-{}
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/(app)/modules/inventory/page": "app/(app)/modules/inventory/page.js",
+  "/(app)/page": "app/(app)/page.js",
+  "/(app)/modules/inventory/items/page": "app/(app)/modules/inventory/items/page.js",
+  "/(app)/modules/inventory/locations/page": "app/(app)/modules/inventory/locations/page.js"
+}
