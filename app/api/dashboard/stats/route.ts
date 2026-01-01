@@ -42,9 +42,9 @@ export async function GET() {
   // Recent activity (from audit log)
   const recentActivity = auditEvents.map((event) => ({
     id: event.id,
-    action: event.description,
+    action: event.details || event.action,
     user: "System", // Could enhance to look up user name
-    time: formatTimeAgo(new Date(event.createdAt)),
+    time: formatTimeAgo(event.timestamp),
     type: event.action === "CREATE" ? "success" : event.action === "ALERT" ? "warning" : "info",
   }));
 

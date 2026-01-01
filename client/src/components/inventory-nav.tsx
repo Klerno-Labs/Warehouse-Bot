@@ -9,6 +9,7 @@ const navItems = [
   { label: "Balances", href: "/modules/inventory/balances" },
   { label: "Events", href: "/modules/inventory/events" },
   { label: "Reason Codes", href: "/modules/inventory/reason-codes" },
+  { label: "Reports", href: "/modules/inventory/reports" },
 ];
 
 export function InventoryNav() {

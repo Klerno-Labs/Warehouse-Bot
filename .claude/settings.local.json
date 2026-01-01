@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(xargs basename:*)",
+      "Bash(dir \"c:\\\\Users\\\\Somli\\\\OneDrive\\\\Desktop\\\\My Apps\\\\Warehouse Builder\")"
+    ]
+  }
+}

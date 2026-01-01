@@ -25,6 +25,14 @@ import {
   type InventoryEvent,
   type InventoryBalance,
 } from "@shared/inventory";
+import {
+  type CycleCount,
+  type CycleCountLine,
+} from "@shared/cycle-counts";
+import {
+  type Job,
+  type JobLine,
+} from "@shared/jobs";
 import { randomUUID } from "crypto";
 import bcrypt from "bcrypt";
 
@@ -113,6 +121,36 @@ export interface IStorage {
   ): Promise<InventoryBalance>;
   getInventoryBalancesBySite(siteId: string): Promise<InventoryBalance[]>;
 
+  // Cycle Counts
+  getCycleCountsByTenant(tenantId: string): Promise<CycleCount[]>;
+  getCycleCountsBySite(siteId: string): Promise<CycleCount[]>;
+  getCycleCountById(id: string): Promise<CycleCount | undefined>;
+  createCycleCount(cycleCount: Omit<CycleCount, "id" | "createdAt">): Promise<CycleCount>;
+  updateCycleCount(id: string, updates: Partial<CycleCount>): Promise<CycleCount | undefined>;
+  
+  // Cycle Count Lines
+  getCycleCountLinesByCycleCount(cycleCountId: string): Promise<CycleCountLine[]>;
+  getCycleCountLineById(id: string): Promise<CycleCountLine | undefined>;
+  createCycleCountLine(line: Omit<CycleCountLine, "id">): Promise<CycleCountLine>;
+  updateCycleCountLine(id: string, updates: Partial<CycleCountLine>): Promise<CycleCountLine | undefined>;
+  deleteCycleCountLinesByCycleCount(cycleCountId: string): Promise<void>;
+
+  // Jobs
+  getJobsByTenant(tenantId: string): Promise<Job[]>;
+  getJobsBySite(siteId: string): Promise<Job[]>;
+  getJobById(id: string): Promise<Job | undefined>;
+  getJobByNumber(tenantId: string, jobNumber: string): Promise<Job | undefined>;
+  createJob(job: Omit<Job, "id" | "createdAt" | "updatedAt">): Promise<Job>;
+  updateJob(id: string, updates: Partial<Job>): Promise<Job | undefined>;
+  getNextJobNumber(tenantId: string): Promise<string>;
+  
+  // Job Lines
+  getJobLinesByJob(jobId: string): Promise<JobLine[]>;
+  getJobLineById(id: string): Promise<JobLine | undefined>;
+  createJobLine(line: Omit<JobLine, "id" | "createdAt" | "updatedAt">): Promise<JobLine>;
+  updateJobLine(id: string, updates: Partial<JobLine>): Promise<JobLine | undefined>;
+  deleteJobLinesByJob(jobId: string): Promise<void>;
+
   runTransaction<T>(fn: (tx: IStorage) => Promise<T>): Promise<T>;
 
   // Session helpers
@@ -130,6 +168,11 @@ export class MemStorage implements IStorage {
   private badges: Map<string, Badge> = new Map();
   private auditEvents: Map<string, AuditEvent> = new Map();
   private items: Map<string, Item> = new Map();
+  private cycleCounts: Map<string, CycleCount> = new Map();
+  private cycleCountLines: Map<string, CycleCountLine> = new Map();
+  private jobs: Map<string, Job> = new Map();
+  private jobLines: Map<string, JobLine> = new Map();
+  private jobCounter: number = 1000;
   private locations: Map<string, Location> = new Map();
   private reasonCodes: Map<string, ReasonCode> = new Map();
   private inventoryEvents: Map<string, InventoryEvent> = new Map();
@@ -801,6 +844,149 @@ export class MemStorage implements IStorage {
 
   async getInventoryBalancesBySite(siteId: string): Promise<InventoryBalance[]> {
     return Array.from(this.inventoryBalances.values()).filter((b) => b.siteId === siteId);
+  }
+
+  // Cycle Counts
+  async getCycleCountsByTenant(tenantId: string): Promise<CycleCount[]> {
+    return Array.from(this.cycleCounts.values())
+      .filter((c) => c.tenantId === tenantId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getCycleCountsBySite(siteId: string): Promise<CycleCount[]> {
+    return Array.from(this.cycleCounts.values())
+      .filter((c) => c.siteId === siteId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getCycleCountById(id: string): Promise<CycleCount | undefined> {
+    return this.cycleCounts.get(id);
+  }
+
+  async createCycleCount(cycleCount: Omit<CycleCount, "id" | "createdAt">): Promise<CycleCount> {
+    const id = randomUUID();
+    const created: CycleCount = { ...cycleCount, id, createdAt: new Date() };
+    this.cycleCounts.set(id, created);
+    return created;
+  }
+
+  async updateCycleCount(id: string, updates: Partial<CycleCount>): Promise<CycleCount | undefined> {
+    const existing = this.cycleCounts.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.cycleCounts.set(id, updated);
+    return updated;
+  }
+
+  // Cycle Count Lines
+  async getCycleCountLinesByCycleCount(cycleCountId: string): Promise<CycleCountLine[]> {
+    return Array.from(this.cycleCountLines.values())
+      .filter((l) => l.cycleCountId === cycleCountId);
+  }
+
+  async getCycleCountLineById(id: string): Promise<CycleCountLine | undefined> {
+    return this.cycleCountLines.get(id);
+  }
+
+  async createCycleCountLine(line: Omit<CycleCountLine, "id">): Promise<CycleCountLine> {
+    const id = randomUUID();
+    const created: CycleCountLine = { ...line, id };
+    this.cycleCountLines.set(id, created);
+    return created;
+  }
+
+  async updateCycleCountLine(id: string, updates: Partial<CycleCountLine>): Promise<CycleCountLine | undefined> {
+    const existing = this.cycleCountLines.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.cycleCountLines.set(id, updated);
+    return updated;
+  }
+
+  async deleteCycleCountLinesByCycleCount(cycleCountId: string): Promise<void> {
+    for (const [id, line] of this.cycleCountLines.entries()) {
+      if (line.cycleCountId === cycleCountId) {
+        this.cycleCountLines.delete(id);
+      }
+    }
+  }
+
+  // Jobs
+  async getJobsByTenant(tenantId: string): Promise<Job[]> {
+    return Array.from(this.jobs.values())
+      .filter((j) => j.tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getJobsBySite(siteId: string): Promise<Job[]> {
+    return Array.from(this.jobs.values())
+      .filter((j) => j.siteId === siteId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getJobById(id: string): Promise<Job | undefined> {
+    return this.jobs.get(id);
+  }
+
+  async getJobByNumber(tenantId: string, jobNumber: string): Promise<Job | undefined> {
+    return Array.from(this.jobs.values())
+      .find((j) => j.tenantId === tenantId && j.jobNumber === jobNumber);
+  }
+
+  async createJob(job: Omit<Job, "id" | "createdAt" | "updatedAt">): Promise<Job> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const created: Job = { ...job, id, createdAt: now, updatedAt: now };
+    this.jobs.set(id, created);
+    return created;
+  }
+
+  async updateJob(id: string, updates: Partial<Job>): Promise<Job | undefined> {
+    const existing = this.jobs.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+    this.jobs.set(id, updated);
+    return updated;
+  }
+
+  async getNextJobNumber(tenantId: string): Promise<string> {
+    this.jobCounter += 1;
+    return `JOB-${String(this.jobCounter).padStart(6, "0")}`;
+  }
+
+  // Job Lines
+  async getJobLinesByJob(jobId: string): Promise<JobLine[]> {
+    return Array.from(this.jobLines.values())
+      .filter((l) => l.jobId === jobId)
+      .sort((a, b) => a.lineNumber - b.lineNumber);
+  }
+
+  async getJobLineById(id: string): Promise<JobLine | undefined> {
+    return this.jobLines.get(id);
+  }
+
+  async createJobLine(line: Omit<JobLine, "id" | "createdAt" | "updatedAt">): Promise<JobLine> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const created: JobLine = { ...line, id, createdAt: now, updatedAt: now };
+    this.jobLines.set(id, created);
+    return created;
+  }
+
+  async updateJobLine(id: string, updates: Partial<JobLine>): Promise<JobLine | undefined> {
+    const existing = this.jobLines.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
+    this.jobLines.set(id, updated);
+    return updated;
+  }
+
+  async deleteJobLinesByJob(jobId: string): Promise<void> {
+    for (const [id, line] of this.jobLines.entries()) {
+      if (line.jobId === jobId) {
+        this.jobLines.delete(id);
+      }
+    }
   }
 
   async runTransaction<T>(fn: (tx: IStorage) => Promise<T>): Promise<T> {
