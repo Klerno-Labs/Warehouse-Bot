@@ -4,3 +4,22 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Environment files - NEVER commit
+.env
+.env.local
+.env.*.local
+
+# Next.js build output
+.next/
+
+# IDE
+.vscode/
+.idea/
+
+# Test coverage
+coverage/
+
+# Misc
+.local/
+.bfg-replace.txt
