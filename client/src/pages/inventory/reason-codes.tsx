@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InventoryNav } from "@/components/inventory-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,10 +24,27 @@ export default function InventoryReasonCodesPage() {
   const { data: reasons = [] } = useQuery<ReasonCode[]>({
     queryKey: ["/api/inventory/reason-codes"],
   });
+  
+  // Filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  
+  // Form state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [type, setType] = useState<ReasonCode["type"]>(REASON_TYPES[0]);
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
+
+  // Filter reasons
+  const filteredReasons = useMemo(() => {
+    return reasons.filter((reason) => {
+      const matchesSearch = 
+        reason.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        reason.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === "all" || reason.type === typeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [reasons, searchTerm, typeFilter]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -119,7 +136,32 @@ export default function InventoryReasonCodesPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Reason Code List</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-sm font-medium">
+                Reason Code List ({filteredReasons.length} of {reasons.length})
+              </CardTitle>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Input
+                placeholder="Search by code or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-[250px]"
+              />
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {REASON_TYPES.map((reasonType) => (
+                    <SelectItem key={reasonType} value={reasonType}>
+                      {reasonType}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -133,18 +175,26 @@ export default function InventoryReasonCodesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {reasons.map((reason) => (
-                    <TableRow key={reason.id}>
-                      <TableCell className="font-medium">{reason.type}</TableCell>
-                      <TableCell>{reason.code}</TableCell>
-                      <TableCell>{reason.description || "-"}</TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => startEdit(reason)}>
-                          Edit
-                        </Button>
+                  {filteredReasons.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                        No reason codes found
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    filteredReasons.map((reason) => (
+                      <TableRow key={reason.id}>
+                        <TableCell className="font-medium">{reason.type}</TableCell>
+                        <TableCell>{reason.code}</TableCell>
+                        <TableCell>{reason.description || "-"}</TableCell>
+                        <TableCell>
+                          <Button variant="outline" size="sm" onClick={() => startEdit(reason)}>
+                            Edit
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>

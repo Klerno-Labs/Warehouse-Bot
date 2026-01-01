@@ -4,13 +4,47 @@ import { storage } from "@server/storage";
 import { getSessionUserWithRecord } from "@app/api/_utils/session";
 import { createItemSchema } from "@shared/inventory";
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getSessionUserWithRecord();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const items = await storage.getItemsByTenant(session.user.tenantId);
-  return NextResponse.json(items);
+  
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get("search")?.toLowerCase() || "";
+  const category = searchParams.get("category") || "";
+  const limit = parseInt(searchParams.get("limit") || "0", 10);
+  const offset = parseInt(searchParams.get("offset") || "0", 10);
+  
+  let items = await storage.getItemsByTenant(session.user.tenantId);
+  
+  // Apply filters
+  if (search) {
+    items = items.filter(
+      (item) =>
+        item.sku.toLowerCase().includes(search) ||
+        item.name.toLowerCase().includes(search) ||
+        item.description?.toLowerCase().includes(search)
+    );
+  }
+  if (category) {
+    items = items.filter((item) => item.category === category);
+  }
+  
+  const total = items.length;
+  
+  // Apply pagination if limit is specified
+  if (limit > 0) {
+    items = items.slice(offset, offset + limit);
+  }
+  
+  return NextResponse.json({
+    items,
+    total,
+    limit: limit || total,
+    offset,
+    hasMore: limit > 0 && offset + items.length < total,
+  });
 }
 
 export async function POST(req: Request) {

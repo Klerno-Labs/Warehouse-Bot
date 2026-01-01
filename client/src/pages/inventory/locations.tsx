@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { InventoryNav } from "@/components/inventory-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,11 +28,29 @@ export default function InventoryLocationsPage() {
     queryKey: [`/api/inventory/locations?siteId=${siteId}`],
     enabled: !!siteId,
   });
+  
+  // Filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  
+  // Form state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [label, setLabel] = useState("");
   const [zone, setZone] = useState("");
   const [bin, setBin] = useState("");
   const [type, setType] = useState<string>("");
+
+  // Filter locations
+  const filteredLocations = useMemo(() => {
+    return locations.filter((loc) => {
+      const matchesSearch = 
+        loc.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        loc.zone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        loc.bin?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === "all" || loc.type === typeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [locations, searchTerm, typeFilter]);
 
   const resetForm = () => {
     setEditingId(null);
@@ -138,7 +156,32 @@ export default function InventoryLocationsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Location List</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-sm font-medium">
+                Location List ({filteredLocations.length} of {locations.length})
+              </CardTitle>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Input
+                placeholder="Search by label, zone, bin..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-[250px]"
+              />
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {LOCATION_TYPES.map((locType) => (
+                    <SelectItem key={locType} value={locType}>
+                      {locType}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -153,19 +196,27 @@ export default function InventoryLocationsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {locations.map((location) => (
-                    <TableRow key={location.id}>
-                      <TableCell className="font-medium">{location.label}</TableCell>
-                      <TableCell>{location.zone || "-"}</TableCell>
-                      <TableCell>{location.bin || "-"}</TableCell>
-                      <TableCell>{location.type || "-"}</TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => startEdit(location)}>
-                          Edit
-                        </Button>
+                  {filteredLocations.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                        No locations found
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    filteredLocations.map((location) => (
+                      <TableRow key={location.id}>
+                        <TableCell className="font-medium">{location.label}</TableCell>
+                        <TableCell>{location.zone || "-"}</TableCell>
+                        <TableCell>{location.bin || "-"}</TableCell>
+                        <TableCell>{location.type || "-"}</TableCell>
+                        <TableCell>
+                          <Button variant="outline" size="sm" onClick={() => startEdit(location)}>
+                            Edit
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>

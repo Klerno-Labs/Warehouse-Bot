@@ -15,12 +15,41 @@ export async function GET(req: Request) {
   }
   const { searchParams } = new URL(req.url);
   const siteId = searchParams.get("siteId");
+  const eventType = searchParams.get("eventType");
+  const limit = parseInt(searchParams.get("limit") || "0", 10);
+  const offset = parseInt(searchParams.get("offset") || "0", 10);
+  
   if (siteId && !session.user.siteIds.includes(siteId)) {
     return NextResponse.json({ error: "Site access denied" }, { status: 403 });
   }
-  const events = await storage.getInventoryEventsByTenant(session.user.tenantId);
-  const filtered = siteId ? events.filter((event) => event.siteId === siteId) : events;
-  return NextResponse.json(filtered);
+  
+  let events = await storage.getInventoryEventsByTenant(session.user.tenantId);
+  
+  // Apply filters
+  if (siteId) {
+    events = events.filter((event) => event.siteId === siteId);
+  }
+  if (eventType) {
+    events = events.filter((event) => event.eventType === eventType);
+  }
+  
+  // Sort by most recent first
+  events.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  
+  const total = events.length;
+  
+  // Apply pagination if limit is specified
+  if (limit > 0) {
+    events = events.slice(offset, offset + limit);
+  }
+  
+  return NextResponse.json({
+    events,
+    total,
+    limit: limit || total,
+    offset,
+    hasMore: limit > 0 && offset + events.length < total,
+  });
 }
 
 export async function POST(req: Request) {

@@ -373,12 +373,15 @@ export default function StationPage({ stationId }: { stationId: string }) {
                 if (event.key === "Enter") fromRef.current?.focus();
               }}
               data-testid="input-station-sku"
+              className={item ? "border-green-500 focus-visible:ring-green-500" : sku && !item ? "border-red-500 focus-visible:ring-red-500" : ""}
             />
-            {item && (
-              <span className="text-xs text-muted-foreground">
-                {item.name} · Base {item.baseUom}
+            {item ? (
+              <span className="text-xs text-green-600">
+                ✓ {item.name} · {item.category} · Base UoM: {item.baseUom}
               </span>
-            )}
+            ) : sku ? (
+              <span className="text-xs text-red-500">✗ Item not found</span>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -393,7 +396,15 @@ export default function StationPage({ stationId }: { stationId: string }) {
                 if (event.key === "Enter") toRef.current?.focus();
               }}
               data-testid="input-station-from"
+              className={fromLocation ? "border-green-500 focus-visible:ring-green-500" : fromLabel && !fromLocation ? "border-red-500 focus-visible:ring-red-500" : ""}
             />
+            {fromLocation ? (
+              <span className="text-xs text-green-600">
+                ✓ {fromLocation.label} {fromLocation.type ? `(${fromLocation.type})` : ""}
+              </span>
+            ) : fromLabel ? (
+              <span className="text-xs text-red-500">✗ Location not found</span>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">
@@ -408,7 +419,15 @@ export default function StationPage({ stationId }: { stationId: string }) {
                 if (event.key === "Enter") qtyRef.current?.focus();
               }}
               data-testid="input-station-to"
+              className={toLocation ? "border-green-500 focus-visible:ring-green-500" : toLabel && !toLocation ? "border-red-500 focus-visible:ring-red-500" : ""}
             />
+            {toLocation ? (
+              <span className="text-xs text-green-600">
+                ✓ {toLocation.label} {toLocation.type ? `(${toLocation.type})` : ""}
+              </span>
+            ) : toLabel ? (
+              <span className="text-xs text-red-500">✗ Location not found</span>
+            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">

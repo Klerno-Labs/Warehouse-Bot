@@ -18,12 +18,44 @@ import {
 } from "@/components/ui/table";
 import { ITEM_CATEGORIES, UOMS, type Item } from "@shared/inventory";
 
+type ItemsResponse = {
+  items: Item[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+};
+
+const PAGE_SIZE = 20;
+
 export default function InventoryItemsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: items = [] } = useQuery<Item[]>({
-    queryKey: ["/api/inventory/items"],
+  
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [page, setPage] = useState(0);
+  
+  // Build query params
+  const queryParams = new URLSearchParams();
+  queryParams.set("limit", String(PAGE_SIZE));
+  queryParams.set("offset", String(page * PAGE_SIZE));
+  if (searchTerm) queryParams.set("search", searchTerm);
+  if (categoryFilter && categoryFilter !== "all") queryParams.set("category", categoryFilter);
+  
+  const { data, isLoading } = useQuery<ItemsResponse>({
+    queryKey: ["/api/inventory/items", { search: searchTerm, category: categoryFilter, page }],
+    queryFn: async () => {
+      const res = await fetch(`/api/inventory/items?${queryParams.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch items");
+      return res.json();
+    },
   });
+  
+  const items = data?.items || [];
+  const total = data?.total || 0;
+  const hasMore = data?.hasMore || false;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sku, setSku] = useState("");
   const [name, setName] = useState("");
@@ -93,7 +125,7 @@ export default function InventoryItemsPage() {
       } else {
         await apiRequest("POST", "/api/inventory/items", payload);
       }
-      await queryClient.invalidateQueries({ queryKey: ["/api/inventory/items"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/inventory/items"], exact: false });
       resetForm();
       toast({ title: "Item saved" });
     } catch (error) {
@@ -199,41 +231,111 @@ export default function InventoryItemsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Item List</CardTitle>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-sm font-medium">Item List ({total} items)</CardTitle>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Input
+                placeholder="Search by SKU, name..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(0);
+                }}
+                className="w-full sm:w-[250px]"
+              />
+              <Select
+                value={categoryFilter}
+                onValueChange={(value) => {
+                  setCategoryFilter(value);
+                  setPage(0);
+                }}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All categories</SelectItem>
+                  {ITEM_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Base UoM</TableHead>
-                    <TableHead>Allowed UoMs</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.sku}</TableCell>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell>{item.baseUom}</TableCell>
-                      <TableCell>
-                        {item.allowedUoms.map((u) => u.uom).join(", ")}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
-                          Edit
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            {isLoading ? (
+              <div className="py-8 text-center text-muted-foreground">Loading...</div>
+            ) : (
+              <>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Base UoM</TableHead>
+                        <TableHead>Allowed UoMs</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {items.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                            No items found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        items.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.sku}</TableCell>
+                            <TableCell>{item.name}</TableCell>
+                            <TableCell>{item.category}</TableCell>
+                            <TableCell>{item.baseUom}</TableCell>
+                            <TableCell>
+                              {item.allowedUoms.map((u) => u.uom).join(", ")}
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
+                                Edit
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                {/* Pagination */}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page === 0}
+                      onClick={() => setPage((p) => p - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!hasMore}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

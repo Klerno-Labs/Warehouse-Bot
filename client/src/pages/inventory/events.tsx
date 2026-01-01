@@ -16,15 +16,54 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { EVENT_TYPES, type InventoryEvent, type Item, type Location } from "@shared/inventory";
 
+type EventsResponse = {
+  events: InventoryEvent[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+};
+
+const PAGE_SIZE = 50;
+
 export default function InventoryEventsPage() {
   const { currentSite } = useAuth();
   const siteId = currentSite?.id || "";
-  const { data: events = [] } = useQuery<InventoryEvent[]>({
-    queryKey: [`/api/inventory/events?siteId=${siteId}`],
+  
+  // Pagination and filter state
+  const [page, setPage] = useState(0);
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [itemFilter, setItemFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  
+  // Build query params for server-side filtering
+  const queryParams = new URLSearchParams();
+  queryParams.set("siteId", siteId);
+  queryParams.set("limit", String(PAGE_SIZE));
+  queryParams.set("offset", String(page * PAGE_SIZE));
+  if (typeFilter && typeFilter !== "all") queryParams.set("eventType", typeFilter);
+  
+  const { data, isLoading } = useQuery<EventsResponse>({
+    queryKey: [`/api/inventory/events`, { siteId, typeFilter, page }],
+    queryFn: async () => {
+      const res = await fetch(`/api/inventory/events?${queryParams.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch events");
+      return res.json();
+    },
     enabled: !!siteId,
   });
+  
+  const events = data?.events || [];
+  const total = data?.total || 0;
+  const hasMore = data?.hasMore || false;
+  
   const { data: items = [] } = useQuery<Item[]>({
     queryKey: ["/api/inventory/items"],
+    queryFn: async () => {
+      const res = await fetch("/api/inventory/items");
+      const data = await res.json();
+      return data.items || data;
+    },
   });
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: [`/api/inventory/locations?siteId=${siteId}`],
@@ -39,12 +78,8 @@ export default function InventoryEventsPage() {
     () => new Map(locations.map((location) => [location.id, location])),
     [locations],
   );
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [itemFilter, setItemFilter] = useState("");
-  const [locationFilter, setLocationFilter] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
 
+  // Client-side filtering for item and location (server doesn't support these yet)
   const filteredEvents = events.filter((event) => {
     const item = itemMap.get(event.itemId);
     const fromLocation = event.fromLocationId
@@ -54,18 +89,13 @@ export default function InventoryEventsPage() {
       ? locationMap.get(event.toLocationId)
       : null;
 
-    const typeMatch = typeFilter === "all" ? true : event.eventType === typeFilter;
     const itemMatch = item
       ? `${item.sku} ${item.name}`.toLowerCase().includes(itemFilter.toLowerCase())
-      : true;
+      : itemFilter === "";
     const locationText = `${fromLocation?.label || ""} ${toLocation?.label || ""}`.toLowerCase();
     const locationMatch = locationText.includes(locationFilter.toLowerCase());
 
-    const eventDate = new Date(event.createdAt);
-    const startMatch = startDate ? eventDate >= new Date(startDate) : true;
-    const endMatch = endDate ? eventDate <= new Date(endDate) : true;
-
-    return typeMatch && itemMatch && locationMatch && startMatch && endMatch;
+    return itemMatch && locationMatch;
   });
 
   const exportCsv = () => {
@@ -128,13 +158,21 @@ export default function InventoryEventsPage() {
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle className="text-sm font-medium">Recent Events</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Event Log ({total} total events)
+              </CardTitle>
               <Button variant="outline" size="sm" onClick={exportCsv}>
                 Export CSV
               </Button>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <Select
+                value={typeFilter}
+                onValueChange={(value) => {
+                  setTypeFilter(value);
+                  setPage(0);
+                }}
+              >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="All event types" />
                 </SelectTrigger>
@@ -159,62 +197,88 @@ export default function InventoryEventsPage() {
                 onChange={(event) => setLocationFilter(event.target.value)}
                 className="w-full sm:w-[200px]"
               />
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-                className="w-full sm:w-[170px]"
-              />
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-                className="w-full sm:w-[170px]"
-              />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>From</TableHead>
-                    <TableHead>To</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEvents.map((event) => {
-                    const item = itemMap.get(event.itemId);
-                    const fromLocation = event.fromLocationId
-                      ? locationMap.get(event.fromLocationId)
-                      : null;
-                    const toLocation = event.toLocationId
-                      ? locationMap.get(event.toLocationId)
-                      : null;
-                    return (
-                      <TableRow key={event.id}>
-                        <TableCell>
-                          {new Date(event.createdAt).toLocaleString()}
-                        </TableCell>
-                        <TableCell>{event.eventType}</TableCell>
-                        <TableCell>
-                          {item ? `${item.sku} - ${item.name}` : event.itemId}
-                        </TableCell>
-                        <TableCell>
-                          {event.qtyEntered} {event.uomEntered}
-                        </TableCell>
-                        <TableCell>{fromLocation?.label || "-"}</TableCell>
-                        <TableCell>{toLocation?.label || "-"}</TableCell>
+            {isLoading ? (
+              <div className="py-8 text-center text-muted-foreground">Loading...</div>
+            ) : (
+              <>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>From</TableHead>
+                        <TableHead>To</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredEvents.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                            No events found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredEvents.map((event) => {
+                          const item = itemMap.get(event.itemId);
+                          const fromLocation = event.fromLocationId
+                            ? locationMap.get(event.fromLocationId)
+                            : null;
+                          const toLocation = event.toLocationId
+                            ? locationMap.get(event.toLocationId)
+                            : null;
+                          return (
+                            <TableRow key={event.id}>
+                              <TableCell>
+                                {new Date(event.createdAt).toLocaleString()}
+                              </TableCell>
+                              <TableCell>{event.eventType}</TableCell>
+                              <TableCell>
+                                {item ? `${item.sku} - ${item.name}` : event.itemId}
+                              </TableCell>
+                              <TableCell>
+                                {event.qtyEntered} {event.uomEntered}
+                              </TableCell>
+                              <TableCell>{fromLocation?.label || "-"}</TableCell>
+                              <TableCell>{toLocation?.label || "-"}</TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                {/* Pagination */}
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={page === 0}
+                      onClick={() => setPage((p) => p - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!hasMore}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
