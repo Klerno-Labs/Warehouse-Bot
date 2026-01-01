@@ -1,11 +1,4 @@
-import type { IStorage } from "./storage";
-import type { SessionUser } from "@shared/schema";
-import type {
-  Item,
-  InventoryEvent,
-  InventoryEventType,
-  Uom,
-} from "@shared/inventory";
+import { PrismaClient, type InventoryEventType, type Uom } from "@prisma/client";
 
 export class InventoryError extends Error {
   status: number;
@@ -15,38 +8,66 @@ export class InventoryError extends Error {
   }
 }
 
+type AllowedUom = {
+  uom: Uom;
+  toBase: number;
+};
+
 export async function convertQuantity(
-  storage: IStorage,
+  prisma: PrismaClient,
   tenantId: string,
   itemId: string,
   qtyEntered: number,
   uomEntered: Uom,
-): Promise<{ item: Item; qtyBase: number }> {
-  const item = await storage.getItemById(itemId);
-  if (!item || item.tenantId !== tenantId) {
+): Promise<{ qtyBase: number }> {
+  const item = await prisma.item.findFirst({
+    where: { id: itemId, tenantId },
+  });
+
+  if (!item) {
     throw new InventoryError("Item not found", 404);
   }
 
+  const allowedUoms = item.allowedUoms as AllowedUom[];
   const conversion =
-    item.allowedUoms.find((u) => u.uom === uomEntered) ||
+    allowedUoms.find((u) => u.uom === uomEntered) ||
     (item.baseUom === uomEntered ? { uom: uomEntered, toBase: 1 } : undefined);
 
   if (!conversion) {
     throw new InventoryError("Invalid UoM for item");
   }
 
-  return { item, qtyBase: qtyEntered * conversion.toBase };
+  return { qtyBase: qtyEntered * conversion.toBase };
 }
 
-type ApplyEventInput = Omit<InventoryEvent, "id" | "createdAt" | "qtyBase"> & {
+type ApplyEventInput = {
+  tenantId: string;
+  siteId: string;
+  eventType: InventoryEventType;
+  itemId: string;
+  qtyEntered: number;
+  uomEntered: Uom;
   qtyBase: number;
+  fromLocationId?: string | null;
+  toLocationId?: string | null;
+  workcellId?: string | null;
+  referenceId?: string | null;
+  reasonCodeId?: string | null;
+  notes?: string | null;
+  createdByUserId?: string | null;
+  deviceId?: string | null;
+};
+
+type UserContext = {
+  tenantId: string;
+  role: string;
 };
 
 export async function applyInventoryEvent(
-  storage: IStorage,
-  user: SessionUser,
+  prisma: PrismaClient,
+  user: UserContext,
   event: ApplyEventInput,
-): Promise<InventoryEvent> {
+): Promise<void> {
   const {
     tenantId,
     siteId,
@@ -62,6 +83,7 @@ export async function applyInventoryEvent(
     throw new InventoryError("Tenant mismatch", 403);
   }
 
+  // Validate reason code requirement
   const requiresReason = ["SCRAP", "ADJUST", "HOLD"].includes(eventType);
   if (requiresReason && !reasonCodeId) {
     throw new InventoryError("Reason code is required");
@@ -76,6 +98,7 @@ export async function applyInventoryEvent(
     }
   };
 
+  // Validate location requirements based on event type
   if (eventType === "RECEIVE") {
     ensureLocation(toLocationId, "toLocationId");
   } else if (eventType === "MOVE") {
@@ -83,7 +106,6 @@ export async function applyInventoryEvent(
     ensureLocation(toLocationId, "toLocationId");
   } else if (eventType === "ISSUE_TO_WORKCELL") {
     ensureLocation(fromLocationId, "fromLocationId");
-    ensureLocation(toLocationId, "toLocationId");
   } else if (eventType === "RETURN") {
     ensureLocation(fromLocationId, "fromLocationId");
     ensureLocation(toLocationId, "toLocationId");
@@ -103,6 +125,7 @@ export async function applyInventoryEvent(
     }
   }
 
+  // Calculate balance deltas
   const deltas = new Map<string, number>();
   const addDelta = (locationId: string | null | undefined, delta: number) => {
     if (!locationId) return;
@@ -119,7 +142,6 @@ export async function applyInventoryEvent(
       break;
     case "ISSUE_TO_WORKCELL":
       addDelta(fromLocationId, -qtyBase);
-      addDelta(toLocationId, qtyBase);
       break;
     case "RETURN":
       addDelta(fromLocationId, -qtyBase);
@@ -137,12 +159,15 @@ export async function applyInventoryEvent(
       if (!toLocationId) {
         throw new InventoryError("toLocationId is required");
       }
-      const current = await storage.getInventoryBalance(
-        tenantId,
-        siteId,
-        itemId,
-        toLocationId,
-      );
+      const current = await prisma.inventoryBalance.findUnique({
+        where: {
+          tenantId_itemId_locationId: {
+            tenantId,
+            itemId,
+            locationId: toLocationId,
+          },
+        },
+      });
       const currentQty = current?.qtyBase || 0;
       addDelta(toLocationId, qtyBase - currentQty);
       break;
@@ -155,35 +180,71 @@ export async function applyInventoryEvent(
       throw new InventoryError("Unsupported event type");
   }
 
+  // Validate no negative balances (unless admin adjust)
   for (const [locationId, delta] of deltas.entries()) {
-    const current = await storage.getInventoryBalance(
-      tenantId,
-      siteId,
-      itemId,
-      locationId,
-    );
+    const current = await prisma.inventoryBalance.findUnique({
+      where: {
+        tenantId_itemId_locationId: {
+          tenantId,
+          itemId,
+          locationId,
+        },
+      },
+    });
     const nextQty = (current?.qtyBase || 0) + delta;
     if (nextQty < 0 && !isAdminAdjust) {
       throw new InventoryError("Negative balance prevented");
     }
   }
 
-  for (const [locationId, delta] of deltas.entries()) {
-    const current = await storage.getInventoryBalance(
-      tenantId,
-      siteId,
-      itemId,
-      locationId,
-    );
-    const nextQty = (current?.qtyBase || 0) + delta;
-    await storage.upsertInventoryBalance({
-      tenantId,
-      siteId,
-      itemId,
-      locationId,
-      qtyBase: nextQty,
+  // Execute in transaction
+  await prisma.$transaction(async (tx) => {
+    // Create the event
+    await tx.inventoryEvent.create({
+      data: {
+        ...event,
+        createdAt: new Date(),
+      },
     });
-  }
 
-  return storage.createInventoryEvent(event);
+    // Update balances
+    for (const [locationId, delta] of deltas.entries()) {
+      const current = await tx.inventoryBalance.findUnique({
+        where: {
+          tenantId_itemId_locationId: {
+            tenantId,
+            itemId,
+            locationId,
+          },
+        },
+      });
+
+      const nextQty = (current?.qtyBase || 0) + delta;
+
+      if (current) {
+        await tx.inventoryBalance.update({
+          where: {
+            tenantId_itemId_locationId: {
+              tenantId,
+              itemId,
+              locationId,
+            },
+          },
+          data: {
+            qtyBase: nextQty,
+          },
+        });
+      } else {
+        await tx.inventoryBalance.create({
+          data: {
+            tenantId,
+            siteId,
+            itemId,
+            locationId,
+            qtyBase: nextQty,
+          },
+        });
+      }
+    }
+  });
 }

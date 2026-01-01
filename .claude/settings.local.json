@@ -3,7 +3,14 @@
     "allow": [
       "Bash(find:*)",
       "Bash(xargs basename:*)",
-      "Bash(dir \"c:\\\\Users\\\\Somli\\\\OneDrive\\\\Desktop\\\\My Apps\\\\Warehouse Builder\")"
+      "Bash(dir \"c:\\\\Users\\\\Somli\\\\OneDrive\\\\Desktop\\\\My Apps\\\\Warehouse Builder\")",
+      "Bash(dir:*)",
+      "Bash(npx prisma format:*)",
+      "Bash(npx prisma migrate reset:*)",
+      "Bash(npm run prisma:seed:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(git add:*)"
     ]
   }
 }

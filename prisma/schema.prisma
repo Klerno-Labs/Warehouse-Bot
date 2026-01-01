@@ -3,141 +3,517 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
+// ============================================================
+// ENUMS
+// ============================================================
+
 enum Role {
-  ADMIN
-  MANAGER
-  VIEWER
+  Admin
+  Supervisor
+  Inventory
+  Operator
+  Sales
+  Purchasing
+  Maintenance
+  QC
+  Viewer
 }
 
-enum UomKind {
-  COUNT
-  LENGTH
-  VOLUME
-  WEIGHT
-  AREA
-  OTHER
+enum Uom {
+  EA
+  FT
+  YD
+  ROLL
 }
 
-enum InventoryTxnType {
+enum ItemCategory {
+  PRODUCTION
+  PACKAGING
+  FACILITY
+  CHEMICAL_MRO
+}
+
+enum LocationType {
+  RECEIVING
+  STOCK
+  WIP
+  QC_HOLD
+  SHIPPING
+}
+
+enum ReasonType {
+  SCRAP
+  ADJUST
+  HOLD
+}
+
+enum InventoryEventType {
   RECEIVE
   MOVE
-  ISSUE
-  ADJUST
+  ISSUE_TO_WORKCELL
+  RETURN
+  SCRAP
+  HOLD
+  RELEASE
   COUNT
+  ADJUST
 }
 
-enum AdjustDirection {
-  ADD
-  SUBTRACT
+enum CycleCountStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
-model User {
+enum CycleCountType {
+  FULL
+  ABC
+  RANDOM
+  LOCATION
+  ITEM
+}
+
+enum CountLineStatus {
+  PENDING
+  COUNTED
+  VARIANCE_APPROVED
+  VARIANCE_REJECTED
+}
+
+// ============================================================
+// MULTI-TENANT & ORGANIZATIONAL STRUCTURE
+// ============================================================
+
+model Tenant {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String   @unique
+  enabledModules String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  sites             Site[]
+  users             User[]
+  departments       Department[]
+  workcells         Workcell[]
+  devices           Device[]
+  badges            Badge[]
+  auditEvents       AuditEvent[]
+  items             Item[]
+  locations         Location[]
+  reasonCodes       ReasonCode[]
+  inventoryEvents   InventoryEvent[]
+  inventoryBalances InventoryBalance[]
+  cycleCounts       CycleCount[]
+  cycleCountLines   CycleCountLine[]
+  jobs              Job[]
+}
+
+model Site {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  departments       Department[]
+  workcells         Workcell[]
+  devices           Device[]
+  locations         Location[]
+  inventoryEvents   InventoryEvent[]
+  inventoryBalances InventoryBalance[]
+  cycleCounts       CycleCount[]
+  cycleCountLines   CycleCountLine[]
+  jobs              Job[]
+
+  @@index([tenantId])
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  tenantId  String
+  siteId    String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site      Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  workcells Workcell[]
+
+  @@index([tenantId])
+  @@index([siteId])
+}
+
+model Workcell {
   id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  role         Role
+  tenantId     String
+  siteId       String
+  departmentId String?
+  name         String
+  description  String?
+  status       String   @default("active")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  txns         InventoryTxn[] @relation("TxnCreatedBy")
+
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site            Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  department      Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  devices         Device[]
+  inventoryEvents InventoryEvent[]
+  jobs            Job[]
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([departmentId])
 }
 
-model Location {
-  id        String   @id @default(uuid())
-  code      String   @unique
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  items     Item[]   @relation("ItemDefaultLocation")
-  balances  StockBalance[]
-  fromTxns  InventoryTxn[] @relation("TxnFromLocation")
-  toTxns    InventoryTxn[] @relation("TxnToLocation")
+model Device {
+  id           String   @id @default(uuid())
+  tenantId     String
+  siteId       String
+  workcellId   String?
+  name         String
+  type         String
+  serialNumber String?
+  status       String   @default("online")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site            Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  workcell        Workcell?        @relation(fields: [workcellId], references: [id], onDelete: SetNull)
+  inventoryEvents InventoryEvent[]
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([workcellId])
 }
 
-model Uom {
+// ============================================================
+// USERS & AUTHENTICATION
+// ============================================================
+
+model User {
   id        String   @id @default(uuid())
-  code      String   @unique
-  name      String
-  kind      UomKind
+  tenantId  String
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  role      Role     @default(Viewer)
+  siteIds   String[]
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  baseItems Item[]   @relation("ItemBaseUom")
-  txns      InventoryTxn[]
-  fromConversions ItemUomConversion[] @relation("ConversionFrom")
-  toConversions   ItemUomConversion[] @relation("ConversionTo")
+
+  // Relations
+  tenant                  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  badges                  Badge[]
+  auditEvents             AuditEvent[]
+  inventoryEvents         InventoryEvent[]
+  cycleCountsCreated      CycleCount[]     @relation("CycleCountCreatedBy")
+  cycleCountsAssigned     CycleCount[]     @relation("CycleCountAssignedTo")
+  cycleCountLinesCounted  CycleCountLine[] @relation("CountedBy")
+  cycleCountLinesApproved CycleCountLine[] @relation("ApprovedBy")
+
+  @@index([tenantId])
+  @@index([email])
 }
+
+model Badge {
+  id          String   @id @default(uuid())
+  tenantId    String
+  userId      String
+  badgeNumber String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, badgeNumber])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+// ============================================================
+// AUDIT TRAIL
+// ============================================================
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  ipAddress  String?
+  timestamp  DateTime @default(now())
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([entityType, entityId])
+}
+
+// ============================================================
+// INVENTORY MODULE
+// ============================================================
 
 model Item {
-  id                String   @id @default(uuid())
-  publicCode        String   @unique
-  sku               String?  @unique
-  name              String
-  description       String?
-  photoUrl          String?
-  specs             Json?
-  baseUomId         String
-  baseUom           Uom      @relation("ItemBaseUom", fields: [baseUomId], references: [id])
-  defaultLocationId String?
-  defaultLocation   Location? @relation("ItemDefaultLocation", fields: [defaultLocationId], references: [id])
-  conversions       ItemUomConversion[]
-  txns              InventoryTxn[]
-  balances          StockBalance[]
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String       @id @default(uuid())
+  tenantId         String
+  sku              String
+  name             String
+  description      String?
+  category         ItemCategory
+  baseUom          Uom
+  allowedUoms      Json // Array of {uom: Uom, toBase: number}
+  minQtyBase       Float?
+  maxQtyBase       Float?
+  reorderPointBase Float?
+  leadTimeDays     Int?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
+  // Relations
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventoryEvents InventoryEvent[]
+  balances        InventoryBalance[]
+  cycleCountLines CycleCountLine[]
+  jobLines        JobLine[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
   @@index([name])
 }
 
-model ItemUomConversion {
-  id       String @id @default(uuid())
-  itemId   String
-  fromUomId String
-  toUomId   String
-  factor   Decimal @db.Decimal(18, 6)
-  item     Item   @relation(fields: [itemId], references: [id])
-  fromUom  Uom    @relation("ConversionFrom", fields: [fromUomId], references: [id])
-  toUom    Uom    @relation("ConversionTo", fields: [toUomId], references: [id])
+model Location {
+  id        String        @id @default(uuid())
+  tenantId  String
+  siteId    String
+  zone      String?
+  bin       String?
+  label     String
+  type      LocationType?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
-  @@unique([itemId, fromUomId, toUomId])
+  // Relations
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site            Site               @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  fromEvents      InventoryEvent[]   @relation("FromLocation")
+  toEvents        InventoryEvent[]   @relation("ToLocation")
+  balances        InventoryBalance[]
+  cycleCountLines CycleCountLine[]
+
+  @@unique([tenantId, siteId, label])
+  @@index([tenantId])
+  @@index([siteId])
 }
 
-model InventoryTxn {
-  id             String           @id @default(uuid())
-  type           InventoryTxnType
-  itemId         String
-  item           Item             @relation(fields: [itemId], references: [id])
-  qty            Decimal          @db.Decimal(18, 4)
-  uomId          String
-  uom            Uom              @relation(fields: [uomId], references: [id])
-  fromLocationId String?
-  fromLocation   Location?        @relation("TxnFromLocation", fields: [fromLocationId], references: [id])
-  toLocationId   String?
-  toLocation     Location?        @relation("TxnToLocation", fields: [toLocationId], references: [id])
-  note           String?
-  referenceType  String?
-  referenceId    String?
-  direction      AdjustDirection?
-  countedQtyBase Decimal?         @db.Decimal(18, 4)
-  deltaBase      Decimal?         @db.Decimal(18, 4)
-  createdByUserId String
-  createdByUser  User             @relation("TxnCreatedBy", fields: [createdByUserId], references: [id])
-  createdAt      DateTime         @default(now())
+model ReasonCode {
+  id          String     @id @default(uuid())
+  tenantId    String
+  type        ReasonType
+  code        String
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
-  @@index([itemId, createdAt(sort: Desc)])
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventoryEvents InventoryEvent[]
+
+  @@unique([tenantId, type, code])
+  @@index([tenantId])
 }
 
-model StockBalance {
+model InventoryEvent {
+  id              String             @id @default(uuid())
+  tenantId        String
+  siteId          String
+  eventType       InventoryEventType
+  itemId          String
+  qtyEntered      Float
+  uomEntered      Uom
+  qtyBase         Float
+  fromLocationId  String?
+  toLocationId    String?
+  workcellId      String?
+  referenceId     String?
+  reasonCodeId    String?
+  notes           String?
+  createdByUserId String?
+  deviceId        String?
+  createdAt       DateTime           @default(now())
+
+  // Relations
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site         Site        @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  item         Item        @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  fromLocation Location?   @relation("FromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation   Location?   @relation("ToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  workcell     Workcell?   @relation(fields: [workcellId], references: [id], onDelete: SetNull)
+  reasonCode   ReasonCode? @relation(fields: [reasonCodeId], references: [id], onDelete: SetNull)
+  createdBy    User?       @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  device       Device?     @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([itemId])
+  @@index([createdAt])
+}
+
+model InventoryBalance {
   id         String   @id @default(uuid())
+  tenantId   String
+  siteId     String
   itemId     String
-  item       Item     @relation(fields: [itemId], references: [id])
   locationId String
-  location   Location @relation(fields: [locationId], references: [id])
-  qtyBase    Decimal  @db.Decimal(18, 4)
+  qtyBase    Float
   updatedAt  DateTime @updatedAt
 
-  @@unique([itemId, locationId])
+  // Relations
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site     Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  item     Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, itemId, locationId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([itemId])
+  @@index([locationId])
+}
+
+// ============================================================
+// CYCLE COUNTS MODULE
+// ============================================================
+
+model CycleCount {
+  id               String           @id @default(uuid())
+  tenantId         String
+  siteId           String
+  name             String
+  type             CycleCountType
+  status           CycleCountStatus @default(SCHEDULED)
+  scheduledDate    DateTime
+  startedAt        DateTime?
+  completedAt      DateTime?
+  assignedToUserId String?
+  notes            String?
+  createdByUserId  String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  // Relations
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site       Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdBy  User             @relation("CycleCountCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  assignedTo User?            @relation("CycleCountAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  lines      CycleCountLine[]
+
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+model CycleCountLine {
+  id               String          @id @default(uuid())
+  cycleCountId     String
+  tenantId         String
+  siteId           String
+  itemId           String
+  locationId       String
+  expectedQtyBase  Float
+  countedQtyBase   Float?
+  varianceQtyBase  Float?
+  status           CountLineStatus @default(PENDING)
+  countedByUserId  String?
+  countedAt        DateTime?
+  approvedByUserId String?
+  approvedAt       DateTime?
+  notes            String?
+
+  // Relations
+  cycleCount CycleCount @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site       Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  item       Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  countedBy  User?      @relation("CountedBy", fields: [countedByUserId], references: [id], onDelete: SetNull)
+  approvedBy User?      @relation("ApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([cycleCountId])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([itemId])
+  @@index([locationId])
+  @@index([status])
+}
+
+// ============================================================
+// JOBS MODULE (Placeholder for future implementation)
+// ============================================================
+
+model Job {
+  id          String   @id @default(uuid())
+  tenantId    String
+  siteId      String
+  workcellId  String?
+  jobNumber   String
+  description String?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site     Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  workcell Workcell? @relation(fields: [workcellId], references: [id], onDelete: SetNull)
+  lines    JobLine[]
+
+  @@unique([tenantId, jobNumber])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([status])
+}
+
+model JobLine {
+  id        String   @id @default(uuid())
+  jobId     String
+  itemId    String
+  qtyBase   Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([jobId])
+  @@index([itemId])
 }
