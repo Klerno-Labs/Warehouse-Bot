@@ -79,6 +79,8 @@ export async function POST(req: Request, { params }: RouteParams) {
           reasonCodeId: null,
           notes: `Cycle count adjustment: ${cycleCount.name}`,
           createdByUserId: session.user.id,
+          workcellId: null,
+          deviceId: null,
         });
 
         // Update the balance via upsert

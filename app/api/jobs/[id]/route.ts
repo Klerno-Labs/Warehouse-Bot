@@ -71,10 +71,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     // Handle status transitions
     const updates: Partial<typeof job> = {};
 
-    if (payload.priority !== undefined) updates.priority = payload.priority;
     if (payload.description !== undefined) updates.description = payload.description;
     if (payload.assignedToUserId !== undefined) updates.assignedToUserId = payload.assignedToUserId;
-    if (payload.dueDate !== undefined) updates.dueDate = payload.dueDate;
 
     if (payload.status !== undefined) {
       const currentStatus = job.status;
@@ -99,7 +97,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       updates.status = newStatus as typeof JOB_STATUS[number];
 
       if (newStatus === "IN_PROGRESS") {
-        updates.startedAt = new Date().toISOString();
+        updates.startedAt = new Date();
       } else if (newStatus === "COMPLETED") {
         // Check if all lines are completed
         const lines = await storage.getJobLinesByJob(id);
@@ -110,7 +108,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
             { status: 400 }
           );
         }
-        updates.completedAt = new Date().toISOString();
+        updates.completedAt = new Date();
       }
     }
 

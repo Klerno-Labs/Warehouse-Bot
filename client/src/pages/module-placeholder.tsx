@@ -62,19 +62,6 @@ const moduleConfig: Record<
       { "job #": "JOB-1237", product: "Bulk Production", quantity: "500", "due date": "Jan 20", status: "Scheduled" },
     ],
   },
-  purchasing: {
-    title: "Purchasing",
-    description: "Manage purchase orders and supplier relationships",
-    icon: ShoppingCart,
-    primaryAction: "New PO",
-    columns: ["PO #", "Supplier", "Items", "Total", "Status"],
-    sampleData: [
-      { "po #": "PO-2024-0890", supplier: "Acme Supplies", items: "12", total: "$4,520", status: "Received" },
-      { "po #": "PO-2024-0891", supplier: "Global Parts", items: "8", total: "$2,180", status: "In Transit" },
-      { "po #": "PO-2024-0892", supplier: "Tech Components", items: "15", total: "$6,750", status: "Delayed" },
-      { "po #": "PO-2024-0893", supplier: "Quick Supply Co", items: "5", total: "$890", status: "Pending" },
-    ],
-  },
   "cycle-counts": {
     title: "Cycle Counts",
     description: "Perform inventory audits and reconciliation",
@@ -85,31 +72,6 @@ const moduleConfig: Record<
       { "count #": "CC-001", area: "Zone A", items: "45", variance: "0%", status: "Completed" },
       { "count #": "CC-002", area: "Zone B", items: "32", variance: "-2.1%", status: "In Progress" },
       { "count #": "CC-003", area: "Zone C", items: "28", variance: "—", status: "Scheduled" },
-    ],
-  },
-  maintenance: {
-    title: "Maintenance",
-    description: "Equipment maintenance and work orders",
-    icon: Wrench,
-    primaryAction: "New Request",
-    columns: ["Request #", "Equipment", "Type", "Priority", "Status"],
-    sampleData: [
-      { "request #": "MR-101", equipment: "Pleater 1", type: "Preventive", priority: "Medium", status: "Scheduled" },
-      { "request #": "MR-102", equipment: "Conveyor A", type: "Corrective", priority: "High", status: "In Progress" },
-      { "request #": "MR-103", equipment: "Packer 2", type: "Inspection", priority: "Low", status: "Completed" },
-    ],
-  },
-  "sales-atp": {
-    title: "Sales ATP",
-    description: "Available to Promise inventory for sales",
-    icon: TrendingUp,
-    primaryAction: "Check ATP",
-    columns: ["SKU", "Description", "On Hand", "Allocated", "Available"],
-    sampleData: [
-      { sku: "WDG-001", description: "Widget A", "on hand": "245", allocated: "50", available: "195" },
-      { sku: "WDG-002", description: "Widget B", "on hand": "128", allocated: "100", available: "28" },
-      { sku: "CMP-001", description: "Component X", "on hand": "15", allocated: "10", available: "5" },
-      { sku: "ASM-001", description: "Assembly Kit", "on hand": "52", allocated: "0", available: "52" },
     ],
   },
   dashboards: {

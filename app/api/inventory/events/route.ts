@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { storage } from "@server/storage";
+import { prisma } from "@server/prisma";
 import { getSessionUserWithRecord } from "@app/api/_utils/session";
 import { applyInventoryEvent, convertQuantity, InventoryError } from "@server/inventory";
 import { createInventoryEventSchema } from "@shared/inventory";
@@ -112,14 +113,14 @@ export async function POST(req: Request) {
     }
 
     const { qtyBase } = await convertQuantity(
-      storage,
+      prisma,
       session.user.tenantId,
       payload.itemId,
       payload.qtyEntered,
       payload.uomEntered,
     );
 
-    const created = await applyInventoryEvent(storage, session.sessionUser, {
+    await applyInventoryEvent(prisma, session.sessionUser, {
       tenantId: session.user.tenantId,
       siteId: payload.siteId,
       eventType: payload.eventType,
@@ -137,7 +138,7 @@ export async function POST(req: Request) {
       deviceId: payload.deviceId || null,
     });
 
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     if (error instanceof InventoryError) {
       return NextResponse.json({ error: error.message }, { status: error.status });

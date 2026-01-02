@@ -70,15 +70,13 @@ export async function POST(req: Request) {
     const job = await storage.createJob({
       tenantId: session.user.tenantId,
       siteId: payload.siteId,
+      workcellId: null,
       jobNumber,
-      type: payload.type,
-      status: "OPEN",
-      priority: payload.priority || "NORMAL",
+      type: payload.type || null,
+      status: "PENDING",
       description: payload.description || null,
-      referenceType: payload.referenceType || null,
-      referenceId: payload.referenceId || null,
       assignedToUserId: payload.assignedToUserId || null,
-      dueDate: payload.dueDate || null,
+      scheduledDate: null,
       startedAt: null,
       completedAt: null,
       createdByUserId: session.user.id,
@@ -88,17 +86,16 @@ export async function POST(req: Request) {
     if (payload.lines && payload.lines.length > 0) {
       let lineNumber = 1;
       for (const line of payload.lines) {
+        if (!line.itemId) continue; // Skip lines without itemId
+
         await storage.createJobLine({
           jobId: job.id,
-          tenantId: session.user.tenantId,
-          siteId: payload.siteId,
-          lineNumber,
-          itemId: line.itemId || null,
+          itemId: line.itemId,
           fromLocationId: line.fromLocationId || null,
           toLocationId: line.toLocationId || null,
           qtyOrdered: line.qtyOrdered,
           qtyCompleted: 0,
-          uomId: line.uomId || null,
+          qtyBase: line.qtyOrdered, // Assuming qtyOrdered is in base UOM
           status: "PENDING",
           notes: line.notes || null,
           completedByUserId: null,

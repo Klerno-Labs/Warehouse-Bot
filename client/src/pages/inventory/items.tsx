@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -17,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ITEM_CATEGORIES, UOMS, type Item } from "@shared/inventory";
+import { Download } from "lucide-react";
 
 type ItemsResponse = {
   items: Item[];
@@ -35,17 +37,19 @@ export default function InventoryItemsPage() {
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
   const [page, setPage] = useState(0);
-  
+
   // Build query params
   const queryParams = new URLSearchParams();
   queryParams.set("limit", String(PAGE_SIZE));
   queryParams.set("offset", String(page * PAGE_SIZE));
   if (searchTerm) queryParams.set("search", searchTerm);
   if (categoryFilter && categoryFilter !== "all") queryParams.set("category", categoryFilter);
+  if (lowStockOnly) queryParams.set("lowStock", "true");
   
   const { data, isLoading } = useQuery<ItemsResponse>({
-    queryKey: ["/api/inventory/items", { search: searchTerm, category: categoryFilter, page }],
+    queryKey: ["/api/inventory/items", { search: searchTerm, category: categoryFilter, lowStock: lowStockOnly, page }],
     queryFn: async () => {
       const res = await fetch(`/api/inventory/items?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch items");
@@ -147,6 +151,49 @@ export default function InventoryItemsPage() {
     setAllowedUoms(item.allowedUoms.map((u) => `${u.uom}:${u.toBase}`).join(","));
   };
 
+  const exportToCSV = () => {
+    if (!items.length) {
+      toast({
+        title: "No data to export",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = ["SKU", "Name", "Description", "Category", "Base UOM", "Allowed UOMs", "Min Qty", "Max Qty", "Reorder Point"];
+    const rows = items.map((item) => [
+      item.sku,
+      item.name,
+      item.description || "",
+      item.category,
+      item.baseUom,
+      item.allowedUoms.map((u) => `${u.uom}:${u.toBase}`).join("; "),
+      item.minQtyBase?.toString() || "",
+      item.maxQtyBase?.toString() || "",
+      item.reorderPointBase?.toString() || "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `inventory-items-${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Export successful",
+      description: `Exported ${items.length} items`,
+    });
+  };
+
   return (
     <div className="flex h-full flex-col">
       <InventoryNav />
@@ -233,8 +280,12 @@ export default function InventoryItemsPage() {
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <CardTitle className="text-sm font-medium">Item List ({total} items)</CardTitle>
+              <Button variant="outline" size="sm" onClick={exportToCSV} disabled={items.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-3">
               <Input
                 placeholder="Search by SKU, name..."
                 value={searchTerm}
@@ -263,6 +314,19 @@ export default function InventoryItemsPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="lowStock"
+                  checked={lowStockOnly}
+                  onCheckedChange={(checked) => {
+                    setLowStockOnly(!!checked);
+                    setPage(0);
+                  }}
+                />
+                <Label htmlFor="lowStock" className="cursor-pointer text-sm font-medium">
+                  Low stock only
+                </Label>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

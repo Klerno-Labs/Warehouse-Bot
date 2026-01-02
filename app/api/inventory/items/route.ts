@@ -13,11 +13,26 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search")?.toLowerCase() || "";
   const category = searchParams.get("category") || "";
+  const lowStock = searchParams.get("lowStock") === "true";
   const limit = parseInt(searchParams.get("limit") || "0", 10);
   const offset = parseInt(searchParams.get("offset") || "0", 10);
-  
+
   let items = await storage.getItemsByTenant(session.user.tenantId);
-  
+
+  // If low stock filter is enabled, fetch balances and filter items
+  if (lowStock) {
+    const balances = await storage.getInventoryBalancesBySite(session.user.siteIds[0] || "");
+    const lowStockItemIds = new Set(
+      balances
+        .filter((b) => {
+          const item = items.find((i) => i.id === b.itemId);
+          return item?.reorderPointBase !== null && b.qtyBase <= (item?.reorderPointBase || 0);
+        })
+        .map((b) => b.itemId)
+    );
+    items = items.filter((item) => lowStockItemIds.has(item.id));
+  }
+
   // Apply filters
   if (search) {
     items = items.filter(

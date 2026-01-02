@@ -229,6 +229,9 @@ model User {
   cycleCountsAssigned     CycleCount[]     @relation("CycleCountAssignedTo")
   cycleCountLinesCounted  CycleCountLine[] @relation("CountedBy")
   cycleCountLinesApproved CycleCountLine[] @relation("ApprovedBy")
+  jobsAssigned            Job[]            @relation("AssignedJobs")
+  jobsCreated             Job[]            @relation("CreatedJobs")
+  jobLinesCompleted       JobLine[]        @relation("JobLineCompletedBy")
 
   @@index([tenantId])
   @@index([email])
@@ -327,6 +330,8 @@ model Location {
   toEvents        InventoryEvent[]   @relation("ToLocation")
   balances        InventoryBalance[]
   cycleCountLines CycleCountLine[]
+  jobLinesFrom    JobLine[]          @relation("JobLineFromLocation")
+  jobLinesTo      JobLine[]          @relation("JobLineToLocation")
 
   @@unique([tenantId, siteId, label])
   @@index([tenantId])
@@ -480,40 +485,64 @@ model CycleCountLine {
 // ============================================================
 
 model Job {
-  id          String   @id @default(uuid())
-  tenantId    String
-  siteId      String
-  workcellId  String?
-  jobNumber   String
-  description String?
-  status      String   @default("pending")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String    @id @default(uuid())
+  tenantId         String
+  siteId           String
+  workcellId       String?
+  jobNumber        String
+  description      String?
+  type             String?
+  status           String    @default("PENDING")
+  assignedToUserId String?
+  createdByUserId  String?
+  scheduledDate    DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Relations
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  site     Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  workcell Workcell? @relation(fields: [workcellId], references: [id], onDelete: SetNull)
-  lines    JobLine[]
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site       Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  workcell   Workcell? @relation(fields: [workcellId], references: [id], onDelete: SetNull)
+  assignedTo User?     @relation("AssignedJobs", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  createdBy  User?     @relation("CreatedJobs", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  lines      JobLine[]
 
   @@unique([tenantId, jobNumber])
   @@index([tenantId])
   @@index([siteId])
   @@index([status])
+  @@index([assignedToUserId])
 }
 
 model JobLine {
-  id        String   @id @default(uuid())
-  jobId     String
-  itemId    String
-  qtyBase   Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String    @id @default(uuid())
+  jobId             String
+  itemId            String
+  qtyOrdered        Float
+  qtyCompleted      Float     @default(0)
+  qtyBase           Float
+  fromLocationId    String?
+  toLocationId      String?
+  status            String    @default("PENDING")
+  notes             String?
+  completedByUserId String?
+  completedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   // Relations
-  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  item Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  job          Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  item         Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  fromLocation Location? @relation("JobLineFromLocation", fields: [fromLocationId], references: [id], onDelete: SetNull)
+  toLocation   Location? @relation("JobLineToLocation", fields: [toLocationId], references: [id], onDelete: SetNull)
+  completedBy  User?     @relation("JobLineCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
 
   @@index([jobId])
   @@index([itemId])
+  @@index([fromLocationId])
+  @@index([toLocationId])
+  @@index([status])
+  @@index([completedByUserId])
 }

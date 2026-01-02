@@ -43,20 +43,14 @@ import type { ModuleId } from "@shared/schema";
 const moduleIcons: Record<ModuleId, typeof Package> = {
   inventory: Package,
   jobs: Briefcase,
-  purchasing: ShoppingCart,
   "cycle-counts": RefreshCw,
-  maintenance: Wrench,
-  "sales-atp": TrendingUp,
   dashboards: LayoutDashboard,
 };
 
 const moduleLabels: Record<ModuleId, string> = {
   inventory: "Inventory",
   jobs: "Jobs",
-  purchasing: "Purchasing",
   "cycle-counts": "Cycle Counts",
-  maintenance: "Maintenance",
-  "sales-atp": "Sales ATP",
   dashboards: "Dashboards",
 };
 

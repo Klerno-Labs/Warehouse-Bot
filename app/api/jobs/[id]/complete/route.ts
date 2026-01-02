@@ -55,7 +55,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       qtyCompleted: payload.qtyCompleted,
       status: newStatus,
       completedByUserId: session.user.id,
-      completedAt: new Date().toISOString(),
+      completedAt: new Date(),
       notes: payload.notes || line.notes,
     });
 
@@ -79,14 +79,15 @@ export async function POST(req: Request, { params }: RouteParams) {
         reasonCodeId: null,
         notes: `Transfer job ${job.jobNumber}`,
         createdByUserId: session.user.id,
+        workcellId: job.workcellId,
+        deviceId: null,
       });
 
       // Update balances
       const fromBalance = await storage.getInventoryBalance(
         session.user.tenantId,
-        job.siteId,
         line.itemId,
-        line.fromLocationId
+        line.fromLocationId!
       );
       if (fromBalance) {
         await storage.upsertInventoryBalance({
@@ -100,9 +101,8 @@ export async function POST(req: Request, { params }: RouteParams) {
 
       const toBalance = await storage.getInventoryBalance(
         session.user.tenantId,
-        job.siteId,
         line.itemId,
-        line.toLocationId
+        line.toLocationId!
       );
       if (toBalance) {
         await storage.upsertInventoryBalance({

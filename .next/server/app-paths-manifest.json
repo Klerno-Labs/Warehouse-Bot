@@ -1,4 +1,4 @@
 {
-  "/(app)/modules/inventory/page": "app/(app)/modules/inventory/page.js",
-  "/(app)/stations/[stationId]/page": "app/(app)/stations/[stationId]/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/(app)/page": "app/(app)/page.js"
 }

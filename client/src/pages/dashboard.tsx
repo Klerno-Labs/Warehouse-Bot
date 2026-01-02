@@ -1,49 +1,97 @@
-import { Package, Briefcase, AlertTriangle, CheckCircle, TrendingUp, Clock } from "lucide-react";
+import { Package, Briefcase, AlertTriangle, CheckCircle, TrendingUp, Clock, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
-const stats = [
-  {
-    title: "Active Jobs",
-    value: "24",
-    change: "+3 from yesterday",
-    changeType: "positive" as const,
-    icon: Briefcase,
-  },
-  {
-    title: "Inventory Items",
-    value: "1,847",
-    change: "98% accuracy",
-    changeType: "neutral" as const,
-    icon: Package,
-  },
-  {
-    title: "Pending Orders",
-    value: "12",
-    change: "5 urgent",
-    changeType: "warning" as const,
-    icon: Clock,
-  },
-  {
-    title: "Completed Today",
-    value: "38",
-    change: "+12% vs avg",
-    changeType: "positive" as const,
-    icon: CheckCircle,
-  },
-];
-
-const recentActivity = [
-  { id: 1, action: "Job #1234 completed", user: "John Smith", time: "2 min ago", type: "success" },
-  { id: 2, action: "Inventory count started", user: "Sarah Johnson", time: "15 min ago", type: "info" },
-  { id: 3, action: "Low stock alert: Widget A", user: "System", time: "1 hour ago", type: "warning" },
-  { id: 4, action: "New purchase order created", user: "Mike Wilson", time: "2 hours ago", type: "info" },
-  { id: 5, action: "Maintenance scheduled", user: "Tech Team", time: "3 hours ago", type: "info" },
-];
+type DashboardStats = {
+  stats: {
+    activeJobs: number;
+    inventoryItems: number;
+    pendingOrders: number;
+    completedToday: number;
+    completedTodayJobs: number;
+    lowStockCount: number;
+    totalBalanceQty: number;
+  };
+  recentActivity: Array<{
+    id: string;
+    action: string;
+    user: string;
+    time: string;
+    type: string;
+  }>;
+  lowStockItems: Array<{
+    id: string;
+    sku: string;
+    name: string;
+    currentStock: number;
+    reorderPoint: number | null;
+  }>;
+  alerts: Array<{
+    title: string;
+    description: string;
+    severity: string;
+  }>;
+  transactionsByDay: Array<{
+    date: string;
+    label: string;
+    receives: number;
+    moves: number;
+    adjustments: number;
+    total: number;
+  }>;
+};
 
 export default function DashboardPage() {
   const { user, currentSite } = useAuth();
+
+  const { data, isLoading } = useQuery<DashboardStats>({
+    queryKey: ["/api/dashboard/stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/dashboard/stats");
+      if (!res.ok) throw new Error("Failed to fetch dashboard stats");
+      return res.json();
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const stats = data
+    ? [
+        {
+          title: "Active Jobs",
+          value: String(data.stats.activeJobs),
+          change: data.stats.completedTodayJobs > 0 ? `${data.stats.completedTodayJobs} completed today` : "No completions today",
+          changeType: data.stats.completedTodayJobs > 0 ? ("positive" as const) : ("neutral" as const),
+          icon: Briefcase,
+        },
+        {
+          title: "Inventory Items",
+          value: String(data.stats.inventoryItems),
+          change: `${data.stats.lowStockCount} low stock`,
+          changeType: data.stats.lowStockCount > 0 ? ("warning" as const) : ("neutral" as const),
+          icon: Package,
+        },
+        {
+          title: "Pending Orders",
+          value: String(data.stats.pendingOrders),
+          change: "Coming soon",
+          changeType: "neutral" as const,
+          icon: Clock,
+        },
+        {
+          title: "Transactions Today",
+          value: String(data.stats.completedToday),
+          change: `${data.stats.totalBalanceQty} units on hand`,
+          changeType: "positive" as const,
+          icon: CheckCircle,
+        },
+      ]
+    : [];
+
+  const recentActivity = data?.recentActivity || [];
+  const alerts = data?.alerts || [];
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -58,30 +106,34 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold" data-testid={`text-stat-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>
-                {stat.value}
-              </div>
-              <p className={`mt-1 text-xs ${
-                stat.changeType === "positive"
-                  ? "text-green-600 dark:text-green-400"
-                  : stat.changeType === "warning"
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-muted-foreground"
-              }`}>
-                {stat.change}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        {isLoading ? (
+          <div className="col-span-full py-8 text-center text-muted-foreground">Loading...</div>
+        ) : (
+          stats.map((stat) => (
+            <Card key={stat.title}>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {stat.title}
+                </CardTitle>
+                <stat.icon className="h-5 w-5 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-semibold" data-testid={`text-stat-${stat.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                  {stat.value}
+                </div>
+                <p className={`mt-1 text-xs ${
+                  stat.changeType === "positive"
+                    ? "text-green-600 dark:text-green-400"
+                    : stat.changeType === "warning"
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-muted-foreground"
+                }`}>
+                  {stat.change}
+                </p>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -150,36 +202,109 @@ export default function DashboardPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
-          <div>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Alerts & Notifications
-            </CardTitle>
-            <CardDescription>Items requiring your attention</CardDescription>
-          </div>
-          <Badge variant="secondary">3 new</Badge>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-blue-500" />
+            Transaction Activity
+          </CardTitle>
+          <CardDescription>Last 7 days inventory movements</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            <AlertItem
-              title="Low Stock Alert"
-              description="Widget A is below minimum threshold (15 remaining)"
-              severity="warning"
-            />
-            <AlertItem
-              title="Maintenance Due"
-              description="Pleater 1 scheduled maintenance in 2 days"
-              severity="info"
-            />
-            <AlertItem
-              title="Order Delayed"
-              description="PO-2024-0892 shipment delayed by supplier"
-              severity="error"
-            />
-          </div>
+          {!data?.transactionsByDay ? (
+            <div className="py-8 text-center text-muted-foreground">Loading...</div>
+          ) : data.transactionsByDay.every((d) => d.total === 0) ? (
+            <div className="py-8 text-center text-muted-foreground">No transactions in the last 7 days</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data.transactionsByDay}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="label" className="text-xs" />
+                <YAxis className="text-xs" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius)",
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="receives" fill="hsl(var(--chart-1))" name="Receives" />
+                <Bar dataKey="moves" fill="hsl(var(--chart-2))" name="Moves" />
+                <Bar dataKey="adjustments" fill="hsl(var(--chart-3))" name="Adjustments" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                Alerts & Notifications
+              </CardTitle>
+              <CardDescription>Items requiring your attention</CardDescription>
+            </div>
+            {alerts.length > 0 && <Badge variant="secondary">{alerts.length} new</Badge>}
+          </CardHeader>
+          <CardContent>
+            {alerts.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">No alerts at this time</p>
+            ) : (
+              <div className="space-y-3">
+                {alerts.map((alert, idx) => (
+                  <AlertItem
+                    key={idx}
+                    title={alert.title}
+                    description={alert.description}
+                    severity={alert.severity as "warning" | "info" | "error"}
+                  />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <Package className="h-5 w-5 text-amber-500" />
+              Low Stock Items
+            </CardTitle>
+            <CardDescription>Items at or below reorder point</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!data?.lowStockItems || data.lowStockItems.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">All items properly stocked</p>
+            ) : (
+              <div className="space-y-3">
+                {data.lowStockItems.map((item) => (
+                  <a
+                    key={item.id}
+                    href={`/modules/inventory/items`}
+                    className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                        {item.currentStock} units
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Reorder: {item.reorderPoint}
+                      </p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
