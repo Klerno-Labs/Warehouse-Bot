@@ -86,6 +86,45 @@ enum CountLineStatus {
   VARIANCE_REJECTED
 }
 
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum POLineStatus {
+  PENDING
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+enum BOMStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  SUPERSEDED
+}
+
+enum ProductionOrderStatus {
+  PLANNED
+  RELEASED
+  IN_PROGRESS
+  COMPLETED
+  CLOSED
+  CANCELLED
+}
+
+enum ComponentIssueMethod {
+  MANUAL
+  BACKFLUSH
+  PREISSUE
+}
+
 // ============================================================
 // MULTI-TENANT & ORGANIZATIONAL STRUCTURE
 // ============================================================
@@ -114,6 +153,11 @@ model Tenant {
   cycleCounts       CycleCount[]
   cycleCountLines   CycleCountLine[]
   jobs              Job[]
+  suppliers         Supplier[]
+  purchaseOrders    PurchaseOrder[]
+  receipts          Receipt[]
+  billsOfMaterial   BillOfMaterial[]
+  productionOrders  ProductionOrder[]
 }
 
 model Site {
@@ -135,6 +179,9 @@ model Site {
   cycleCounts       CycleCount[]
   cycleCountLines   CycleCountLine[]
   jobs              Job[]
+  purchaseOrders    PurchaseOrder[]
+  receipts          Receipt[]
+  productionOrders  ProductionOrder[]
 
   @@index([tenantId])
 }
@@ -174,6 +221,7 @@ model Workcell {
   devices         Device[]
   inventoryEvents InventoryEvent[]
   jobs            Job[]
+  productionOrders ProductionOrder[]
 
   @@index([tenantId])
   @@index([siteId])
@@ -232,6 +280,14 @@ model User {
   jobsAssigned            Job[]            @relation("AssignedJobs")
   jobsCreated             Job[]            @relation("CreatedJobs")
   jobLinesCompleted       JobLine[]        @relation("JobLineCompletedBy")
+  purchaseOrdersCreated   PurchaseOrder[]  @relation("POCreatedBy")
+  purchaseOrdersApproved  PurchaseOrder[]  @relation("POApprovedBy")
+  bomsCreated             BillOfMaterial[] @relation("BOMCreatedBy")
+  bomsApproved            BillOfMaterial[] @relation("BOMApprovedBy")
+  productionOrdersCreated ProductionOrder[] @relation("ProductionOrderCreatedBy")
+  productionOrdersReleased ProductionOrder[] @relation("ProductionOrderReleasedBy")
+  consumptionsCreated     ProductionConsumption[] @relation("ConsumptionCreatedBy")
+  outputsCreated          ProductionOutput[] @relation("OutputCreatedBy")
 
   @@index([tenantId])
   @@index([email])
@@ -301,11 +357,18 @@ model Item {
   updatedAt        DateTime     @updatedAt
 
   // Relations
-  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  inventoryEvents InventoryEvent[]
-  balances        InventoryBalance[]
-  cycleCountLines CycleCountLine[]
-  jobLines        JobLine[]
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventoryEvents   InventoryEvent[]
+  balances          InventoryBalance[]
+  cycleCountLines   CycleCountLine[]
+  jobLines          JobLine[]
+  purchaseOrderLines PurchaseOrderLine[]
+  receiptLines      ReceiptLine[]
+  boms              BillOfMaterial[]    @relation("BOMFinishedGood")
+  bomComponents     BOMComponent[]      @relation("BOMComponentItem")
+  productionOrders  ProductionOrder[]   @relation("ProductionOrderItem")
+  consumptions      ProductionConsumption[] @relation("ConsumptionItem")
+  outputs           ProductionOutput[]  @relation("OutputItem")
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -332,6 +395,9 @@ model Location {
   cycleCountLines CycleCountLine[]
   jobLinesFrom    JobLine[]          @relation("JobLineFromLocation")
   jobLinesTo      JobLine[]          @relation("JobLineToLocation")
+  receipts        Receipt[]
+  consumptions    ProductionConsumption[] @relation("ConsumptionLocation")
+  outputs         ProductionOutput[] @relation("OutputLocation")
 
   @@unique([tenantId, siteId, label])
   @@index([tenantId])
@@ -350,6 +416,7 @@ model ReasonCode {
   // Relations
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   inventoryEvents InventoryEvent[]
+  consumptions    ProductionConsumption[]
 
   @@unique([tenantId, type, code])
   @@index([tenantId])
@@ -545,4 +612,359 @@ model JobLine {
   @@index([toLocationId])
   @@index([status])
   @@index([completedByUserId])
+}
+
+// ============================================================
+// PURCHASING MODULE
+// ============================================================
+
+model Supplier {
+  id              String   @id @default(uuid())
+  tenantId        String
+  code            String
+  name            String
+  contactName     String?
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String?
+  paymentTerms    String?
+  leadTimeDays    Int?
+  isActive        Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([name])
+}
+
+model PurchaseOrder {
+  id               String              @id @default(uuid())
+  tenantId         String
+  siteId           String
+  supplierId       String
+  poNumber         String
+  status           PurchaseOrderStatus @default(DRAFT)
+  orderDate        DateTime
+  expectedDelivery DateTime?
+  notes            String?
+  subtotal         Float               @default(0)
+  tax              Float               @default(0)
+  shipping         Float               @default(0)
+  total            Float               @default(0)
+  createdByUserId  String?
+  approvedByUserId String?
+  approvedAt       DateTime?
+  sentAt           DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  // Relations
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site       Site              @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  supplier   Supplier          @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy  User?             @relation("POCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  approvedBy User?             @relation("POApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  lines      PurchaseOrderLine[]
+  receipts   Receipt[]
+
+  @@unique([tenantId, poNumber])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+model PurchaseOrderLine {
+  id               String        @id @default(uuid())
+  purchaseOrderId  String
+  itemId           String
+  lineNumber       Int
+  description      String?
+  qtyOrdered       Float
+  qtyReceived      Float         @default(0)
+  uom              Uom
+  unitPrice        Float
+  lineTotal        Float
+  status           POLineStatus  @default(PENDING)
+  expectedDelivery DateTime?
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  purchaseOrder PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  item          Item            @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  receiptLines  ReceiptLine[]
+
+  @@index([purchaseOrderId])
+  @@index([itemId])
+  @@index([status])
+}
+
+model Receipt {
+  id              String    @id @default(uuid())
+  tenantId        String
+  siteId          String
+  purchaseOrderId String
+  receiptNumber   String
+  receiptDate     DateTime
+  receivedBy      String?
+  locationId      String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site          Site              @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder     @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  location      Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  lines         ReceiptLine[]
+
+  @@unique([tenantId, receiptNumber])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([purchaseOrderId])
+  @@index([receiptDate])
+}
+
+model ReceiptLine {
+  id                  String    @id @default(uuid())
+  receiptId           String
+  purchaseOrderLineId String
+  itemId              String
+  qtyReceived         Float
+  uom                 Uom
+  notes               String?
+  createdAt           DateTime  @default(now())
+
+  // Relations
+  receipt           Receipt           @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  purchaseOrderLine PurchaseOrderLine @relation(fields: [purchaseOrderLineId], references: [id], onDelete: Restrict)
+  item              Item              @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([receiptId])
+  @@index([purchaseOrderLineId])
+  @@index([itemId])
+}
+
+// ============================================================
+// MANUFACTURING & BILL OF MATERIALS
+// ============================================================
+
+model BillOfMaterial {
+  id              String      @id @default(uuid())
+  tenantId        String
+  itemId          String
+  bomNumber       String
+  version         Int         @default(1)
+  description     String?
+  status          BOMStatus   @default(DRAFT)
+
+  // Quantities
+  baseQty         Float       @default(1)
+  baseUom         Uom         @default(EA)
+
+  // Effectivity
+  effectiveFrom   DateTime    @default(now())
+  effectiveTo     DateTime?
+
+  // Metadata
+  notes           String?
+  createdByUserId String?
+  approvedByUserId String?
+  approvedAt      DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item            Item                 @relation("BOMFinishedGood", fields: [itemId], references: [id], onDelete: Restrict)
+  createdBy       User?                @relation("BOMCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  approvedBy      User?                @relation("BOMApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  components      BOMComponent[]
+  productionOrders ProductionOrder[]
+
+  @@unique([tenantId, bomNumber, version])
+  @@index([tenantId])
+  @@index([itemId])
+  @@index([status])
+}
+
+model BOMComponent {
+  id              String      @id @default(uuid())
+  bomId           String
+  itemId          String
+  sequence        Int
+
+  // Quantities
+  qtyPer          Float
+  uom             Uom
+  scrapFactor     Float       @default(0)
+
+  // Planning
+  isOptional      Boolean     @default(false)
+  isPurchased     Boolean     @default(false)
+  leadTimeOffset  Int?        @default(0)
+
+  // Issue method
+  issueMethod     ComponentIssueMethod @default(BACKFLUSH)
+
+  // Metadata
+  notes           String?
+  referenceDesignator String?
+
+  // Relations
+  bom             BillOfMaterial @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  item            Item           @relation("BOMComponentItem", fields: [itemId], references: [id], onDelete: Restrict)
+  consumptions    ProductionConsumption[]
+
+  @@index([bomId])
+  @@index([itemId])
+  @@unique([bomId, sequence])
+}
+
+model ProductionOrder {
+  id                String                @id @default(uuid())
+  tenantId          String
+  siteId            String
+  bomId             String
+  orderNumber       String
+  status            ProductionOrderStatus @default(PLANNED)
+
+  // What to produce
+  itemId            String
+  qtyOrdered        Float
+  qtyCompleted      Float                 @default(0)
+  qtyRejected       Float                 @default(0)
+  uom               Uom
+
+  // When
+  scheduledStart    DateTime
+  scheduledEnd      DateTime?
+  actualStart       DateTime?
+  actualEnd         DateTime?
+
+  // Where
+  workcellId        String?
+
+  // Lot/Batch tracking
+  lotNumber         String?
+  batchNumber       String?
+
+  // Metadata
+  priority          Int                   @default(5)
+  notes             String?
+  createdByUserId   String?
+  releasedByUserId  String?
+  releasedAt        DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  // Relations
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site              Site                  @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  bom               BillOfMaterial        @relation(fields: [bomId], references: [id], onDelete: Restrict)
+  item              Item                  @relation("ProductionOrderItem", fields: [itemId], references: [id], onDelete: Restrict)
+  workcell          Workcell?             @relation(fields: [workcellId], references: [id], onDelete: SetNull)
+  createdBy         User?                 @relation("ProductionOrderCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  releasedBy        User?                 @relation("ProductionOrderReleasedBy", fields: [releasedByUserId], references: [id], onDelete: SetNull)
+  consumptions      ProductionConsumption[]
+  outputs           ProductionOutput[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([bomId])
+  @@index([itemId])
+  @@index([status])
+  @@index([scheduledStart])
+}
+
+model ProductionConsumption {
+  id                    String          @id @default(uuid())
+  productionOrderId     String
+  bomComponentId        String?
+  itemId                String
+
+  // Quantities
+  qtyConsumed           Float
+  uom                   Uom
+  qtyBase               Float
+
+  // Source
+  fromLocationId        String
+  lotNumber             String?
+  serialNumber          String?
+
+  // Tracking
+  isBackflushed         Boolean         @default(false)
+  isScrap               Boolean         @default(false)
+  reasonCodeId          String?
+
+  // Reference
+  referenceId           String?
+  notes                 String?
+  createdByUserId       String?
+  createdAt             DateTime        @default(now())
+
+  // Relations
+  productionOrder       ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  bomComponent          BOMComponent?   @relation(fields: [bomComponentId], references: [id], onDelete: SetNull)
+  item                  Item            @relation("ConsumptionItem", fields: [itemId], references: [id], onDelete: Restrict)
+  fromLocation          Location        @relation("ConsumptionLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  reasonCode            ReasonCode?     @relation(fields: [reasonCodeId], references: [id], onDelete: SetNull)
+  createdBy             User?           @relation("ConsumptionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([productionOrderId])
+  @@index([itemId])
+  @@index([fromLocationId])
+}
+
+model ProductionOutput {
+  id                    String          @id @default(uuid())
+  productionOrderId     String
+  itemId                String
+
+  // Quantities
+  qtyProduced           Float
+  qtyRejected           Float           @default(0)
+  uom                   Uom
+  qtyBase               Float
+
+  // Destination
+  toLocationId          String
+  lotNumber             String?
+  batchNumber           String?
+  expirationDate        DateTime?
+
+  // Quality
+  inspectionStatus      String?
+
+  // Reference
+  referenceId           String?
+  notes                 String?
+  createdByUserId       String?
+  createdAt             DateTime        @default(now())
+
+  // Relations
+  productionOrder       ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  item                  Item            @relation("OutputItem", fields: [itemId], references: [id], onDelete: Restrict)
+  toLocation            Location        @relation("OutputLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  createdBy             User?           @relation("OutputCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([productionOrderId])
+  @@index([itemId])
+  @@index([toLocationId])
 }

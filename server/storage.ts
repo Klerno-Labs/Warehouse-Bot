@@ -488,6 +488,519 @@ class Storage {
       },
     });
   }
+
+  // ==================== PURCHASING - SUPPLIER METHODS ====================
+
+  async getSuppliersByTenant(tenantId: string) {
+    return prisma.supplier.findMany({
+      where: { tenantId },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  async getSupplierById(supplierId: string) {
+    return prisma.supplier.findUnique({
+      where: { id: supplierId },
+    });
+  }
+
+  async createSupplier(data: any) {
+    return prisma.supplier.create({
+      data,
+    });
+  }
+
+  async updateSupplier(supplierId: string, data: any) {
+    return prisma.supplier.update({
+      where: { id: supplierId },
+      data,
+    });
+  }
+
+  async deleteSupplier(supplierId: string) {
+    return prisma.supplier.delete({
+      where: { id: supplierId },
+    });
+  }
+
+  // ==================== PURCHASING - PURCHASE ORDER METHODS ====================
+
+  async getPurchaseOrdersByTenant(tenantId: string) {
+    return prisma.purchaseOrder.findMany({
+      where: { tenantId },
+      include: {
+        supplier: true,
+        site: true,
+        lines: {
+          include: {
+            item: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getPurchaseOrderById(poId: string) {
+    return prisma.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: {
+        supplier: true,
+        site: true,
+        createdBy: true,
+        approvedBy: true,
+        lines: {
+          include: {
+            item: true,
+          },
+          orderBy: { lineNumber: "asc" },
+        },
+      },
+    });
+  }
+
+  async createPurchaseOrder(data: any) {
+    return prisma.purchaseOrder.create({
+      data,
+      include: {
+        supplier: true,
+        lines: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updatePurchaseOrder(poId: string, data: any) {
+    return prisma.purchaseOrder.update({
+      where: { id: poId },
+      data,
+      include: {
+        supplier: true,
+        lines: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+  }
+
+  async deletePurchaseOrder(poId: string) {
+    return prisma.purchaseOrder.delete({
+      where: { id: poId },
+    });
+  }
+
+  // ==================== PURCHASING - PO LINE METHODS ====================
+
+  async createPurchaseOrderLine(data: any) {
+    return prisma.purchaseOrderLine.create({
+      data,
+      include: {
+        item: true,
+      },
+    });
+  }
+
+  async updatePurchaseOrderLine(lineId: string, data: any) {
+    return prisma.purchaseOrderLine.update({
+      where: { id: lineId },
+      data,
+      include: {
+        item: true,
+      },
+    });
+  }
+
+  async deletePurchaseOrderLine(lineId: string) {
+    return prisma.purchaseOrderLine.delete({
+      where: { id: lineId },
+    });
+  }
+
+  // ==================== PURCHASING - RECEIPT METHODS ====================
+
+  async getReceiptsByTenant(tenantId: string) {
+    return prisma.receipt.findMany({
+      where: { tenantId },
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: true,
+          },
+        },
+        location: true,
+        lines: {
+          include: {
+            item: true,
+            purchaseOrderLine: true,
+          },
+        },
+      },
+      orderBy: { receiptDate: "desc" },
+    });
+  }
+
+  async getReceiptById(receiptId: string) {
+    return prisma.receipt.findUnique({
+      where: { id: receiptId },
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: true,
+          },
+        },
+        location: true,
+        lines: {
+          include: {
+            item: true,
+            purchaseOrderLine: true,
+          },
+        },
+      },
+    });
+  }
+
+  async createReceipt(data: any) {
+    return prisma.receipt.create({
+      data,
+      include: {
+        purchaseOrder: {
+          include: {
+            supplier: true,
+          },
+        },
+        lines: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+  }
+
+  async createReceiptLine(data: any) {
+    return prisma.receiptLine.create({
+      data,
+      include: {
+        item: true,
+        purchaseOrderLine: true,
+      },
+    });
+  }
+
+  // ==================== MANUFACTURING - BOM METHODS ====================
+
+  async getBOMsByTenant(tenantId: string) {
+    return prisma.billOfMaterial.findMany({
+      where: { tenantId },
+      include: {
+        item: true,
+        components: {
+          include: {
+            item: true,
+          },
+          orderBy: { sequence: "asc" },
+        },
+        _count: {
+          select: {
+            components: true,
+            productionOrders: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getBOMById(bomId: string) {
+    return prisma.billOfMaterial.findUnique({
+      where: { id: bomId },
+      include: {
+        item: true,
+        createdBy: true,
+        approvedBy: true,
+        components: {
+          include: {
+            item: true,
+          },
+          orderBy: { sequence: "asc" },
+        },
+        _count: {
+          select: {
+            productionOrders: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getBOMsByItem(itemId: string) {
+    return prisma.billOfMaterial.findMany({
+      where: { itemId, status: "ACTIVE" },
+      include: {
+        components: {
+          include: {
+            item: true,
+          },
+          orderBy: { sequence: "asc" },
+        },
+      },
+      orderBy: { version: "desc" },
+    });
+  }
+
+  async createBOM(data: any) {
+    return prisma.billOfMaterial.create({
+      data,
+      include: {
+        item: true,
+        components: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateBOM(bomId: string, data: any) {
+    return prisma.billOfMaterial.update({
+      where: { id: bomId },
+      data,
+      include: {
+        item: true,
+        components: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+  }
+
+  async deleteBOM(bomId: string) {
+    return prisma.billOfMaterial.delete({
+      where: { id: bomId },
+    });
+  }
+
+  // ==================== MANUFACTURING - BOM COMPONENT METHODS ====================
+
+  async getBOMComponents(bomId: string) {
+    return prisma.bOMComponent.findMany({
+      where: { bomId },
+      include: {
+        item: true,
+      },
+      orderBy: { sequence: "asc" },
+    });
+  }
+
+  async createBOMComponent(data: any) {
+    return prisma.bOMComponent.create({
+      data,
+      include: {
+        item: true,
+      },
+    });
+  }
+
+  async updateBOMComponent(componentId: string, data: any) {
+    return prisma.bOMComponent.update({
+      where: { id: componentId },
+      data,
+      include: {
+        item: true,
+      },
+    });
+  }
+
+  async deleteBOMComponent(componentId: string) {
+    return prisma.bOMComponent.delete({
+      where: { id: componentId },
+    });
+  }
+
+  // ==================== MANUFACTURING - PRODUCTION ORDER METHODS ====================
+
+  async getProductionOrdersByTenant(tenantId: string) {
+    return prisma.productionOrder.findMany({
+      where: { tenantId },
+      include: {
+        bom: {
+          include: {
+            item: true,
+          },
+        },
+        item: true,
+        site: true,
+        workcell: true,
+        createdBy: true,
+        releasedBy: true,
+        _count: {
+          select: {
+            consumptions: true,
+            outputs: true,
+          },
+        },
+      },
+      orderBy: { scheduledStart: "desc" },
+    });
+  }
+
+  async getProductionOrderById(orderId: string) {
+    return prisma.productionOrder.findUnique({
+      where: { id: orderId },
+      include: {
+        bom: {
+          include: {
+            item: true,
+            components: {
+              include: {
+                item: true,
+              },
+              orderBy: { sequence: "asc" },
+            },
+          },
+        },
+        item: true,
+        site: true,
+        workcell: true,
+        createdBy: true,
+        releasedBy: true,
+        consumptions: {
+          include: {
+            item: true,
+            fromLocation: true,
+            bomComponent: true,
+            createdBy: true,
+          },
+          orderBy: { createdAt: "desc" },
+        },
+        outputs: {
+          include: {
+            item: true,
+            toLocation: true,
+            createdBy: true,
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+  }
+
+  async createProductionOrder(data: any) {
+    return prisma.productionOrder.create({
+      data,
+      include: {
+        bom: {
+          include: {
+            item: true,
+            components: {
+              include: {
+                item: true,
+              },
+            },
+          },
+        },
+        item: true,
+        site: true,
+      },
+    });
+  }
+
+  async updateProductionOrder(orderId: string, data: any) {
+    return prisma.productionOrder.update({
+      where: { id: orderId },
+      data,
+      include: {
+        bom: {
+          include: {
+            item: true,
+            components: {
+              include: {
+                item: true,
+              },
+            },
+          },
+        },
+        item: true,
+        consumptions: {
+          include: {
+            item: true,
+            fromLocation: true,
+          },
+        },
+        outputs: {
+          include: {
+            item: true,
+            toLocation: true,
+          },
+        },
+      },
+    });
+  }
+
+  async deleteProductionOrder(orderId: string) {
+    return prisma.productionOrder.delete({
+      where: { id: orderId },
+    });
+  }
+
+  // ==================== MANUFACTURING - CONSUMPTION METHODS ====================
+
+  async getConsumptionsByOrder(orderId: string) {
+    return prisma.productionConsumption.findMany({
+      where: { productionOrderId: orderId },
+      include: {
+        item: true,
+        fromLocation: true,
+        bomComponent: true,
+        reasonCode: true,
+        createdBy: true,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async createConsumption(data: any) {
+    return prisma.productionConsumption.create({
+      data,
+      include: {
+        item: true,
+        fromLocation: true,
+        bomComponent: true,
+      },
+    });
+  }
+
+  // ==================== MANUFACTURING - OUTPUT METHODS ====================
+
+  async getOutputsByOrder(orderId: string) {
+    return prisma.productionOutput.findMany({
+      where: { productionOrderId: orderId },
+      include: {
+        item: true,
+        toLocation: true,
+        createdBy: true,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async createOutput(data: any) {
+    return prisma.productionOutput.create({
+      data,
+      include: {
+        item: true,
+        toLocation: true,
+      },
+    });
+  }
 }
 
 export const storage = new Storage();
