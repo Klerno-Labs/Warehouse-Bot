@@ -893,6 +893,8 @@ model ProductionOrder {
   releasedBy        User?                 @relation("ProductionOrderReleasedBy", fields: [releasedByUserId], references: [id], onDelete: SetNull)
   consumptions      ProductionConsumption[]
   outputs           ProductionOutput[]
+  jobOperations     JobOperation[]
+  scanEvents        OperationScanEvent[]
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId])
@@ -978,4 +980,63 @@ model ProductionOutput {
   @@index([productionOrderId])
   @@index([itemId])
   @@index([toLocationId])
+}
+// Job Tracking Models
+
+model JobOperation {
+  id                    String          @id @default(uuid())
+  productionOrderId     String
+  sequence              Int
+  department            String
+  operationName         String
+  description           String?
+  status                String          @default("PENDING") // PENDING, IN_PROGRESS, PAUSED, COMPLETED, SKIPPED
+  assignedTo            String?
+
+  // Timing
+  scheduledStart        DateTime?
+  scheduledDuration     Int?            // minutes
+  actualStart           DateTime?
+  actualEnd             DateTime?
+
+  // Location
+  workCenterName        String?
+
+  // Notes
+  notes                 String?
+
+  // Relations
+  productionOrder       ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  scanEvents            OperationScanEvent[]
+
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([productionOrderId])
+  @@index([department])
+  @@index([status])
+}
+
+model OperationScanEvent {
+  id                    String          @id @default(uuid())
+  jobOperationId        String
+  productionOrderId     String
+  scanType              String          // START, PAUSE, RESUME, COMPLETE, SKIP
+  scannedBy             String
+  scannedAt             DateTime        @default(now())
+  department            String
+
+  // Device info
+  deviceId              String?
+
+  // Notes
+  notes                 String?
+
+  // Relations
+  jobOperation          JobOperation    @relation(fields: [jobOperationId], references: [id], onDelete: Cascade)
+  productionOrder       ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+
+  @@index([jobOperationId])
+  @@index([productionOrderId])
+  @@index([department])
 }
