@@ -187,9 +187,10 @@ export async function GET() {
         acc[event.itemId] = { count: 0, value: 0 };
       }
       acc[event.itemId].count++;
-      // Estimate value: quantity * default $10 (no cost field in schema yet)
-      const estimatedCost = 10;
-      acc[event.itemId].value += Math.abs(event.qtyBase) * estimatedCost;
+      // Use actual cost if available, otherwise estimate $10
+      const item = items.find((i) => i.id === event.itemId);
+      const itemCost = item?.avgCostBase || item?.costBase || item?.lastCostBase || 10;
+      acc[event.itemId].value += Math.abs(event.qtyBase) * itemCost;
       return acc;
     }, {} as Record<string, { count: number; value: number }>);
 
@@ -233,9 +234,9 @@ export async function GET() {
         .reduce((sum, b) => sum + b.qtyBase, 0);
 
       if (itemQty > 0) {
-        // TODO: Add cost field to Item schema - using $0 for now
-        const estimatedCost = 0;
-        const itemValue = itemQty * estimatedCost;
+        // Use average cost, fallback to standard cost, then last cost
+        const itemCost = item.avgCostBase || item.costBase || item.lastCostBase || 0;
+        const itemValue = itemQty * itemCost;
         totalStockValue += itemValue;
 
         if (itemValue > 0) {
@@ -276,8 +277,8 @@ export async function GET() {
       const itemQty = balances
         .filter((b) => b.itemId === item.id)
         .reduce((s, b) => s + b.qtyBase, 0);
-      // TODO: Add cost field to Item schema - using $0 for now
-      return sum + (itemQty * 0);
+      const itemCost = item.avgCostBase || item.costBase || item.lastCostBase || 0;
+      return sum + (itemQty * itemCost);
     }, 0);
 
     return NextResponse.json({

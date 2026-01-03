@@ -354,6 +354,11 @@ model Item {
   reorderPointBase Float?
   leadTimeDays     Int?
 
+  // Cost tracking fields
+  costBase         Float?       // Standard cost per base UOM
+  avgCostBase      Float?       // Weighted average cost (auto-calculated)
+  lastCostBase     Float?       // Most recent purchase cost
+
   // Barcode fields
   barcode          String?      // Primary barcode
   barcodeType      String?      // EAN-13, UPC-A, CODE-128, etc
