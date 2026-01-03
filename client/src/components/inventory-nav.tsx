@@ -18,24 +18,29 @@ export function InventoryNav() {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-wrap gap-2 border-b px-6 pt-4">
-      {navItems.map((item) => {
-        const isActive = pathname === item.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "inline-flex items-center rounded-md px-3 py-2 text-sm font-medium",
-              isActive
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
+    <div className="border-b bg-card/50 -mx-6 md:-mx-8 px-6 md:px-8 mb-6 md:mb-8">
+      <div className="flex flex-wrap gap-1">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "inline-flex items-center px-4 py-3 text-sm font-medium transition-all relative",
+                isActive
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {item.label}
+              {isActive && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-t-full" />
+              )}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

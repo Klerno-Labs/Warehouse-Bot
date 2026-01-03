@@ -75,31 +75,37 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+      <div className="flex h-screen w-full bg-background">
         <AppSidebar enabledModules={enabledModules} />
         <SidebarInset className="flex flex-1 flex-col">
-          <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b bg-background px-4">
-            <SidebarTrigger data-testid="button-sidebar-toggle">
+          {/* Elite Header - Elevated with subtle shadow */}
+          <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-6 shadow-sm">
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="hover:bg-accent">
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
-            
+
             <Breadcrumb className="hidden md:flex">
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
-                    <Link href="/">Home</Link>
+                    <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">
+                      Home
+                    </Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 {pathSegments.map((segment, idx) => (
                   <BreadcrumbItem key={segment}>
-                    <BreadcrumbSeparator />
+                    <BreadcrumbSeparator className="text-border" />
                     {idx === pathSegments.length - 1 ? (
-                      <BreadcrumbPage>
+                      <BreadcrumbPage className="text-sm font-semibold text-foreground">
                         {breadcrumbLabels[segment] || segment}
                       </BreadcrumbPage>
                     ) : (
                       <BreadcrumbLink asChild>
-                        <Link href={`/${pathSegments.slice(0, idx + 1).join("/")}`}>
+                        <Link
+                          href={`/${pathSegments.slice(0, idx + 1).join("/")}`}
+                          className="text-sm font-medium hover:text-primary transition-colors"
+                        >
                           {breadcrumbLabels[segment] || segment}
                         </Link>
                       </BreadcrumbLink>
@@ -109,24 +115,29 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
               </BreadcrumbList>
             </Breadcrumb>
 
-            <div className="flex flex-1 items-center justify-end gap-2">
+            <div className="flex flex-1 items-center justify-end gap-3">
               <div className="relative hidden sm:block">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="search"
                   placeholder="Search..."
-                  className="w-[200px] pl-9 lg:w-[280px]"
+                  className="w-[200px] pl-9 lg:w-[300px] bg-background border-border hover:border-primary/50 focus:border-primary transition-colors"
                   data-testid="input-global-search"
                 />
               </div>
-              <Button variant="ghost" size="icon" data-testid="button-notifications">
+              <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" data-testid="button-notifications">
                 <Bell className="h-5 w-5" />
               </Button>
               <ThemeToggle />
             </div>
           </header>
 
-          <main className="flex-1 overflow-auto">{children ?? null}</main>
+          {/* Main Content - Premium Spacing */}
+          <main className="flex-1 overflow-auto bg-background p-6 md:p-8">
+            <div className="mx-auto max-w-[1600px]">
+              {children ?? null}
+            </div>
+          </main>
         </SidebarInset>
       </div>
     </SidebarProvider>
