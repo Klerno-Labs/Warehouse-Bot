@@ -1,6 +1,7 @@
-import { Package, Briefcase, AlertTriangle, CheckCircle, TrendingUp, Clock, BarChart3 } from "lucide-react";
+import { Package, Briefcase, AlertTriangle, CheckCircle, TrendingUp, Clock, BarChart3, Download } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -91,6 +92,16 @@ type DashboardStats = {
     total: number;
   }>;
   timestamp: string;
+};
+
+const downloadCSV = (type: string) => {
+  const url = `/api/dashboard/stats/export?type=${type}`;
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${type}-export.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 export default function DashboardPage() {
@@ -265,8 +276,20 @@ export default function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">ABC Analysis</CardTitle>
-            <CardDescription>Inventory classification by value</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-medium">ABC Analysis</CardTitle>
+                <CardDescription>Inventory classification by value</CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => downloadCSV('abc')}
+                className="h-8 w-8 p-0"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {data?.analytics ? (
@@ -301,8 +324,20 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Inventory Aging</CardTitle>
-            <CardDescription>Stock age distribution</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-medium">Inventory Aging</CardTitle>
+                <CardDescription>Stock age distribution</CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => downloadCSV('aging')}
+                className="h-8 w-8 p-0"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {data?.analytics ? (
@@ -332,8 +367,20 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Top Value Items</CardTitle>
-            <CardDescription>Highest inventory value</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-medium">Top Value Items</CardTitle>
+                <CardDescription>Highest inventory value</CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => downloadCSV('valuation')}
+                className="h-8 w-8 p-0"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {data?.analytics.topValueItems && data.analytics.topValueItems.length > 0 ? (
@@ -461,13 +508,25 @@ export default function DashboardPage() {
       {data?.alerts?.deadStock && data.alerts.deadStock > 0 && (
         <Card className="border-amber-200 dark:border-amber-900">
           <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              Dead Stock Alert
-            </CardTitle>
-            <CardDescription>
-              {data.alerts.deadStock} items with no activity in 90+ days (${data.alerts.deadStockValue?.toLocaleString() || '0'} value at risk)
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  Dead Stock Alert
+                </CardTitle>
+                <CardDescription>
+                  {data.alerts.deadStock} items with no activity in 90+ days (${data.alerts.deadStockValue?.toLocaleString() || '0'} value at risk)
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => downloadCSV('deadstock')}
+                className="h-8 w-8 p-0"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {data.alerts.deadStockItems && data.alerts.deadStockItems.length > 0 ? (
