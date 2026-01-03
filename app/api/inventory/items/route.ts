@@ -87,6 +87,9 @@ export async function POST(req: Request) {
       barcode: null,
       barcodeType: null,
       alternateBarcode: null,
+      costBase: null,
+      avgCostBase: null,
+      lastCostBase: null,
     });
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
