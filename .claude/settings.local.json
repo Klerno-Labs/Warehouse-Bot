@@ -22,7 +22,13 @@
       "Bash(npx prisma generate:*)",
       "Bash(powershell:*)",
       "Bash(curl:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(findstr:*)",
+      "Bash(while read f)",
+      "Bash(do basename \"$f%.tsx\")",
+      "Bash(done)",
+      "Bash(grep:*)",
+      "Bash(git rm:*)"
     ]
   }
 }

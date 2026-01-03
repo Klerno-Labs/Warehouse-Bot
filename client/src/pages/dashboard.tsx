@@ -6,42 +6,61 @@ import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 type DashboardStats = {
-  stats: {
-    activeJobs: number;
-    inventoryItems: number;
-    pendingOrders: number;
-    completedToday: number;
-    completedTodayJobs: number;
-    lowStockCount: number;
-    totalBalanceQty: number;
+  overview: {
+    totalItems: number;
+    totalSkus: number;
+    totalStock: number;
+    healthScore: number;
+    turnoverRate: number;
   };
-  recentActivity: Array<{
-    id: string;
-    action: string;
-    user: string;
-    time: string;
-    type: string;
-  }>;
-  lowStockItems: Array<{
-    id: string;
-    sku: string;
-    name: string;
-    currentStock: number;
-    reorderPoint: number | null;
-  }>;
-  alerts: Array<{
-    title: string;
-    description: string;
-    severity: string;
-  }>;
+  alerts: {
+    lowStock: number;
+    outOfStock: number;
+    lowStockItems: Array<{
+      id: string;
+      sku: string;
+      name: string;
+      currentStock: number;
+      reorderPoint: number | null;
+    }>;
+    outOfStockItems: Array<{
+      id: string;
+      sku: string;
+      name: string;
+    }>;
+  };
+  activity: {
+    recentTransactions: number;
+    topMovingItems: Array<{
+      itemId: string;
+      sku: string;
+      name: string;
+      transactionCount: number;
+    }>;
+    recentActivity: Array<{
+      id: string;
+      timestamp: Date;
+      eventType: string;
+      sku: string;
+      itemName: string;
+      quantity: number;
+      uom: string;
+    }>;
+  };
+  production: {
+    active: number;
+    planned: number;
+    completed: number;
+    total: number;
+  };
   transactionsByDay: Array<{
-    date: string;
     label: string;
     receives: number;
     moves: number;
     adjustments: number;
     total: number;
   }>;
+  timestamp: string;
 };
 
 export default function DashboardPage() {
@@ -60,38 +79,49 @@ export default function DashboardPage() {
   const stats = data
     ? [
         {
-          title: "Active Jobs",
-          value: String(data.stats.activeJobs),
-          change: data.stats.completedTodayJobs > 0 ? `${data.stats.completedTodayJobs} completed today` : "No completions today",
-          changeType: data.stats.completedTodayJobs > 0 ? ("positive" as const) : ("neutral" as const),
-          icon: Briefcase,
-        },
-        {
-          title: "Inventory Items",
-          value: String(data.stats.inventoryItems),
-          change: `${data.stats.lowStockCount} low stock`,
-          changeType: data.stats.lowStockCount > 0 ? ("warning" as const) : ("neutral" as const),
+          title: "Total Items",
+          value: String(data.overview.totalItems),
+          change: `${data.overview.totalSkus} unique SKUs`,
+          changeType: "neutral" as const,
           icon: Package,
         },
         {
-          title: "Pending Orders",
-          value: String(data.stats.pendingOrders),
-          change: "Coming soon",
-          changeType: "neutral" as const,
-          icon: Clock,
+          title: "Total Stock",
+          value: String(data.overview.totalStock),
+          change: `${data.overview.healthScore}% health score`,
+          changeType: data.overview.healthScore >= 90 ? ("positive" as const) : data.overview.healthScore >= 70 ? ("neutral" as const) : ("warning" as const),
+          icon: TrendingUp,
         },
         {
-          title: "Transactions Today",
-          value: String(data.stats.completedToday),
-          change: `${data.stats.totalBalanceQty} units on hand`,
+          title: "Low Stock Alerts",
+          value: String(data.alerts.lowStock),
+          change: `${data.alerts.outOfStock} out of stock`,
+          changeType: data.alerts.lowStock > 0 ? ("warning" as const) : ("positive" as const),
+          icon: AlertTriangle,
+        },
+        {
+          title: "Recent Activity",
+          value: String(data.activity.recentTransactions),
+          change: `${data.overview.turnoverRate.toFixed(2)} turnover rate`,
           changeType: "positive" as const,
-          icon: CheckCircle,
+          icon: BarChart3,
         },
       ]
     : [];
 
-  const recentActivity = data?.recentActivity || [];
-  const alerts = data?.alerts || [];
+  const recentActivity = data?.activity.recentActivity.map((event) => ({
+    id: event.id,
+    action: `${event.eventType} - ${event.itemName}`,
+    user: `${event.quantity} ${event.uom}`,
+    time: new Date(event.timestamp).toLocaleString(),
+    type: event.eventType === 'RECEIVE' ? 'success' : event.eventType === 'ADJUST' ? 'warning' : 'info',
+  })) || [];
+
+  const alerts = data?.alerts.lowStockItems.slice(0, 5).map((item) => ({
+    title: `Low Stock: ${item.name}`,
+    description: `SKU ${item.sku} - ${item.currentStock} units remaining (reorder at ${item.reorderPoint})`,
+    severity: 'warning' as const,
+  })) || [];
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -276,11 +306,11 @@ export default function DashboardPage() {
             <CardDescription>Items at or below reorder point</CardDescription>
           </CardHeader>
           <CardContent>
-            {!data?.lowStockItems || data.lowStockItems.length === 0 ? (
+            {!data?.alerts.lowStockItems || data.alerts.lowStockItems.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">All items properly stocked</p>
             ) : (
               <div className="space-y-3">
-                {data.lowStockItems.map((item) => (
+                {data.alerts.lowStockItems.map((item) => (
                   <a
                     key={item.id}
                     href={`/modules/inventory/items`}

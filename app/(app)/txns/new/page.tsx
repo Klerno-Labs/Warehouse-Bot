@@ -31,10 +31,10 @@ export default function NewTxnPage() {
   const [note, setNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: itemsData } = useQuery<{ items: ItemRow[] }>({ queryKey: ["/api/items"] });
+  const { data: itemsData } = useQuery<{ items: ItemRow[] }>({ queryKey: ["/api/inventory/items"] });
   const { data: uomsData } = useQuery<{ uoms: Uom[] }>({ queryKey: ["/api/uoms"] });
   const { data: locationsData } = useQuery<{ locations: Location[] }>({
-    queryKey: ["/api/locations"],
+    queryKey: ["/api/inventory/locations"],
   });
 
   const items = itemsData?.items || [];

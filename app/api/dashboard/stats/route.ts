@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import type { InventoryBalance } from "@shared/inventory";
 
 export async function GET() {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    // Use new middleware for authentication
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const tenantId = session.user.tenantId;
-    const siteIds = session.user.siteIds;
+    const tenantId = context.user.tenantId;
+    const siteIds = context.user.siteIds;
 
     // Parallel data fetching for performance
     const [items, balances, allEvents, productionOrders] = await Promise.all([
@@ -50,7 +49,7 @@ export async function GET() {
 
     // Calculate recent activity (last 24 hours)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentEvents = events.filter((e) => new Date(e.timestamp) > oneDayAgo);
+    const recentEvents = events.filter((e) => new Date(e.createdAt) > oneDayAgo);
     const recentTransactions = recentEvents.length;
 
     // Production stats
@@ -67,7 +66,7 @@ export async function GET() {
     // Top moving items (most transactions in last 7 days)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentEventsByItem = events
-      .filter((e) => new Date(e.timestamp) > sevenDaysAgo)
+      .filter((e) => new Date(e.createdAt) > sevenDaysAgo)
       .reduce((acc, event) => {
         if (!acc[event.itemId]) {
           acc[event.itemId] = 0;
@@ -91,13 +90,13 @@ export async function GET() {
 
     // Recent activity feed (last 20 events)
     const recentActivity = events
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 20)
       .map((event) => {
         const item = items.find((i) => i.id === event.itemId);
         return {
           id: event.id,
-          timestamp: event.timestamp,
+          timestamp: event.createdAt,
           eventType: event.eventType,
           sku: item?.sku || 'Unknown',
           itemName: item?.name || 'Unknown',
@@ -114,13 +113,38 @@ export async function GET() {
     // Stock turnover rate (simplified)
     const turnoverRate = totalItems > 0 ? recentTransactions / totalItems : 0;
 
+    // Transactions by day (last 7 days)
+    const transactionsByDay = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      const dayEvents = events.filter((e: any) => {
+        const eventDate = new Date(e.createdAt);
+        return eventDate >= date && eventDate < nextDay;
+      });
+
+      const receives = dayEvents.filter((e: any) => e.eventType === 'RECEIVE').length;
+      const moves = dayEvents.filter((e: any) => e.eventType === 'MOVE').length;
+      const adjustments = dayEvents.filter((e: any) => e.eventType === 'ADJUST' || e.eventType === 'COUNT').length;
+
+      transactionsByDay.push({
+        label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        receives,
+        moves,
+        adjustments,
+        total: dayEvents.length,
+      });
+    }
+
     return NextResponse.json({
       overview: {
         totalItems,
         totalSkus,
         totalStock,
-        totalReserved,
-        totalAvailable,
         healthScore,
         turnoverRate: Math.round(turnoverRate * 100) / 100,
       },
@@ -133,7 +157,7 @@ export async function GET() {
           name: item.name,
           currentStock: balances
             .filter(b => b.itemId === item.id)
-            .reduce((sum, b) => sum + b.qtyAvailable, 0),
+            .reduce((sum, b) => sum + b.qtyBase, 0),
           reorderPoint: item.reorderPointBase,
         })),
         outOfStockItems: outOfStockItems.slice(0, 10).map(item => ({
@@ -153,13 +177,10 @@ export async function GET() {
         completed: completedProduction,
         total: productionOrders.length,
       },
+      transactionsByDay,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
-    return NextResponse.json(
-      { error: "Failed to fetch dashboard stats" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
