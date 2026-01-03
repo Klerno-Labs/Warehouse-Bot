@@ -52,6 +52,9 @@ export type Item = {
   barcode?: string | null;
   barcodeType?: string | null;
   alternateBarcode?: string | null;
+  costBase?: number | null;
+  avgCostBase?: number | null;
+  lastCostBase?: number | null;
 };
 
 export type Location = {
@@ -120,6 +123,9 @@ export const createItemSchema = z.object({
   barcode: z.string().optional(),
   barcodeType: z.string().optional(),
   alternateBarcode: z.string().optional(),
+  costBase: z.number().nonnegative().optional(),
+  avgCostBase: z.number().nonnegative().optional(),
+  lastCostBase: z.number().nonnegative().optional(),
 });
 
 export const updateItemSchema = createItemSchema.partial();
