@@ -49,6 +49,9 @@ export type Item = {
   maxQtyBase?: number | null;
   reorderPointBase?: number | null;
   leadTimeDays?: number | null;
+  barcode?: string | null;
+  barcodeType?: string | null;
+  alternateBarcode?: string | null;
 };
 
 export type Location = {
@@ -114,6 +117,9 @@ export const createItemSchema = z.object({
   maxQtyBase: z.number().optional(),
   reorderPointBase: z.number().optional(),
   leadTimeDays: z.number().int().optional(),
+  barcode: z.string().optional(),
+  barcodeType: z.string().optional(),
+  alternateBarcode: z.string().optional(),
 });
 
 export const updateItemSchema = createItemSchema.partial();

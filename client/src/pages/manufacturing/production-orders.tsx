@@ -165,31 +165,51 @@ export default function ProductionOrdersPage() {
   // Fetch production orders
   const { data: ordersData, isLoading: isLoadingOrders } = useQuery<ProductionOrdersResponse>({
     queryKey: ["production-orders"],
-    queryFn: () => apiRequest("/api/manufacturing/production-orders"),
+    queryFn: async () => {
+      const res = await fetch("/api/manufacturing/production-orders");
+      if (!res.ok) throw new Error("Failed to fetch production orders");
+      return res.json();
+    },
   });
 
   // Fetch BOMs (active only)
   const { data: bomsData } = useQuery<BOMsResponse>({
     queryKey: ["boms", "ACTIVE"],
-    queryFn: () => apiRequest("/api/manufacturing/boms?status=ACTIVE"),
+    queryFn: async () => {
+      const res = await fetch("/api/manufacturing/boms?status=ACTIVE");
+      if (!res.ok) throw new Error("Failed to fetch BOMs");
+      return res.json();
+    },
   });
 
   // Fetch sites
   const { data: sitesData } = useQuery<SitesResponse>({
     queryKey: ["sites"],
-    queryFn: () => apiRequest("/api/admin/sites"),
+    queryFn: async () => {
+      const res = await fetch("/api/admin/sites");
+      if (!res.ok) throw new Error("Failed to fetch sites");
+      return res.json();
+    },
   });
 
   // Fetch workcells
   const { data: workcellsData } = useQuery<WorkcellsResponse>({
     queryKey: ["workcells"],
-    queryFn: () => apiRequest("/api/admin/workcells"),
+    queryFn: async () => {
+      const res = await fetch("/api/admin/workcells");
+      if (!res.ok) throw new Error("Failed to fetch workcells");
+      return res.json();
+    },
   });
 
   // Fetch locations
   const { data: locationsData } = useQuery<LocationsResponse>({
     queryKey: ["locations"],
-    queryFn: () => apiRequest("/api/inventory/locations"),
+    queryFn: async () => {
+      const res = await fetch("/api/inventory/locations");
+      if (!res.ok) throw new Error("Failed to fetch locations");
+      return res.json();
+    },
   });
 
   const orders = ordersData?.orders || [];
@@ -228,10 +248,7 @@ export default function ProductionOrdersPage() {
     }
 
     try {
-      await apiRequest("/api/manufacturing/production-orders", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
+      await apiRequest("POST", "/api/manufacturing/production-orders", formData);
 
       toast({
         title: "Success",
@@ -252,9 +269,7 @@ export default function ProductionOrdersPage() {
 
   const handleReleaseOrder = async (orderId: string) => {
     try {
-      await apiRequest(`/api/manufacturing/production-orders/${orderId}/release`, {
-        method: "POST",
-      });
+      await apiRequest("POST", `/api/manufacturing/production-orders/${orderId}/release`);
 
       toast({
         title: "Success",
@@ -273,9 +288,9 @@ export default function ProductionOrdersPage() {
 
   const handleBackflush = async (orderId: string, qtyProduced: number, fromLocationId: string) => {
     try {
-      await apiRequest(`/api/manufacturing/production-orders/${orderId}/backflush`, {
-        method: "POST",
-        body: JSON.stringify({ qtyProduced, fromLocationId }),
+      await apiRequest("POST", `/api/manufacturing/production-orders/${orderId}/backflush`, {
+        qtyProduced,
+        fromLocationId,
       });
 
       toast({
@@ -304,10 +319,7 @@ export default function ProductionOrdersPage() {
     }
 
     try {
-      await apiRequest(`/api/manufacturing/production-orders/${selectedOrder.id}/consume`, {
-        method: "POST",
-        body: JSON.stringify(consumptionData),
-      });
+      await apiRequest("POST", `/api/manufacturing/production-orders/${selectedOrder.id}/consume`, consumptionData);
 
       toast({
         title: "Success",
@@ -346,10 +358,7 @@ export default function ProductionOrdersPage() {
     }
 
     try {
-      await apiRequest(`/api/manufacturing/production-orders/${selectedOrder.id}/output`, {
-        method: "POST",
-        body: JSON.stringify(outputData),
-      });
+      await apiRequest("POST", `/api/manufacturing/production-orders/${selectedOrder.id}/output`, outputData);
 
       toast({
         title: "Success",

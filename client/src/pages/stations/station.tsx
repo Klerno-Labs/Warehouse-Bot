@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
+import { BarcodeScanner } from "@/components/barcode/BarcodeScanner";
+import { useBarcodeScanner } from "@/components/barcode/useBarcodeScanner";
 import {
   addQueueItem,
   loadQueue,
@@ -81,22 +83,81 @@ export default function StationPage({ stationId }: { stationId: string }) {
 
   const siteId = currentSite?.id || "";
 
-  const { data: items = [] } = useQuery<Item[]>({
-    queryKey: ["/api/inventory/items"],
+  // Barcode scanner for SKU
+  const skuScanner = useBarcodeScanner({
+    onItemFound: (item) => {
+      setSku(item.sku);
+      toast({ title: "Item found", description: item.name });
+      setTimeout(() => fromRef.current?.focus(), 100);
+    },
+    onItemNotFound: (barcode) => {
+      setSku(barcode);
+      toast({
+        title: "Item not found",
+        description: `No item with barcode: ${barcode}`,
+        variant: "destructive"
+      });
+    },
   });
-  const { data: locations = [] } = useQuery<Location[]>({
-    queryKey: [`/api/inventory/locations?siteId=${siteId}`],
+
+  // Barcode scanner for locations
+  const locationScanner = useBarcodeScanner({ autoLookup: false });
+  const [scanTarget, setScanTarget] = useState<'from' | 'to' | null>(null);
+
+  // Handle location barcode scan
+  useEffect(() => {
+    if (locationScanner.lastScannedBarcode && scanTarget) {
+      if (scanTarget === 'from') {
+        setFromLabel(locationScanner.lastScannedBarcode);
+        setTimeout(() => toRef.current?.focus(), 100);
+      } else if (scanTarget === 'to') {
+        setToLabel(locationScanner.lastScannedBarcode);
+        setTimeout(() => qtyRef.current?.focus(), 100);
+      }
+      setScanTarget(null);
+    }
+  }, [locationScanner.lastScannedBarcode, scanTarget]);
+
+  const { data: itemsData } = useQuery<{ items: Item[] }>({
+    queryKey: ["items"],
+    queryFn: async () => {
+      const res = await fetch("/api/inventory/items");
+      if (!res.ok) throw new Error("Failed to fetch items");
+      return res.json();
+    },
+  });
+  const { data: locationsData } = useQuery<{ locations: Location[] }>({
+    queryKey: ["locations", siteId],
+    queryFn: async () => {
+      const res = await fetch(`/api/inventory/locations?siteId=${siteId}`);
+      if (!res.ok) throw new Error("Failed to fetch locations");
+      return res.json();
+    },
     enabled: !!siteId,
   });
-  const { data: reasons = [] } = useQuery<ReasonCode[]>({
-    queryKey: ["/api/inventory/reason-codes"],
+  const { data: reasonsData } = useQuery<{ reasonCodes: ReasonCode[] }>({
+    queryKey: ["reason-codes"],
+    queryFn: async () => {
+      const res = await fetch("/api/inventory/reason-codes");
+      if (!res.ok) throw new Error("Failed to fetch reason codes");
+      return res.json();
+    },
   });
-  const { data: workcells = [] } = useQuery<
-    Array<{ id: string; name: string }>
-  >({
-    queryKey: [`/api/sites/${siteId}/workcells`],
+
+  const items = itemsData?.items || [];
+  const locations = locationsData?.locations || [];
+  const reasons = reasonsData?.reasonCodes || [];
+  const { data: workcellsData } = useQuery<{ workcells: Array<{ id: string; name: string }> }>({
+    queryKey: ["workcells", siteId],
+    queryFn: async () => {
+      const res = await fetch(`/api/sites/${siteId}/workcells`);
+      if (!res.ok) throw new Error("Failed to fetch workcells");
+      return res.json();
+    },
     enabled: !!siteId,
   });
+
+  const workcells = workcellsData?.workcells || [];
 
   const item = useMemo(
     () => items.find((i) => i.sku.toLowerCase() === sku.trim().toLowerCase()),
@@ -363,18 +424,35 @@ export default function StationPage({ stationId }: { stationId: string }) {
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="sku">Item SKU</Label>
-            <Input
-              id="sku"
-              ref={skuRef}
-              placeholder="Scan or type SKU"
-              value={sku}
-              onChange={(event) => setSku(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") fromRef.current?.focus();
-              }}
-              data-testid="input-station-sku"
-              className={item ? "border-green-500 focus-visible:ring-green-500" : sku && !item ? "border-red-500 focus-visible:ring-red-500" : ""}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="sku"
+                ref={skuRef}
+                placeholder="Scan or type SKU"
+                value={sku}
+                onChange={(event) => setSku(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") fromRef.current?.focus();
+                }}
+                data-testid="input-station-sku"
+                className={item ? "border-green-500 focus-visible:ring-green-500" : sku && !item ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={skuScanner.openScanner}
+                title="Scan barcode"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                  <rect x="7" y="7" width="10" height="10" rx="1"/>
+                </svg>
+              </Button>
+            </div>
             {item ? (
               <span className="text-xs text-green-600">
                 ✓ {item.name} · {item.category} · Base UoM: {item.baseUom}
@@ -386,18 +464,38 @@ export default function StationPage({ stationId }: { stationId: string }) {
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="fromLocation">From Location</Label>
-            <Input
-              id="fromLocation"
-              ref={fromRef}
-              placeholder="Scan from location"
-              value={fromLabel}
-              onChange={(event) => setFromLabel(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") toRef.current?.focus();
-              }}
-              data-testid="input-station-from"
-              className={fromLocation ? "border-green-500 focus-visible:ring-green-500" : fromLabel && !fromLocation ? "border-red-500 focus-visible:ring-red-500" : ""}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="fromLocation"
+                ref={fromRef}
+                placeholder="Scan from location"
+                value={fromLabel}
+                onChange={(event) => setFromLabel(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") toRef.current?.focus();
+                }}
+                data-testid="input-station-from"
+                className={fromLocation ? "border-green-500 focus-visible:ring-green-500" : fromLabel && !fromLocation ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setScanTarget('from');
+                  locationScanner.openScanner();
+                }}
+                title="Scan location barcode"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                  <rect x="7" y="7" width="10" height="10" rx="1"/>
+                </svg>
+              </Button>
+            </div>
             {fromLocation ? (
               <span className="text-xs text-green-600">
                 ✓ {fromLocation.label} {fromLocation.type ? `(${fromLocation.type})` : ""}
@@ -409,18 +507,38 @@ export default function StationPage({ stationId }: { stationId: string }) {
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="toLocation">To Location</Label>
-            <Input
-              id="toLocation"
-              ref={toRef}
-              placeholder="Scan to location"
-              value={toLabel}
-              onChange={(event) => setToLabel(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") qtyRef.current?.focus();
-              }}
-              data-testid="input-station-to"
-              className={toLocation ? "border-green-500 focus-visible:ring-green-500" : toLabel && !toLocation ? "border-red-500 focus-visible:ring-red-500" : ""}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="toLocation"
+                ref={toRef}
+                placeholder="Scan to location"
+                value={toLabel}
+                onChange={(event) => setToLabel(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") qtyRef.current?.focus();
+                }}
+                data-testid="input-station-to"
+                className={toLocation ? "border-green-500 focus-visible:ring-green-500" : toLabel && !toLocation ? "border-red-500 focus-visible:ring-red-500" : ""}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => {
+                  setScanTarget('to');
+                  locationScanner.openScanner();
+                }}
+                title="Scan location barcode"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                  <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                  <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                  <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                  <rect x="7" y="7" width="10" height="10" rx="1"/>
+                </svg>
+              </Button>
+            </div>
             {toLocation ? (
               <span className="text-xs text-green-600">
                 ✓ {toLocation.label} {toLocation.type ? `(${toLocation.type})` : ""}
@@ -529,6 +647,22 @@ export default function StationPage({ stationId }: { stationId: string }) {
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {/* Barcode Scanner Modals */}
+      {skuScanner.isOpen && (
+        <BarcodeScanner
+          onScan={skuScanner.handleScan}
+          onError={skuScanner.handleError}
+          onClose={skuScanner.closeScanner}
+        />
+      )}
+      {locationScanner.isOpen && (
+        <BarcodeScanner
+          onScan={locationScanner.handleScan}
+          onError={locationScanner.handleError}
+          onClose={locationScanner.closeScanner}
+        />
       )}
     </div>
   );

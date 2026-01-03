@@ -353,6 +353,12 @@ model Item {
   maxQtyBase       Float?
   reorderPointBase Float?
   leadTimeDays     Int?
+
+  // Barcode fields
+  barcode          String?      // Primary barcode
+  barcodeType      String?      // EAN-13, UPC-A, CODE-128, etc
+  alternateBarcode String?      // Secondary barcode
+
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 

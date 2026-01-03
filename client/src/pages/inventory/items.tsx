@@ -18,7 +18,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ITEM_CATEGORIES, UOMS, type Item } from "@shared/inventory";
-import { Download } from "lucide-react";
+import { Download, Printer, Barcode } from "lucide-react";
+import { BarcodeLabelPrinter } from "@/components/barcode/BarcodeLabelPrinter";
 
 type ItemsResponse = {
   items: Item[];
@@ -67,6 +68,7 @@ export default function InventoryItemsPage() {
   const [category, setCategory] = useState<Item["category"]>(ITEM_CATEGORIES[0]);
   const [baseUom, setBaseUom] = useState<Item["baseUom"]>(UOMS[0]);
   const [allowedUoms, setAllowedUoms] = useState("EA:1");
+  const [printItem, setPrintItem] = useState<Item | null>(null);
 
   const resetForm = () => {
     setEditingId(null);
@@ -342,7 +344,7 @@ export default function InventoryItemsPage() {
                         <TableHead>Name</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead>Base UoM</TableHead>
-                        <TableHead>Allowed UoMs</TableHead>
+                        <TableHead>Barcode</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -361,12 +363,28 @@ export default function InventoryItemsPage() {
                             <TableCell>{item.category}</TableCell>
                             <TableCell>{item.baseUom}</TableCell>
                             <TableCell>
-                              {item.allowedUoms.map((u) => u.uom).join(", ")}
+                              {item.barcode ? (
+                                <span className="text-xs font-mono">{item.barcode}</span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">No barcode</span>
+                              )}
                             </TableCell>
                             <TableCell>
-                              <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
-                                Edit
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" onClick={() => startEdit(item)}>
+                                  Edit
+                                </Button>
+                                {item.barcode && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPrintItem(item)}
+                                    title="Print barcode label"
+                                  >
+                                    <Printer className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
@@ -403,6 +421,17 @@ export default function InventoryItemsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Barcode Label Printer Modal */}
+      {printItem && printItem.barcode && (
+        <BarcodeLabelPrinter
+          barcode={printItem.barcode}
+          barcodeType={(printItem.barcodeType as any) || 'CODE128'}
+          itemName={printItem.name}
+          sku={printItem.sku}
+          onClose={() => setPrintItem(null)}
+        />
+      )}
     </div>
   );
 }

@@ -119,22 +119,30 @@ export default function BOMsPage() {
   // Fetch BOMs
   const { data: bomsData, isLoading: isLoadingBOMs } = useQuery<BOMsResponse>({
     queryKey: ["boms"],
-    queryFn: () => apiRequest("/api/manufacturing/boms"),
+    queryFn: async () => {
+      const res = await fetch("/api/manufacturing/boms");
+      if (!res.ok) throw new Error("Failed to fetch BOMs");
+      return res.json();
+    },
   });
 
   // Fetch items
   const { data: itemsData } = useQuery<ItemsResponse>({
     queryKey: ["items"],
-    queryFn: () => apiRequest("/api/inventory/items"),
+    queryFn: async () => {
+      const res = await fetch("/api/inventory/items");
+      if (!res.ok) throw new Error("Failed to fetch items");
+      return res.json();
+    },
   });
 
   const boms = bomsData?.boms || [];
   const items = itemsData?.items || [];
 
   // Filter BOMs
-  const filteredBOMs = boms.filter((bom) => {
+  const filteredBOMs = boms.filter((bom: BOM) => {
     if (statusFilter !== "ALL" && bom.status !== statusFilter) return false;
-    if (itemFilter !== "ALL" && bom.itemId !== itemFilter) return false;
+    if (itemFilter !== "ALL" && bom.item.id !== itemFilter) return false;
     return true;
   });
 
@@ -179,15 +187,12 @@ export default function BOMsPage() {
     }
 
     try {
-      await apiRequest("/api/manufacturing/boms", {
-        method: "POST",
-        body: JSON.stringify({
-          ...formData,
-          components: components.map((comp, idx) => ({
-            ...comp,
-            sequence: idx + 1,
-          })),
-        }),
+      await apiRequest("POST", "/api/manufacturing/boms", {
+        ...formData,
+        components: components.map((comp, idx) => ({
+          ...comp,
+          sequence: idx + 1,
+        })),
       });
 
       toast({
@@ -209,9 +214,8 @@ export default function BOMsPage() {
 
   const handleActivateBOM = async (bomId: string) => {
     try {
-      await apiRequest(`/api/manufacturing/boms/${bomId}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: "ACTIVE" }),
+      await apiRequest("PUT", `/api/manufacturing/boms/${bomId}`, {
+        status: "ACTIVE",
       });
 
       toast({
@@ -231,9 +235,7 @@ export default function BOMsPage() {
 
   const handleDeleteBOM = async (bomId: string) => {
     try {
-      await apiRequest(`/api/manufacturing/boms/${bomId}`, {
-        method: "DELETE",
-      });
+      await apiRequest("DELETE", `/api/manufacturing/boms/${bomId}`);
 
       toast({
         title: "Success",
@@ -327,7 +329,7 @@ export default function BOMsPage() {
                       <SelectValue placeholder="Select item" />
                     </SelectTrigger>
                     <SelectContent>
-                      {items.map((item) => (
+                      {items.map((item: Item) => (
                         <SelectItem key={item.id} value={item.id}>
                           {item.code} - {item.description}
                         </SelectItem>
@@ -456,7 +458,7 @@ export default function BOMsPage() {
                     </TableHeader>
                     <TableBody>
                       {components.map((comp, idx) => {
-                        const item = items.find((i) => i.id === comp.itemId);
+                        const item = items.find((i: Item) => i.id === comp.itemId);
                         return (
                           <TableRow key={idx}>
                             <TableCell>{idx + 1}</TableCell>
@@ -498,7 +500,7 @@ export default function BOMsPage() {
                           <SelectValue placeholder="Select item" />
                         </SelectTrigger>
                         <SelectContent>
-                          {items.map((item) => (
+                          {items.map((item: Item) => (
                             <SelectItem key={item.id} value={item.id}>
                               {item.code} - {item.description}
                             </SelectItem>
@@ -636,7 +638,7 @@ export default function BOMsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All Items</SelectItem>
-                  {items.map((item) => (
+                  {items.map((item: Item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.code} - {item.description}
                     </SelectItem>
@@ -676,7 +678,7 @@ export default function BOMsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBOMs.map((bom) => (
+                {filteredBOMs.map((bom: BOM) => (
                   <TableRow key={bom.id}>
                     <TableCell className="font-medium">{bom.bomNumber}</TableCell>
                     <TableCell>{bom.version}</TableCell>

@@ -21,10 +21,65 @@
       "static/chunks/main-app.js",
       "static/chunks/app/not-found.js"
     ],
+    "/(app)/modules/inventory/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/modules/inventory/page.js"
+    ],
+    "/(app)/stations/[stationId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/stations/[stationId]/page.js"
+    ],
+    "/(app)/modules/inventory/items/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/modules/inventory/items/page.js"
+    ],
     "/_not-found/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/_not-found/page.js"
+    ],
+    "/(app)/modules/inventory/locations/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/modules/inventory/locations/page.js"
+    ],
+    "/(app)/admin/users/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/admin/users/page.js"
+    ],
+    "/(app)/admin/facilities/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/admin/facilities/page.js"
+    ],
+    "/(app)/admin/audit/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/admin/audit/page.js"
+    ],
+    "/(app)/modules/inventory/balances/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/modules/inventory/balances/page.js"
+    ],
+    "/(app)/modules/inventory/events/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/modules/inventory/events/page.js"
+    ],
+    "/(app)/modules/inventory/reason-codes/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/modules/inventory/reason-codes/page.js"
+    ],
+    "/(app)/modules/inventory/reports/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(app)/modules/inventory/reports/page.js"
     ]
   }
 }

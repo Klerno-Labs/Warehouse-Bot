@@ -1,127 +1,165 @@
 import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
 import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import type { InventoryBalance } from "@shared/inventory";
 
 export async function GET() {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const session = await getSessionUserWithRecord();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { tenantId, siteIds } = session.user;
-  const primarySiteId = siteIds[0];
+    const tenantId = session.user.tenantId;
+    const siteIds = session.user.siteIds;
 
-  // Get inventory stats
-  const items = await storage.getItemsByTenant(tenantId);
-  const balances = primarySiteId
-    ? await storage.getInventoryBalancesBySite(primarySiteId)
-    : [];
-  const events = await storage.getInventoryEventsByTenant(tenantId);
-  const jobs = await storage.getJobsByTenant(tenantId);
-  const auditEvents = await storage.getAuditEvents(tenantId, 10);
+    // Parallel data fetching for performance
+    const [items, balances, allEvents, productionOrders] = await Promise.all([
+      storage.getItemsByTenant(tenantId),
+      Promise.all(siteIds.map((siteId: string) => storage.getInventoryBalancesBySite(siteId))).then(results => results.flat()),
+      storage.getInventoryEventsByTenant(tenantId),
+      storage.getProductionOrdersByTenant(tenantId),
+    ]);
 
-  // Calculate stats
-  const totalItems = items.length;
-  const totalBalanceQty = balances.reduce((sum, b) => sum + b.qtyBase, 0);
-  
-  // Get today's events
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayEvents = events.filter(
-    (e) => new Date(e.createdAt) >= today
-  );
+    // Take last 100 events for performance
+    const events = allEvents.slice(0, 100);
 
-  // Get low stock items (items with balance below reorderPointBase)
-  const lowStockItems = items.filter((item) => {
-    if (!item.reorderPointBase) return false;
-    const itemBalance = balances
-      .filter((b) => b.itemId === item.id)
-      .reduce((sum, b) => sum + b.qtyBase, 0);
-    return itemBalance <= item.reorderPointBase;
-  });
+    // Calculate total inventory
+    const totalItems = items.length;
+    const totalSkus = items.length;
 
-  // Recent activity (from audit log)
-  const recentActivity = auditEvents.map((event) => ({
-    id: event.id,
-    action: event.details || event.action,
-    user: "System", // Could enhance to look up user name
-    time: formatTimeAgo(event.timestamp),
-    type: event.action === "CREATE" ? "success" : event.action === "ALERT" ? "warning" : "info",
-  }));
+    // Calculate stock levels (qtyBase is the only field we have)
+    const totalStock = balances.reduce((sum: number, b: InventoryBalance) => sum + b.qtyBase, 0);
 
-  // Calculate job stats
-  const activeJobs = jobs.filter((j) => j.status === "PENDING" || j.status === "IN_PROGRESS").length;
-  const completedTodayJobs = jobs.filter(
-    (j) => j.status === "COMPLETED" && j.completedAt && new Date(j.completedAt) >= today
-  ).length;
-
-  // Calculate last 7 days transaction trends
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - i));
-    date.setHours(0, 0, 0, 0);
-    return date;
-  });
-
-  const transactionsByDay = last7Days.map((date) => {
-    const nextDay = new Date(date);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const dayEvents = events.filter((e) => {
-      const eventDate = new Date(e.createdAt);
-      return eventDate >= date && eventDate < nextDay;
-    });
-
-    const receives = dayEvents.filter((e) => e.eventType === "RECEIVE").length;
-    const moves = dayEvents.filter((e) => e.eventType === "MOVE").length;
-    const adjustments = dayEvents.filter((e) => e.eventType === "ADJUST").length;
-
-    return {
-      date: date.toISOString().split("T")[0],
-      label: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      receives,
-      moves,
-      adjustments,
-      total: dayEvents.length,
-    };
-  });
-
-  return NextResponse.json({
-    stats: {
-      activeJobs,
-      inventoryItems: totalItems,
-      pendingOrders: 0, // Placeholder until Purchasing module is built
-      completedToday: todayEvents.length,
-      completedTodayJobs,
-      lowStockCount: lowStockItems.length,
-      totalBalanceQty: Math.round(totalBalanceQty),
-    },
-    recentActivity,
-    lowStockItems: lowStockItems.slice(0, 10).map((item) => {
+    // Low stock items
+    const lowStockItems = items.filter((item) => {
+      if (!item.reorderPointBase) return false;
       const itemBalance = balances
         .filter((b) => b.itemId === item.id)
-        .reduce((sum, b) => sum + b.qtyBase, 0);
-      return {
-        id: item.id,
-        sku: item.sku,
-        name: item.name,
-        currentStock: itemBalance,
-        reorderPoint: item.reorderPointBase,
-      };
-    }),
-    alerts: lowStockItems.slice(0, 5).map((item) => ({
-      title: "Low Stock Alert",
-      description: `${item.name} is below reorder threshold`,
-      severity: "warning",
-    })),
-    transactionsByDay,
-  });
-}
+        .reduce((sum: number, b: InventoryBalance) => sum + b.qtyBase, 0);
+      return itemBalance <= item.reorderPointBase;
+    });
 
-function formatTimeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-  return `${Math.floor(seconds / 86400)} days ago`;
+    // Out of stock items
+    const outOfStockItems = items.filter((item) => {
+      const itemBalance = balances
+        .filter((b) => b.itemId === item.id)
+        .reduce((sum: number, b: InventoryBalance) => sum + b.qtyBase, 0);
+      return itemBalance === 0;
+    });
+
+    // Calculate recent activity (last 24 hours)
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentEvents = events.filter((e) => new Date(e.timestamp) > oneDayAgo);
+    const recentTransactions = recentEvents.length;
+
+    // Production stats
+    const activeProduction = productionOrders.filter(
+      (po) => po.status === 'IN_PROGRESS' || po.status === 'RELEASED'
+    ).length;
+    const plannedProduction = productionOrders.filter(
+      (po) => po.status === 'PLANNED'
+    ).length;
+    const completedProduction = productionOrders.filter(
+      (po) => po.status === 'COMPLETED'
+    ).length;
+
+    // Top moving items (most transactions in last 7 days)
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentEventsByItem = events
+      .filter((e) => new Date(e.timestamp) > sevenDaysAgo)
+      .reduce((acc, event) => {
+        if (!acc[event.itemId]) {
+          acc[event.itemId] = 0;
+        }
+        acc[event.itemId]++;
+        return acc;
+      }, {} as Record<string, number>);
+
+    const topMovingItems = Object.entries(recentEventsByItem)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .slice(0, 10)
+      .map(([itemId, count]) => {
+        const item = items.find((i) => i.id === itemId);
+        return {
+          itemId,
+          sku: item?.sku || 'Unknown',
+          name: item?.name || 'Unknown',
+          transactionCount: count as number,
+        };
+      });
+
+    // Recent activity feed (last 20 events)
+    const recentActivity = events
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 20)
+      .map((event) => {
+        const item = items.find((i) => i.id === event.itemId);
+        return {
+          id: event.id,
+          timestamp: event.timestamp,
+          eventType: event.eventType,
+          sku: item?.sku || 'Unknown',
+          itemName: item?.name || 'Unknown',
+          quantity: event.qtyEntered,
+          uom: event.uomEntered,
+        };
+      });
+
+    // Calculate inventory health score (0-100)
+    const healthScore = totalItems > 0
+      ? Math.round(((totalItems - outOfStockItems.length) / totalItems) * 100)
+      : 100;
+
+    // Stock turnover rate (simplified)
+    const turnoverRate = totalItems > 0 ? recentTransactions / totalItems : 0;
+
+    return NextResponse.json({
+      overview: {
+        totalItems,
+        totalSkus,
+        totalStock,
+        totalReserved,
+        totalAvailable,
+        healthScore,
+        turnoverRate: Math.round(turnoverRate * 100) / 100,
+      },
+      alerts: {
+        lowStock: lowStockItems.length,
+        outOfStock: outOfStockItems.length,
+        lowStockItems: lowStockItems.slice(0, 10).map(item => ({
+          id: item.id,
+          sku: item.sku,
+          name: item.name,
+          currentStock: balances
+            .filter(b => b.itemId === item.id)
+            .reduce((sum, b) => sum + b.qtyAvailable, 0),
+          reorderPoint: item.reorderPointBase,
+        })),
+        outOfStockItems: outOfStockItems.slice(0, 10).map(item => ({
+          id: item.id,
+          sku: item.sku,
+          name: item.name,
+        })),
+      },
+      activity: {
+        recentTransactions,
+        topMovingItems,
+        recentActivity,
+      },
+      production: {
+        active: activeProduction,
+        planned: plannedProduction,
+        completed: completedProduction,
+        total: productionOrders.length,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Dashboard stats error:', error);
+    return NextResponse.json(
+      { error: "Failed to fetch dashboard stats" },
+      { status: 500 }
+    );
+  }
 }

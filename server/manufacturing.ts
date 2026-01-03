@@ -135,6 +135,7 @@ export async function calculateYield(
     include: {
       bom: {
         include: {
+          item: true,
           components: {
             include: {
               item: true,

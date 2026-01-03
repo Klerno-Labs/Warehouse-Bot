@@ -21,6 +21,8 @@ import type {
 } from "@prisma/client";
 
 class Storage {
+  public prisma = prisma;
+
   // ==================== USER METHODS ====================
 
   async getUserByEmail(email: string): Promise<User | null> {

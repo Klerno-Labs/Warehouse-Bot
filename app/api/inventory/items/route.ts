@@ -84,6 +84,9 @@ export async function POST(req: Request) {
       maxQtyBase: payload.maxQtyBase ?? null,
       reorderPointBase: payload.reorderPointBase ?? null,
       leadTimeDays: payload.leadTimeDays ?? null,
+      barcode: null,
+      barcodeType: null,
+      alternateBarcode: null,
     });
     return NextResponse.json(item, { status: 201 });
   } catch (error) {

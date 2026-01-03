@@ -20,7 +20,9 @@
       "Bash(cat:*)",
       "Bash(timeout /t 10 /nobreak)",
       "Bash(npx prisma generate:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)"
     ]
   }
 }

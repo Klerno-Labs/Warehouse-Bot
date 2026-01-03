@@ -1,4 +1,4 @@
-// File: c:\Users\Somli\OneDrive\Desktop\My Apps\Warehouse Builder\app\(app)\modules\inventory\page.tsx
+// File: C:\Users\Somli\OneDrive\Desktop\My Apps\Warehouse Builder\app\(app)\modules\inventory\page.tsx
 import * as entry from '../../../../../../app/(app)/modules/inventory/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
