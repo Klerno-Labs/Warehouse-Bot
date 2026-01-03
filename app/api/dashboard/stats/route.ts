@@ -140,6 +140,146 @@ export async function GET() {
       });
     }
 
+    // ============ PHASE 1.3: Advanced Analytics ============
+
+    // Inventory Aging Analysis
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+    const inventoryAging = {
+      current: 0,      // 0-30 days
+      aging30: 0,      // 31-60 days
+      aging60: 0,      // 61-90 days
+      aging90Plus: 0,  // 90+ days
+    };
+
+    items.forEach((item) => {
+      const itemBalance = balances.find((b) => b.itemId === item.id);
+      if (!itemBalance || itemBalance.qtyBase === 0) return;
+
+      // Find most recent RECEIVE event for this item
+      const lastReceive = allEvents
+        .filter((e) => e.itemId === item.id && e.eventType === 'RECEIVE')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      if (!lastReceive) {
+        inventoryAging.aging90Plus += itemBalance.qtyBase;
+        return;
+      }
+
+      const receiveDate = new Date(lastReceive.createdAt);
+      if (receiveDate > thirtyDaysAgo) {
+        inventoryAging.current += itemBalance.qtyBase;
+      } else if (receiveDate > sixtyDaysAgo) {
+        inventoryAging.aging30 += itemBalance.qtyBase;
+      } else if (receiveDate > ninetyDaysAgo) {
+        inventoryAging.aging60 += itemBalance.qtyBase;
+      } else {
+        inventoryAging.aging90Plus += itemBalance.qtyBase;
+      }
+    });
+
+    // ABC Analysis (based on transaction frequency in last 90 days)
+    const ninetyDaysEvents = allEvents.filter((e) => new Date(e.createdAt) > ninetyDaysAgo);
+    const itemActivityMap = ninetyDaysEvents.reduce((acc, event) => {
+      if (!acc[event.itemId]) {
+        acc[event.itemId] = { count: 0, value: 0 };
+      }
+      acc[event.itemId].count++;
+      // Estimate value: quantity * default $10 (no cost field in schema yet)
+      const estimatedCost = 10;
+      acc[event.itemId].value += Math.abs(event.qtyBase) * estimatedCost;
+      return acc;
+    }, {} as Record<string, { count: number; value: number }>);
+
+    // Sort by value and categorize
+    const sortedItems = Object.entries(itemActivityMap)
+      .sort(([, a], [, b]) => b.value - a.value);
+
+    const totalValue = sortedItems.reduce((sum, [, data]) => sum + data.value, 0);
+    let cumulativeValue = 0;
+
+    const abcAnalysis = {
+      A: 0, // Top 20% by value (80% of total value)
+      B: 0, // Next 30% by value (15% of total value)
+      C: 0, // Bottom 50% by value (5% of total value)
+    };
+
+    sortedItems.forEach(([itemId, data]) => {
+      cumulativeValue += data.value;
+      const percentageOfTotal = (cumulativeValue / totalValue) * 100;
+
+      if (percentageOfTotal <= 80) {
+        abcAnalysis.A++;
+      } else if (percentageOfTotal <= 95) {
+        abcAnalysis.B++;
+      } else {
+        abcAnalysis.C++;
+      }
+    });
+
+    // Account for items with no activity
+    const itemsWithNoActivity = totalItems - sortedItems.length;
+    abcAnalysis.C += itemsWithNoActivity;
+
+    // Stock Valuation (Weighted Average Cost)
+    let totalStockValue = 0;
+    const itemValuations: Array<{ itemId: string; sku: string; name: string; qty: number; value: number }> = [];
+
+    items.forEach((item) => {
+      const itemQty = balances
+        .filter((b) => b.itemId === item.id)
+        .reduce((sum, b) => sum + b.qtyBase, 0);
+
+      if (itemQty > 0) {
+        // TODO: Add cost field to Item schema - using $0 for now
+        const estimatedCost = 0;
+        const itemValue = itemQty * estimatedCost;
+        totalStockValue += itemValue;
+
+        if (itemValue > 0) {
+          itemValuations.push({
+            itemId: item.id,
+            sku: item.sku || 'N/A',
+            name: item.name,
+            qty: itemQty,
+            value: itemValue,
+          });
+        }
+      }
+    });
+
+    // Top 10 most valuable items
+    const topValueItems = itemValuations
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+
+    // Dead Stock Identification (no movement in 90+ days)
+    const deadStockItems = items.filter((item) => {
+      const itemBalance = balances
+        .filter((b) => b.itemId === item.id)
+        .reduce((sum, b) => sum + b.qtyBase, 0);
+
+      // Must have stock
+      if (itemBalance === 0) return false;
+
+      // Check if there's been any activity in last 90 days
+      const recentActivity = allEvents.filter(
+        (e) => e.itemId === item.id && new Date(e.createdAt) > ninetyDaysAgo
+      );
+
+      return recentActivity.length === 0;
+    });
+
+    const deadStockValue = deadStockItems.reduce((sum, item) => {
+      const itemQty = balances
+        .filter((b) => b.itemId === item.id)
+        .reduce((s, b) => s + b.qtyBase, 0);
+      // TODO: Add cost field to Item schema - using $0 for now
+      return sum + (itemQty * 0);
+    }, 0);
+
     return NextResponse.json({
       overview: {
         totalItems,
@@ -147,10 +287,13 @@ export async function GET() {
         totalStock,
         healthScore,
         turnoverRate: Math.round(turnoverRate * 100) / 100,
+        totalStockValue: Math.round(totalStockValue * 100) / 100,
       },
       alerts: {
         lowStock: lowStockItems.length,
         outOfStock: outOfStockItems.length,
+        deadStock: deadStockItems.length,
+        deadStockValue: Math.round(deadStockValue * 100) / 100,
         lowStockItems: lowStockItems.slice(0, 10).map(item => ({
           id: item.id,
           sku: item.sku,
@@ -165,6 +308,15 @@ export async function GET() {
           sku: item.sku,
           name: item.name,
         })),
+        deadStockItems: deadStockItems.slice(0, 10).map(item => ({
+          id: item.id,
+          sku: item.sku || 'N/A',
+          name: item.name,
+          currentStock: balances
+            .filter(b => b.itemId === item.id)
+            .reduce((sum, b) => sum + b.qtyBase, 0),
+          daysIdle: 90,
+        })),
       },
       activity: {
         recentTransactions,
@@ -176,6 +328,11 @@ export async function GET() {
         planned: plannedProduction,
         completed: completedProduction,
         total: productionOrders.length,
+      },
+      analytics: {
+        inventoryAging,
+        abcAnalysis,
+        topValueItems,
       },
       transactionsByDay,
       timestamp: new Date().toISOString(),

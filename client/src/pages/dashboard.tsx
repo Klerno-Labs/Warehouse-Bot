@@ -12,10 +12,13 @@ type DashboardStats = {
     totalStock: number;
     healthScore: number;
     turnoverRate: number;
+    totalStockValue: number;
   };
   alerts: {
     lowStock: number;
     outOfStock: number;
+    deadStock: number;
+    deadStockValue: number;
     lowStockItems: Array<{
       id: string;
       sku: string;
@@ -27,6 +30,13 @@ type DashboardStats = {
       id: string;
       sku: string;
       name: string;
+    }>;
+    deadStockItems: Array<{
+      id: string;
+      sku: string;
+      name: string;
+      currentStock: number;
+      daysIdle: number;
     }>;
   };
   activity: {
@@ -52,6 +62,26 @@ type DashboardStats = {
     planned: number;
     completed: number;
     total: number;
+  };
+  analytics: {
+    inventoryAging: {
+      current: number;
+      aging30: number;
+      aging60: number;
+      aging90Plus: number;
+    };
+    abcAnalysis: {
+      A: number;
+      B: number;
+      C: number;
+    };
+    topValueItems: Array<{
+      itemId: string;
+      sku: string;
+      name: string;
+      qty: number;
+      value: number;
+    }>;
   };
   transactionsByDay: Array<{
     label: string;
@@ -79,30 +109,30 @@ export default function DashboardPage() {
   const stats = data
     ? [
         {
-          title: "Total Items",
-          value: String(data.overview.totalItems),
-          change: `${data.overview.totalSkus} unique SKUs`,
+          title: "Total Stock Value",
+          value: `$${data.overview.totalStockValue.toLocaleString()}`,
+          change: `${data.overview.totalItems} items tracked`,
           changeType: "neutral" as const,
           icon: Package,
         },
         {
-          title: "Total Stock",
-          value: String(data.overview.totalStock),
-          change: `${data.overview.healthScore}% health score`,
+          title: "Inventory Health",
+          value: `${data.overview.healthScore}%`,
+          change: `${data.overview.totalStock} units on hand`,
           changeType: data.overview.healthScore >= 90 ? ("positive" as const) : data.overview.healthScore >= 70 ? ("neutral" as const) : ("warning" as const),
           icon: TrendingUp,
         },
         {
-          title: "Low Stock Alerts",
-          value: String(data.alerts.lowStock),
-          change: `${data.alerts.outOfStock} out of stock`,
-          changeType: data.alerts.lowStock > 0 ? ("warning" as const) : ("positive" as const),
+          title: "Alerts",
+          value: String(data.alerts.lowStock + data.alerts.outOfStock),
+          change: `${data.alerts.deadStock} dead stock items`,
+          changeType: (data.alerts.lowStock + data.alerts.outOfStock) > 0 ? ("warning" as const) : ("positive" as const),
           icon: AlertTriangle,
         },
         {
-          title: "Recent Activity",
-          value: String(data.activity.recentTransactions),
-          change: `${data.overview.turnoverRate.toFixed(2)} turnover rate`,
+          title: "Turnover Rate",
+          value: data.overview.turnoverRate.toFixed(2),
+          change: `${data.activity.recentTransactions} transactions (24h)`,
           changeType: "positive" as const,
           icon: BarChart3,
         },
@@ -231,6 +261,97 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Phase 1.3: Advanced Analytics */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">ABC Analysis</CardTitle>
+            <CardDescription>Inventory classification by value</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data?.analytics ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-green-500" />
+                    <span className="text-sm">Class A (High Value)</span>
+                  </div>
+                  <span className="text-sm font-semibold">{data.analytics.abcAnalysis.A}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-yellow-500" />
+                    <span className="text-sm">Class B (Medium Value)</span>
+                  </div>
+                  <span className="text-sm font-semibold">{data.analytics.abcAnalysis.B}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-3 rounded-full bg-gray-500" />
+                    <span className="text-sm">Class C (Low Value)</span>
+                  </div>
+                  <span className="text-sm font-semibold">{data.analytics.abcAnalysis.C}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Inventory Aging</CardTitle>
+            <CardDescription>Stock age distribution</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data?.analytics ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">0-30 days</span>
+                  <span className="text-sm font-semibold">{data.analytics.inventoryAging.current}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">31-60 days</span>
+                  <span className="text-sm font-semibold">{data.analytics.inventoryAging.aging30}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">61-90 days</span>
+                  <span className="text-sm font-semibold">{data.analytics.inventoryAging.aging60}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-amber-600">90+ days</span>
+                  <span className="text-sm font-semibold text-amber-600">{data.analytics.inventoryAging.aging90Plus}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">Top Value Items</CardTitle>
+            <CardDescription>Highest inventory value</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data?.analytics.topValueItems && data.analytics.topValueItems.length > 0 ? (
+              <div className="space-y-2">
+                {data.analytics.topValueItems.slice(0, 5).map((item) => (
+                  <div key={item.itemId} className="flex items-center justify-between text-sm">
+                    <span className="truncate">{item.name}</span>
+                    <span className="font-semibold">${item.value.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No valued items</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
@@ -335,6 +456,43 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dead Stock Alert - Phase 1.3 */}
+      {data?.alerts?.deadStock && data.alerts.deadStock > 0 && (
+        <Card className="border-amber-200 dark:border-amber-900">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Dead Stock Alert
+            </CardTitle>
+            <CardDescription>
+              {data.alerts.deadStock} items with no activity in 90+ days (${data.alerts.deadStockValue?.toLocaleString() || '0'} value at risk)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data.alerts.deadStockItems && data.alerts.deadStockItems.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {data.alerts.deadStockItems.map((item) => (
+                  <a
+                    key={item.id}
+                    href={`/modules/inventory/items`}
+                    className="flex flex-col rounded-lg border p-3 transition-colors hover:bg-accent"
+                  >
+                    <p className="text-sm font-medium truncate">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-xs text-amber-600">{item.currentStock} units</span>
+                      <span className="text-xs text-muted-foreground">{item.daysIdle}+ days idle</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No dead stock detected</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
