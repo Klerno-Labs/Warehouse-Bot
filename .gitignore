@@ -23,3 +23,7 @@ coverage/
 # Misc
 .local/
 .bfg-replace.txt
+
+# Windows reserved filenames
+nul
+tsc_output.txt
