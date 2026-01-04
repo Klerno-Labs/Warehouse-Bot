@@ -19,6 +19,12 @@ import {
   BarChart3,
   ScanLine,
   Database,
+  Truck,
+  ArrowDownToLine,
+  FileText,
+  Target,
+  Boxes,
+  CalendarClock,
 } from "lucide-react";
 import {
   Sidebar,
@@ -45,30 +51,36 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
 import type { ModuleId } from "@shared/schema";
 
-const moduleIcons: Record<ModuleId, typeof Package> = {
-  inventory: Package,
-  jobs: Briefcase,
-  "cycle-counts": RefreshCw,
-  dashboards: LayoutDashboard,
-};
-
-const moduleLabels: Record<ModuleId, string> = {
-  inventory: "Inventory",
-  jobs: "Jobs",
-  "cycle-counts": "Cycle Counts",
-  dashboards: "Dashboards",
-};
-
-const manufacturingItems = [
-  { title: "Production Board", url: "/manufacturing/production-board", icon: Factory },
-  { title: "Analytics", url: "/manufacturing/analytics", icon: BarChart3 },
-  { title: "Component Tracking", url: "/manufacturing/component-tracking", icon: ScanLine },
+// Operations - Day-to-day tasks that floor workers and warehouse staff use frequently
+const operationsItems = [
+  { title: "Inventory", url: "/modules/inventory", icon: Package },
+  { title: "Jobs", url: "/modules/jobs", icon: Briefcase },
+  { title: "Cycle Counts", url: "/modules/cycle-counts", icon: RefreshCw },
   { title: "Job Scanner", url: "/mobile/job-scanner", icon: Smartphone },
 ];
 
+// Purchasing - Supply chain and procurement
+const purchasingItems = [
+  { title: "Overview", url: "/purchasing", icon: ShoppingCart },
+  { title: "Purchase Orders", url: "/purchasing/purchase-orders", icon: FileText },
+  { title: "Receipts", url: "/purchasing/receipts", icon: ArrowDownToLine },
+  { title: "Suppliers", url: "/purchasing/suppliers", icon: Truck },
+];
+
+// Planning - Analytics, forecasting, and production planning
+const planningItems = [
+  { title: "Dashboard", url: "/modules/dashboards", icon: LayoutDashboard },
+  { title: "Production Board", url: "/manufacturing/production-board", icon: Factory },
+  { title: "Analytics", url: "/manufacturing/analytics", icon: BarChart3 },
+  { title: "Sales ATP", url: "/modules/inventory?view=atp", icon: Target },
+  { title: "Component Tracking", url: "/manufacturing/component-tracking", icon: ScanLine },
+];
+
+// Admin - Settings and configuration
 const adminItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Facilities", url: "/admin/facilities", icon: Building2 },
+  { title: "Items", url: "/items", icon: Boxes },
   { title: "DBA Import", url: "/admin/dba-import", icon: Database },
   { title: "Audit Log", url: "/admin/audit", icon: ClipboardList },
   { title: "Settings", url: "/admin/settings", icon: Settings },
@@ -136,24 +148,21 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Operations - Most frequently used by floor workers */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Modules
+            Operations
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {enabledModules.map((moduleId) => {
-                const Icon = moduleIcons[moduleId as ModuleId] || Package;
-                const label = moduleLabels[moduleId as ModuleId] || moduleId;
-                const url = `/modules/${moduleId}`;
-                const isActive = pathname === url;
-
+              {operationsItems.map((item) => {
+                const isActive = pathname === item.url || pathname.startsWith(item.url + "/");
                 return (
-                  <SidebarMenuItem key={moduleId}>
+                  <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive}>
-                      <Link href={url} data-testid={`link-module-${moduleId}`}>
-                        <Icon className="h-4 w-4" />
-                        <span>{label}</span>
+                      <Link href={item.url} data-testid={`link-ops-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -164,18 +173,46 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
         </SidebarGroup>
 
         <SidebarSeparator />
+        
+        {/* Purchasing - Supply chain and procurement */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Manufacturing
+            Purchasing
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {manufacturingItems.map((item) => {
-                const isActive = pathname === item.url;
+              {purchasingItems.map((item) => {
+                const isActive = pathname === item.url || (item.url !== "/purchasing" && pathname.startsWith(item.url));
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive}>
-                      <Link href={item.url} data-testid={`link-manufacturing-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                      <Link href={item.url} data-testid={`link-purchasing-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+        
+        {/* Planning - Analytics and production planning */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Planning
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {planningItems.map((item) => {
+                const isActive = pathname === item.url || pathname.startsWith(item.url.split("?")[0] + "/");
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <Link href={item.url} data-testid={`link-planning-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
@@ -197,11 +234,11 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {adminItems.map((item) => {
-                    const isActive = pathname === item.url;
+                    const isActive = pathname === item.url || pathname.startsWith(item.url + "/");
                     return (
                       <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton asChild isActive={isActive}>
-                          <Link href={item.url} data-testid={`link-admin-${item.title.toLowerCase()}`}>
+                          <Link href={item.url} data-testid={`link-admin-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                             <item.icon className="h-4 w-4" />
                             <span>{item.title}</span>
                           </Link>
