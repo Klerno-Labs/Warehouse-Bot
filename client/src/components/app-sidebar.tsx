@@ -14,6 +14,11 @@ import {
   ClipboardList,
   LogOut,
   ChevronDown,
+  Factory,
+  Smartphone,
+  BarChart3,
+  ScanLine,
+  Database,
 } from "lucide-react";
 import {
   Sidebar,
@@ -54,9 +59,17 @@ const moduleLabels: Record<ModuleId, string> = {
   dashboards: "Dashboards",
 };
 
+const manufacturingItems = [
+  { title: "Production Board", url: "/manufacturing/production-board", icon: Factory },
+  { title: "Analytics", url: "/manufacturing/analytics", icon: BarChart3 },
+  { title: "Component Tracking", url: "/manufacturing/component-tracking", icon: ScanLine },
+  { title: "Job Scanner", url: "/mobile/job-scanner", icon: Smartphone },
+];
+
 const adminItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Facilities", url: "/admin/facilities", icon: Building2 },
+  { title: "DBA Import", url: "/admin/dba-import", icon: Database },
   { title: "Audit Log", url: "/admin/audit", icon: ClipboardList },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
@@ -141,6 +154,30 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
                       <Link href={url} data-testid={`link-module-${moduleId}`}>
                         <Icon className="h-4 w-4" />
                         <span>{label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Manufacturing
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {manufacturingItems.map((item) => {
+                const isActive = pathname === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <Link href={item.url} data-testid={`link-manufacturing-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

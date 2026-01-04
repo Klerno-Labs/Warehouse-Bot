@@ -20,6 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 const breadcrumbLabels: Record<string, string> = {
   modules: "Modules",
   admin: "Administration",
+  manufacturing: "Manufacturing",
+  mobile: "Mobile",
   inventory: "Inventory",
   jobs: "Jobs",
   purchasing: "Purchasing",
@@ -36,6 +38,11 @@ const breadcrumbLabels: Record<string, string> = {
   balances: "Balances",
   events: "Events",
   "reason-codes": "Reason Codes",
+  "production-board": "Production Board",
+  "job-scanner": "Job Scanner",
+  analytics: "Analytics",
+  "component-tracking": "Component Tracking",
+  "dba-import": "DBA Import",
 };
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {

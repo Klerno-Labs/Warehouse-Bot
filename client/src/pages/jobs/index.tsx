@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Table,
@@ -59,7 +60,8 @@ const PRIORITY_COLORS: Record<JobPriority, string> = {
 export default function JobsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+  const { currentSite } = useAuth();
+
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -108,9 +110,12 @@ export default function JobsPage() {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (data: { type: JobType; priority: JobPriority; description?: string; dueDate?: string }) => {
+      if (!currentSite?.id) {
+        throw new Error("No site selected");
+      }
       return apiRequest("POST", "/api/jobs", {
         ...data,
-        siteId: localStorage.getItem("selectedSiteId") || "",
+        siteId: currentSite.id,
       });
     },
     onSuccess: () => {

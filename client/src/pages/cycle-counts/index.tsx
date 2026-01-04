@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Table,
@@ -50,7 +51,8 @@ const STATUS_COLORS: Record<CycleCountStatus, string> = {
 export default function CycleCountsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+  const { currentSite } = useAuth();
+
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedCount, setSelectedCount] = useState<CycleCountWithDetails | null>(null);
@@ -95,9 +97,12 @@ export default function CycleCountsPage() {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; type: CycleCountType; scheduledDate: string; notes?: string }) => {
+      if (!currentSite?.id) {
+        throw new Error("No site selected");
+      }
       return apiRequest("POST", "/api/cycle-counts", {
         ...data,
-        siteId: localStorage.getItem("selectedSiteId") || "",
+        siteId: currentSite.id,
       });
     },
     onSuccess: () => {

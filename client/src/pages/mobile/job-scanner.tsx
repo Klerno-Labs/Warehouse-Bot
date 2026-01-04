@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { QRScanner } from "@/components/qr-scanner";
 import {
   QrCode,
   Play,
@@ -45,6 +46,7 @@ export default function JobScannerPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<Department>("PICKING");
   const [scanInput, setScanInput] = useState("");
   const [scanMode, setScanMode] = useState<"manual" | "camera">("manual");
+  const [showCamera, setShowCamera] = useState(false);
   const [notes, setNotes] = useState("");
 
   // Fetch active and pending jobs for this department
@@ -205,18 +207,20 @@ export default function JobScannerPage() {
               </div>
             )}
 
-            {/* Camera Scanner Placeholder */}
+            {/* Camera Scanner */}
             {scanMode === "camera" && (
-              <div className="aspect-square bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
-                <div className="text-center">
-                  <Camera className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Camera scanner coming soon
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Use manual entry for now
-                  </p>
-                </div>
+              <div className="space-y-3">
+                <Button
+                  onClick={() => setShowCamera(true)}
+                  className="w-full"
+                  size="lg"
+                >
+                  <Camera className="h-5 w-5 mr-2" />
+                  Open Camera Scanner
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Works best in Chrome or Edge browser
+                </p>
               </div>
             )}
 
@@ -359,6 +363,22 @@ export default function JobScannerPage() {
           </Card>
         )}
       </div>
+
+      {/* QR Scanner Modal */}
+      {showCamera && (
+        <QRScanner
+          onScan={(code) => {
+            setScanInput(code);
+            setShowCamera(false);
+            setScanMode("manual");
+            toast({
+              title: "QR Code Scanned",
+              description: `Job: ${code}`,
+            });
+          }}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
     </div>
   );
 }

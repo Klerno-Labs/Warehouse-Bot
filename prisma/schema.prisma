@@ -130,12 +130,14 @@ enum ComponentIssueMethod {
 // ============================================================
 
 model Tenant {
-  id             String   @id @default(uuid())
-  name           String
-  slug           String   @unique
-  enabledModules String[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  enabledModules  String[]
+  defaultCurrency String   @default("USD") // ISO 4217 currency code
+  locale          String   @default("en-US") // Locale for formatting
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
   sites             Site[]
@@ -158,6 +160,7 @@ model Tenant {
   receipts          Receipt[]
   billsOfMaterial   BillOfMaterial[]
   productionOrders  ProductionOrder[]
+  notifications     Notification[]
 }
 
 model Site {
@@ -380,6 +383,7 @@ model Item {
   productionOrders  ProductionOrder[]   @relation("ProductionOrderItem")
   consumptions      ProductionConsumption[] @relation("ConsumptionItem")
   outputs           ProductionOutput[]  @relation("OutputItem")
+  componentScans    ComponentScan[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -895,6 +899,7 @@ model ProductionOrder {
   outputs           ProductionOutput[]
   jobOperations     JobOperation[]
   scanEvents        OperationScanEvent[]
+  componentScans    ComponentScan[]
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId])
@@ -1008,6 +1013,7 @@ model JobOperation {
   // Relations
   productionOrder       ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
   scanEvents            OperationScanEvent[]
+  componentScans        ComponentScan[]
 
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
@@ -1039,4 +1045,62 @@ model OperationScanEvent {
   @@index([jobOperationId])
   @@index([productionOrderId])
   @@index([department])
+}
+
+model ComponentScan {
+  id                    String          @id @default(uuid())
+  productionOrderId     String
+  jobOperationId        String
+  itemId                String
+
+  // Quantities
+  qtyScanned            Float
+  qtyRequired           Float
+
+  // Tracking
+  scannedBy             String
+  scannedAt             DateTime        @default(now())
+  lotNumber             String?
+  location              String?
+
+  // Relations
+  productionOrder       ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  jobOperation          JobOperation    @relation(fields: [jobOperationId], references: [id], onDelete: Cascade)
+  item                  Item            @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([productionOrderId])
+  @@index([jobOperationId])
+  @@index([itemId])
+}
+
+model Notification {
+  id                    String          @id @default(uuid())
+  tenantId              String
+
+  // Notification details
+  type                  String          // JOB_READY, LOW_INVENTORY, QUALITY_ISSUE, DELAY
+  title                 String
+  message               String
+  priority              String          @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+
+  // Targeting
+  targetDepartment      String?
+  targetUserId          String?
+
+  // Status
+  isRead                Boolean         @default(false)
+  readAt                DateTime?
+
+  // Metadata
+  metadata              Json?           // Additional context (jobId, itemId, etc.)
+
+  createdAt             DateTime        @default(now())
+
+  // Relations
+  tenant                Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([isRead])
+  @@index([targetDepartment])
+  @@index([createdAt])
 }
