@@ -30,7 +30,23 @@ function verify(token: string, secret: string): SessionPayload | null {
 }
 
 function getSecret() {
-  return process.env.SESSION_SECRET || "warehouse-core-dev-secret";
+  const secret = process.env.SESSION_SECRET;
+
+  if (!secret) {
+    throw new Error(
+      "SESSION_SECRET environment variable is required. " +
+      "Generate a secure secret with: openssl rand -base64 32"
+    );
+  }
+
+  // Validate secret strength (minimum 32 characters)
+  if (secret.length < 32) {
+    throw new Error(
+      "SESSION_SECRET must be at least 32 characters long for security"
+    );
+  }
+
+  return secret;
 }
 
 export function setSessionCookie(userId: string) {
@@ -38,7 +54,7 @@ export function setSessionCookie(userId: string) {
   const token = sign(payload, getSecret());
   cookies().set(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict", // Upgraded from "lax" to "strict" for CSRF protection
     secure: process.env.NODE_ENV === "production",
     maxAge: SESSION_TTL_MS / 1000,
     path: "/",

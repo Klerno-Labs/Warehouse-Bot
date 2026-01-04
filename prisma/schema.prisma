@@ -471,6 +471,9 @@ model InventoryEvent {
   @@index([siteId])
   @@index([itemId])
   @@index([createdAt])
+  @@index([eventType])                       // For filtering by event type
+  @@index([tenantId, createdAt(sort: Desc)]) // For dashboard queries
+  @@index([itemId, eventType])               // For inventory aging queries
 }
 
 model InventoryBalance {

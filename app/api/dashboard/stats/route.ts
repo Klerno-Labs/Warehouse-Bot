@@ -1,9 +1,23 @@
+/**
+ * Dashboard Stats API - Optimized
+ *
+ * PERFORMANCE IMPROVEMENTS:
+ * - Pre-indexes data to avoid N+1 queries (O(n*m) → O(n+m))
+ * - Uses Map for O(1) lookups instead of Array.find() O(n)
+ * - Single pass for multiple calculations
+ * - Reduces 10M+ comparisons to <100K for 1000 items + 10K events
+ */
 import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
 import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import type { InventoryBalance } from "@shared/inventory";
+import type { InventoryEvent } from "@prisma/client";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const startTime = Date.now();
+  
   try {
     // Use new middleware for authentication
     const context = await requireAuth();
@@ -20,31 +34,59 @@ export async function GET() {
       storage.getProductionOrdersByTenant(tenantId),
     ]);
 
-    // Take last 100 events for performance
+    // =========================================================================
+    // OPTIMIZATION: Create indexes for O(1) lookups
+    // =========================================================================
+    
+    // Index items by ID for O(1) lookup
+    const itemMap = new Map(items.map((item) => [item.id, item]));
+    
+    // Index balances by itemId for O(1) lookup
+    const balancesByItem = new Map<string, typeof balances>();
+    balances.forEach((balance) => {
+      if (!balancesByItem.has(balance.itemId)) {
+        balancesByItem.set(balance.itemId, []);
+      }
+      balancesByItem.get(balance.itemId)!.push(balance);
+    });
+    
+    // Index last RECEIVE event by itemId (single pass through events)
+    const lastReceiveByItem = new Map<string, InventoryEvent>();
+    allEvents.forEach((event) => {
+      if (event.eventType === "RECEIVE") {
+        const existing = lastReceiveByItem.get(event.itemId);
+        if (!existing || new Date(event.createdAt) > new Date(existing.createdAt)) {
+          lastReceiveByItem.set(event.itemId, event);
+        }
+      }
+    });
+
+    // Take last 100 events for recent activity display
     const events = allEvents.slice(0, 100);
 
     // Calculate total inventory
     const totalItems = items.length;
     const totalSkus = items.length;
 
-    // Calculate stock levels (qtyBase is the only field we have)
-    const totalStock = balances.reduce((sum: number, b: InventoryBalance) => sum + b.qtyBase, 0);
-
-    // Low stock items
-    const lowStockItems = items.filter((item) => {
-      if (!item.reorderPointBase) return false;
-      const itemBalance = balances
-        .filter((b) => b.itemId === item.id)
-        .reduce((sum: number, b: InventoryBalance) => sum + b.qtyBase, 0);
-      return itemBalance <= item.reorderPointBase;
-    });
-
-    // Out of stock items
-    const outOfStockItems = items.filter((item) => {
-      const itemBalance = balances
-        .filter((b) => b.itemId === item.id)
-        .reduce((sum: number, b: InventoryBalance) => sum + b.qtyBase, 0);
-      return itemBalance === 0;
+    // =========================================================================
+    // OPTIMIZATION: Single-pass calculations using indexed data
+    // =========================================================================
+    
+    let totalStock = 0;
+    const lowStockItems: typeof items = [];
+    const outOfStockItems: typeof items = [];
+    
+    // Single pass through items using indexed data
+    items.forEach((item) => {
+      const itemBalances = balancesByItem.get(item.id) || [];
+      const itemBalance = itemBalances.reduce((sum: number, b: InventoryBalance) => sum + b.qtyBase, 0);
+      totalStock += itemBalance;
+      
+      if (itemBalance === 0) {
+        outOfStockItems.push(item);
+      } else if (item.reorderPointBase && itemBalance <= item.reorderPointBase) {
+        lowStockItems.push(item);
+      }
     });
 
     // Calculate recent activity (last 24 hours)
@@ -63,37 +105,33 @@ export async function GET() {
       (po) => po.status === 'COMPLETED'
     ).length;
 
-    // Top moving items (most transactions in last 7 days)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentEventsByItem = events
+    // Top moving items (most transactions in last 7 days) - Using indexed data
+    const recentEventsByItem = new Map<string, number>();
+    events
       .filter((e) => new Date(e.createdAt) > sevenDaysAgo)
-      .reduce((acc, event) => {
-        if (!acc[event.itemId]) {
-          acc[event.itemId] = 0;
-        }
-        acc[event.itemId]++;
-        return acc;
-      }, {} as Record<string, number>);
+      .forEach((event) => {
+        recentEventsByItem.set(event.itemId, (recentEventsByItem.get(event.itemId) || 0) + 1);
+      });
 
-    const topMovingItems = Object.entries(recentEventsByItem)
-      .sort(([, a], [, b]) => (b as number) - (a as number))
+    const topMovingItems = Array.from(recentEventsByItem.entries())
+      .sort(([, a], [, b]) => b - a)
       .slice(0, 10)
       .map(([itemId, count]) => {
-        const item = items.find((i) => i.id === itemId);
+        const item = itemMap.get(itemId); // O(1) lookup
         return {
           itemId,
           sku: item?.sku || 'Unknown',
           name: item?.name || 'Unknown',
-          transactionCount: count as number,
+          transactionCount: count,
         };
       });
 
-    // Recent activity feed (last 20 events)
+    // Recent activity feed (last 20 events) - Using indexed data
     const recentActivity = events
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 20)
       .map((event) => {
-        const item = items.find((i) => i.id === event.itemId);
+        const item = itemMap.get(event.itemId); // O(1) lookup
         return {
           id: event.id,
           timestamp: event.createdAt,
@@ -142,10 +180,11 @@ export async function GET() {
 
     // ============ PHASE 1.3: Advanced Analytics ============
 
-    // Inventory Aging Analysis
+    // Inventory Aging Analysis - OPTIMIZED: Using indexed lastReceiveByItem
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const inventoryAging = {
       current: 0,      // 0-30 days
@@ -154,45 +193,47 @@ export async function GET() {
       aging90Plus: 0,  // 90+ days
     };
 
+    // Single pass through items using indexed data
     items.forEach((item) => {
-      const itemBalance = balances.find((b) => b.itemId === item.id);
-      if (!itemBalance || itemBalance.qtyBase === 0) return;
+      const itemBalances = balancesByItem.get(item.id) || [];
+      const itemBalance = itemBalances.reduce((sum, b) => sum + b.qtyBase, 0);
+      if (itemBalance === 0) return;
 
-      // Find most recent RECEIVE event for this item
-      const lastReceive = allEvents
-        .filter((e) => e.itemId === item.id && e.eventType === 'RECEIVE')
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      // O(1) lookup for last receive event
+      const lastReceive = lastReceiveByItem.get(item.id);
 
       if (!lastReceive) {
-        inventoryAging.aging90Plus += itemBalance.qtyBase;
+        inventoryAging.aging90Plus += itemBalance;
         return;
       }
 
       const receiveDate = new Date(lastReceive.createdAt);
       if (receiveDate > thirtyDaysAgo) {
-        inventoryAging.current += itemBalance.qtyBase;
+        inventoryAging.current += itemBalance;
       } else if (receiveDate > sixtyDaysAgo) {
-        inventoryAging.aging30 += itemBalance.qtyBase;
+        inventoryAging.aging30 += itemBalance;
       } else if (receiveDate > ninetyDaysAgo) {
-        inventoryAging.aging60 += itemBalance.qtyBase;
+        inventoryAging.aging60 += itemBalance;
       } else {
-        inventoryAging.aging90Plus += itemBalance.qtyBase;
+        inventoryAging.aging90Plus += itemBalance;
       }
     });
 
-    // ABC Analysis (based on transaction frequency in last 90 days)
+    // ABC Analysis (based on transaction frequency in last 90 days) - OPTIMIZED
     const ninetyDaysEvents = allEvents.filter((e) => new Date(e.createdAt) > ninetyDaysAgo);
-    const itemActivityMap = ninetyDaysEvents.reduce((acc, event) => {
-      if (!acc[event.itemId]) {
-        acc[event.itemId] = { count: 0, value: 0 };
+    
+    // Single pass through events to calculate activity value
+    const itemActivityMap: Record<string, { count: number; value: number }> = {};
+    ninetyDaysEvents.forEach((event) => {
+      if (!itemActivityMap[event.itemId]) {
+        itemActivityMap[event.itemId] = { count: 0, value: 0 };
       }
-      acc[event.itemId].count++;
-      // Use actual cost if available, otherwise estimate $10
-      const item = items.find((i) => i.id === event.itemId);
+      itemActivityMap[event.itemId].count++;
+      // O(1) lookup for item cost
+      const item = itemMap.get(event.itemId);
       const itemCost = item?.avgCostBase || item?.costBase || item?.lastCostBase || 10;
-      acc[event.itemId].value += Math.abs(event.qtyBase) * itemCost;
-      return acc;
-    }, {} as Record<string, { count: number; value: number }>);
+      itemActivityMap[event.itemId].value += Math.abs(event.qtyBase) * itemCost;
+    });
 
     // Sort by value and categorize
     const sortedItems = Object.entries(itemActivityMap)
@@ -224,14 +265,13 @@ export async function GET() {
     const itemsWithNoActivity = totalItems - sortedItems.length;
     abcAnalysis.C += itemsWithNoActivity;
 
-    // Stock Valuation (Weighted Average Cost)
+    // Stock Valuation (Weighted Average Cost) - OPTIMIZED with indexed data
     let totalStockValue = 0;
     const itemValuations: Array<{ itemId: string; sku: string; name: string; qty: number; value: number }> = [];
 
     items.forEach((item) => {
-      const itemQty = balances
-        .filter((b) => b.itemId === item.id)
-        .reduce((sum, b) => sum + b.qtyBase, 0);
+      const itemBalances = balancesByItem.get(item.id) || [];
+      const itemQty = itemBalances.reduce((sum, b) => sum + b.qtyBase, 0);
 
       if (itemQty > 0) {
         // Use average cost, fallback to standard cost, then last cost
@@ -256,30 +296,27 @@ export async function GET() {
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
 
-    // Dead Stock Identification (no movement in 90+ days)
+    // Dead Stock Identification (no movement in 90+ days) - OPTIMIZED
+    // Build set of items with recent activity for O(1) lookup
+    const itemsWithRecentActivity = new Set(ninetyDaysEvents.map(e => e.itemId));
+    
     const deadStockItems = items.filter((item) => {
-      const itemBalance = balances
-        .filter((b) => b.itemId === item.id)
-        .reduce((sum, b) => sum + b.qtyBase, 0);
+      const itemBalances = balancesByItem.get(item.id) || [];
+      const itemBalance = itemBalances.reduce((sum, b) => sum + b.qtyBase, 0);
 
-      // Must have stock
-      if (itemBalance === 0) return false;
-
-      // Check if there's been any activity in last 90 days
-      const recentActivity = allEvents.filter(
-        (e) => e.itemId === item.id && new Date(e.createdAt) > ninetyDaysAgo
-      );
-
-      return recentActivity.length === 0;
+      // Must have stock and no recent activity
+      return itemBalance > 0 && !itemsWithRecentActivity.has(item.id);
     });
 
     const deadStockValue = deadStockItems.reduce((sum, item) => {
-      const itemQty = balances
-        .filter((b) => b.itemId === item.id)
-        .reduce((s, b) => s + b.qtyBase, 0);
+      const itemBalances = balancesByItem.get(item.id) || [];
+      const itemQty = itemBalances.reduce((s, b) => s + b.qtyBase, 0);
       const itemCost = item.avgCostBase || item.costBase || item.lastCostBase || 0;
       return sum + (itemQty * itemCost);
     }, 0);
+
+    // Performance metrics
+    const responseTime = Date.now() - startTime;
 
     return NextResponse.json({
       overview: {
@@ -295,29 +332,31 @@ export async function GET() {
         outOfStock: outOfStockItems.length,
         deadStock: deadStockItems.length,
         deadStockValue: Math.round(deadStockValue * 100) / 100,
-        lowStockItems: lowStockItems.slice(0, 10).map(item => ({
-          id: item.id,
-          sku: item.sku,
-          name: item.name,
-          currentStock: balances
-            .filter(b => b.itemId === item.id)
-            .reduce((sum, b) => sum + b.qtyBase, 0),
-          reorderPoint: item.reorderPointBase,
-        })),
+        lowStockItems: lowStockItems.slice(0, 10).map(item => {
+          const itemBalances = balancesByItem.get(item.id) || [];
+          return {
+            id: item.id,
+            sku: item.sku,
+            name: item.name,
+            currentStock: itemBalances.reduce((sum, b) => sum + b.qtyBase, 0),
+            reorderPoint: item.reorderPointBase,
+          };
+        }),
         outOfStockItems: outOfStockItems.slice(0, 10).map(item => ({
           id: item.id,
           sku: item.sku,
           name: item.name,
         })),
-        deadStockItems: deadStockItems.slice(0, 10).map(item => ({
-          id: item.id,
-          sku: item.sku || 'N/A',
-          name: item.name,
-          currentStock: balances
-            .filter(b => b.itemId === item.id)
-            .reduce((sum, b) => sum + b.qtyBase, 0),
-          daysIdle: 90,
-        })),
+        deadStockItems: deadStockItems.slice(0, 10).map(item => {
+          const itemBalances = balancesByItem.get(item.id) || [];
+          return {
+            id: item.id,
+            sku: item.sku || 'N/A',
+            name: item.name,
+            currentStock: itemBalances.reduce((sum, b) => sum + b.qtyBase, 0),
+            daysIdle: 90,
+          };
+        }),
       },
       activity: {
         recentTransactions,
@@ -337,6 +376,11 @@ export async function GET() {
       },
       transactionsByDay,
       timestamp: new Date().toISOString(),
+      _performance: {
+        responseTimeMs: responseTime,
+        itemsProcessed: totalItems,
+        eventsProcessed: allEvents.length,
+      },
     });
   } catch (error) {
     return handleApiError(error);
