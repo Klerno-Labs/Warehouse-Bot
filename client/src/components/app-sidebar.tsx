@@ -70,6 +70,7 @@ const purchasingItems = [
 // Planning - Analytics, forecasting, and production planning
 const planningItems = [
   { title: "Dashboard", url: "/modules/dashboards", icon: LayoutDashboard },
+  { title: "Reports", url: "/reports", icon: FileText },
   { title: "Production Board", url: "/manufacturing/production-board", icon: Factory },
   { title: "Analytics", url: "/manufacturing/analytics", icon: BarChart3 },
   { title: "Sales ATP", url: "/modules/inventory?view=atp", icon: Target },
