@@ -233,7 +233,7 @@ export class CircuitBreaker {
     this.changeState(CircuitState.OPEN);
     this.nextAttempt = Date.now() + this.options.timeout;
 
-    logger.error(`Circuit breaker OPENED for ${this.serviceName}`, {
+    logger.error(`Circuit breaker OPENED for ${this.serviceName}`, undefined, {
       failureCount: this.failureCount,
       nextAttempt: new Date(this.nextAttempt).toISOString(),
     });

@@ -201,57 +201,15 @@ export class AlertService {
 
   /**
    * Check for expiring inventory (items with expiration dates)
+   * Note: This feature requires a LotNumber model which is not yet implemented
    */
   private static async checkExpiringInventory(
     tenantId: string,
     siteId?: string
   ): Promise<Alert[]> {
-    const alerts: Alert[] = [];
-
-    // Check for lots expiring in the next 30 days
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
-    const expiringLots = await prisma.lotNumber.findMany({
-      where: {
-        tenantId,
-        expirationDate: {
-          lte: thirtyDaysFromNow,
-          gte: new Date(),
-        },
-      },
-      include: {
-        item: true,
-      },
-    });
-
-    for (const lot of expiringLots) {
-      const daysUntilExpiration = Math.floor(
-        (lot.expirationDate!.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-      );
-
-      alerts.push({
-        id: `alert-${Date.now()}-${lot.id}`,
-        ruleId: "expiring-inventory-default",
-        type: "EXPIRING_INVENTORY",
-        severity: daysUntilExpiration <= 7 ? "critical" : "warning",
-        title: `Expiring Inventory: ${lot.item.name}`,
-        message: `Lot ${lot.lotNumber} of "${lot.item.name}" expires in ${daysUntilExpiration} days on ${lot.expirationDate!.toLocaleDateString()}.`,
-        entityType: "LotNumber",
-        entityId: lot.id,
-        metadata: {
-          sku: lot.item.sku,
-          lotNumber: lot.lotNumber,
-          expirationDate: lot.expirationDate,
-          daysUntilExpiration,
-        },
-        triggeredAt: new Date(),
-        resolved: false,
-        tenantId,
-      });
-    }
-
-    return alerts;
+    // TODO: Implement when LotNumber model is added to the schema
+    // The LotNumber model would track lot/batch information including expiration dates
+    return [];
   }
 
   /**
@@ -272,7 +230,7 @@ export class AlertService {
               where: { siteId },
             }
           : true,
-        events: {
+        inventoryEvents: {
           where: {
             createdAt: { gte: ninetyDaysAgo },
           },
@@ -285,7 +243,7 @@ export class AlertService {
       const currentStock = item.balances.reduce((sum, b) => sum + b.qtyBase, 0);
 
       // Has stock but no movement
-      if (currentStock > 0 && item.events.length === 0) {
+      if (currentStock > 0 && item.inventoryEvents.length === 0) {
         const value = currentStock * (item.costBase || 0);
 
         alerts.push({
@@ -328,7 +286,7 @@ export class AlertService {
       where: {
         tenantId,
         ...(siteId && { siteId }),
-        status: { in: ["OPEN", "IN_PROGRESS"] },
+        status: { in: ["PLANNED", "RELEASED", "IN_PROGRESS"] },
         scheduledEnd: { lt: today },
       },
       include: {
@@ -337,6 +295,8 @@ export class AlertService {
     });
 
     for (const order of delayedOrders) {
+      if (!order.scheduledEnd) continue;
+      
       const daysDelayed = Math.floor(
         (today.getTime() - order.scheduledEnd.getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -382,7 +342,7 @@ export class AlertService {
       where: {
         tenantId,
         ...(siteId && { siteId }),
-        status: { in: ["OPEN", "APPROVED"] },
+        status: { in: ["APPROVED", "SENT", "PARTIALLY_RECEIVED"] },
         expectedDelivery: {
           lte: sevenDaysFromNow,
           gte: new Date(),
@@ -394,6 +354,8 @@ export class AlertService {
     });
 
     for (const order of upcomingOrders) {
+      if (!order.expectedDelivery) continue;
+      
       const daysUntilDue = Math.floor(
         (order.expectedDelivery.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -403,12 +365,12 @@ export class AlertService {
         ruleId: "po-due-default",
         type: "PURCHASE_ORDER_DUE",
         severity: daysUntilDue <= 2 ? "warning" : "info",
-        title: `Purchase Order Due Soon: ${order.orderNumber || order.id}`,
+        title: `Purchase Order Due Soon: ${order.poNumber || order.id}`,
         message: `PO from "${order.supplier.name}" is due in ${daysUntilDue} days on ${order.expectedDelivery.toLocaleDateString()}. Ensure receiving area is prepared.`,
         entityType: "PurchaseOrder",
         entityId: order.id,
         metadata: {
-          orderNumber: order.orderNumber,
+          orderNumber: order.poNumber,
           supplier: order.supplier.name,
           daysUntilDue,
           expectedDelivery: order.expectedDelivery,
@@ -461,7 +423,7 @@ export class AlertService {
       const users = await prisma.user.findMany({
         where: {
           tenantId: alert.tenantId,
-          role: { in: ["ADMIN", "MANAGER"] },
+          role: { in: ["Admin", "Supervisor"] },
         },
       });
 

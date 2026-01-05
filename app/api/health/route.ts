@@ -6,9 +6,9 @@
  */
 
 import { NextResponse } from "next/server";
-import { checkDatabaseHealth } from "@/server/prisma";
-import { circuitBreakerRegistry } from "@/server/resilience";
-import { getRateLimitStats } from "@/server/rate-limit";
+import { checkDatabaseHealth } from "@server/prisma";
+import { circuitBreakerRegistry } from "@server/resilience";
+import { getRateLimitStats } from "@server/rate-limit";
 
 export const dynamic = "force-dynamic";
 

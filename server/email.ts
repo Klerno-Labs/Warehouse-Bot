@@ -373,4 +373,304 @@ export class EmailService {
       html,
     });
   }
+
+  // ==========================================================================
+  // SALES EMAIL TEMPLATES
+  // ==========================================================================
+
+  /**
+   * Send order confirmation to customer
+   */
+  static async sendOrderConfirmation(
+    to: string,
+    order: {
+      orderNumber: string;
+      customerName: string;
+      orderDate: Date;
+      total: number;
+      items: Array<{ name: string; qty: number; unitPrice: number }>;
+      shippingAddress: string;
+    }
+  ): Promise<boolean> {
+    const itemsHtml = order.items
+      .map(
+        (item) =>
+          `<tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">${item.name}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.qty}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${item.unitPrice.toFixed(2)}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${(item.qty * item.unitPrice).toFixed(2)}</td>
+          </tr>`
+      )
+      .join("");
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #16a34a;">✅ Order Confirmed</h2>
+        <p>Thank you for your order, ${order.customerName}!</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Order Number:</strong> ${order.orderNumber}</p>
+          <p style="margin: 5px 0 0;"><strong>Order Date:</strong> ${order.orderDate.toLocaleDateString()}</p>
+        </div>
+
+        <h3 style="color: #0f172a;">Order Details</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr style="background-color: #0f172a; color: white;">
+            <th style="padding: 10px; text-align: left;">Item</th>
+            <th style="padding: 10px; text-align: center;">Qty</th>
+            <th style="padding: 10px; text-align: right;">Price</th>
+            <th style="padding: 10px; text-align: right;">Total</th>
+          </tr>
+          ${itemsHtml}
+          <tr style="background-color: #f8fafc; font-weight: bold;">
+            <td colspan="3" style="padding: 10px; text-align: right;">Order Total:</td>
+            <td style="padding: 10px; text-align: right;">$${order.total.toFixed(2)}</td>
+          </tr>
+        </table>
+
+        <h3 style="color: #0f172a; margin-top: 20px;">Shipping Address</h3>
+        <p style="background-color: #f8fafc; padding: 15px; border-radius: 8px;">
+          ${order.shippingAddress.replace(/\n/g, '<br>')}
+        </p>
+
+        <p style="margin-top: 20px;">
+          <a href="${process.env.NEXTAUTH_URL}/portal/orders/${order.orderNumber}"
+             style="background-color: #0f172a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+            Track Your Order
+          </a>
+        </p>
+        
+        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+          If you have any questions, please contact us at ${process.env.EMAIL_FROM || "support@warehouse-core.com"}.
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to,
+      subject: `Order Confirmation - ${order.orderNumber}`,
+      html,
+    });
+  }
+
+  /**
+   * Send shipment notification to customer
+   */
+  static async sendShipmentNotification(
+    to: string,
+    shipment: {
+      orderNumber: string;
+      shipmentNumber: string;
+      customerName: string;
+      carrier: string;
+      trackingNumber?: string;
+      estimatedDelivery?: Date;
+      items: Array<{ name: string; qty: number }>;
+    }
+  ): Promise<boolean> {
+    const itemsHtml = shipment.items
+      .map((item) => `<li>${item.name} × ${item.qty}</li>`)
+      .join("");
+
+    const trackingHtml = shipment.trackingNumber
+      ? `<p><strong>Tracking Number:</strong> ${shipment.trackingNumber}</p>
+         <p style="margin-top: 10px;">
+           <a href="https://www.google.com/search?q=${shipment.carrier}+tracking+${shipment.trackingNumber}"
+              style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+             Track Package
+           </a>
+         </p>`
+      : "";
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">📦 Your Order Has Shipped!</h2>
+        <p>Great news, ${shipment.customerName}! Your order is on its way.</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Order Number:</strong> ${shipment.orderNumber}</p>
+          <p style="margin: 5px 0 0;"><strong>Shipment Number:</strong> ${shipment.shipmentNumber}</p>
+          <p style="margin: 5px 0 0;"><strong>Carrier:</strong> ${shipment.carrier}</p>
+          ${shipment.estimatedDelivery ? `<p style="margin: 5px 0 0;"><strong>Estimated Delivery:</strong> ${shipment.estimatedDelivery.toLocaleDateString()}</p>` : ""}
+        </div>
+
+        ${trackingHtml}
+
+        <h3 style="color: #0f172a; margin-top: 20px;">Items Shipped</h3>
+        <ul style="line-height: 1.8;">
+          ${itemsHtml}
+        </ul>
+
+        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+          Thank you for your business!
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to,
+      subject: `📦 Shipped: Order ${shipment.orderNumber}`,
+      html,
+    });
+  }
+
+  /**
+   * Send delivery confirmation to customer
+   */
+  static async sendDeliveryConfirmation(
+    to: string,
+    delivery: {
+      orderNumber: string;
+      customerName: string;
+      deliveredAt: Date;
+      signedBy?: string;
+    }
+  ): Promise<boolean> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #16a34a;">✅ Order Delivered</h2>
+        <p>Hello ${delivery.customerName},</p>
+        <p>Your order <strong>${delivery.orderNumber}</strong> has been delivered!</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Delivered:</strong> ${delivery.deliveredAt.toLocaleString()}</p>
+          ${delivery.signedBy ? `<p style="margin: 5px 0 0;"><strong>Signed by:</strong> ${delivery.signedBy}</p>` : ""}
+        </div>
+
+        <p>We hope you're happy with your purchase. If you have any questions or concerns, please don't hesitate to contact us.</p>
+
+        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+          Thank you for choosing us!
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to,
+      subject: `✅ Delivered: Order ${delivery.orderNumber}`,
+      html,
+    });
+  }
+
+  /**
+   * Send internal notification for new sales order
+   */
+  static async sendNewOrderNotification(
+    to: string,
+    order: {
+      orderNumber: string;
+      customerName: string;
+      total: number;
+      itemCount: number;
+      requestedDate?: Date;
+      priority?: string;
+    }
+  ): Promise<boolean> {
+    const priorityColor = order.priority === "HIGH" ? "#dc2626" : order.priority === "MEDIUM" ? "#ea580c" : "#6b7280";
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #0f172a;">📥 New Sales Order</h2>
+        <p>A new sales order has been received and needs processing.</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0;"><strong>Order Number:</strong> ${order.orderNumber}</p>
+          <p style="margin: 5px 0 0;"><strong>Customer:</strong> ${order.customerName}</p>
+          <p style="margin: 5px 0 0;"><strong>Total:</strong> $${order.total.toFixed(2)}</p>
+          <p style="margin: 5px 0 0;"><strong>Items:</strong> ${order.itemCount}</p>
+          ${order.requestedDate ? `<p style="margin: 5px 0 0;"><strong>Requested Date:</strong> ${order.requestedDate.toLocaleDateString()}</p>` : ""}
+          ${order.priority ? `<p style="margin: 5px 0 0;"><strong>Priority:</strong> <span style="color: ${priorityColor};">${order.priority}</span></p>` : ""}
+        </div>
+
+        <p style="margin-top: 20px;">
+          <a href="${process.env.NEXTAUTH_URL}/sales/orders"
+             style="background-color: #0f172a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+            View Order
+          </a>
+        </p>
+        
+        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+          This is an automated notification from Warehouse Core.
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to,
+      subject: `📥 New Order: ${order.orderNumber} - ${order.customerName}`,
+      html,
+    });
+  }
+
+  /**
+   * Send PO confirmation to supplier
+   */
+  static async sendPurchaseOrderToSupplier(
+    to: string,
+    po: {
+      poNumber: string;
+      supplierName: string;
+      items: Array<{ name: string; qty: number; unitPrice: number }>;
+      total: number;
+      deliveryDate?: Date;
+      shippingAddress: string;
+      notes?: string;
+    },
+    pdfAttachment?: Buffer
+  ): Promise<boolean> {
+    const itemsHtml = po.items
+      .map(
+        (item) =>
+          `<tr>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">${item.name}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.qty}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${item.unitPrice.toFixed(2)}</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${(item.qty * item.unitPrice).toFixed(2)}</td>
+          </tr>`
+      )
+      .join("");
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #0f172a;">Purchase Order: ${po.poNumber}</h2>
+        <p>Dear ${po.supplierName},</p>
+        <p>Please find our purchase order details below. A PDF copy is attached for your records.</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr style="background-color: #0f172a; color: white;">
+            <th style="padding: 10px; text-align: left;">Item</th>
+            <th style="padding: 10px; text-align: center;">Qty</th>
+            <th style="padding: 10px; text-align: right;">Unit Price</th>
+            <th style="padding: 10px; text-align: right;">Total</th>
+          </tr>
+          ${itemsHtml}
+          <tr style="background-color: #f8fafc; font-weight: bold;">
+            <td colspan="3" style="padding: 10px; text-align: right;">Total:</td>
+            <td style="padding: 10px; text-align: right;">$${po.total.toFixed(2)}</td>
+          </tr>
+        </table>
+
+        ${po.deliveryDate ? `<p><strong>Required Delivery Date:</strong> ${po.deliveryDate.toLocaleDateString()}</p>` : ""}
+        
+        <h3 style="color: #0f172a;">Ship To</h3>
+        <p style="background-color: #f8fafc; padding: 15px; border-radius: 8px;">
+          ${po.shippingAddress.replace(/\n/g, '<br>')}
+        </p>
+
+        ${po.notes ? `<p><strong>Notes:</strong> ${po.notes}</p>` : ""}
+
+        <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">
+          Please confirm receipt of this order by replying to this email.
+        </p>
+      </div>
+    `;
+
+    // TODO: Add PDF attachment support when Resend supports it
+    return this.sendEmail({
+      to,
+      subject: `Purchase Order: ${po.poNumber}`,
+      html,
+    });
+  }
 }

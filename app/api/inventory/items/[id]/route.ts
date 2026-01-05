@@ -6,7 +6,7 @@ import { updateItemSchema } from "@shared/inventory";
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } },
-) {
+): Promise<NextResponse> {
   try {
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
@@ -19,7 +19,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }
 
-    const tenantCheck = requireTenantResource(context, item);
+    const tenantCheck = await requireTenantResource(context, item);
     if (tenantCheck instanceof NextResponse) return tenantCheck;
 
     const payload = await validateBody(req, updateItemSchema);

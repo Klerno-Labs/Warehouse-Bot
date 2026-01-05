@@ -119,6 +119,36 @@ enum ProductionOrderStatus {
   CANCELLED
 }
 
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  ALLOCATED
+  PICKING
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum SOLineStatus {
+  OPEN
+  ALLOCATED
+  PICKING
+  PICKED
+  PACKED
+  SHIPPED
+  CANCELLED
+}
+
+enum ShipmentStatus {
+  DRAFT
+  READY_TO_SHIP
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
 enum ComponentIssueMethod {
   MANUAL
   BACKFLUSH
@@ -161,6 +191,10 @@ model Tenant {
   billsOfMaterial   BillOfMaterial[]
   productionOrders  ProductionOrder[]
   notifications     Notification[]
+  customers         Customer[]
+  salesOrders       SalesOrder[]
+  shipments         Shipment[]
+  pickTasks         PickTask[]
 }
 
 model Site {
@@ -185,6 +219,9 @@ model Site {
   purchaseOrders    PurchaseOrder[]
   receipts          Receipt[]
   productionOrders  ProductionOrder[]
+  salesOrders       SalesOrder[]
+  shipments         Shipment[]
+  pickTasks         PickTask[]
 
   @@index([tenantId])
 }
@@ -291,6 +328,12 @@ model User {
   productionOrdersReleased ProductionOrder[] @relation("ProductionOrderReleasedBy")
   consumptionsCreated     ProductionConsumption[] @relation("ConsumptionCreatedBy")
   outputsCreated          ProductionOutput[] @relation("OutputCreatedBy")
+  salesOrdersCreated      SalesOrder[]       @relation("SOCreatedBy")
+  salesOrdersApproved     SalesOrder[]       @relation("SOApprovedBy")
+  pickTasksAssigned       PickTask[]         @relation("PickTaskAssignedTo")
+  pickTasksCompleted      PickTask[]         @relation("PickTaskCompletedBy")
+  pickTaskLinesCompleted  PickTaskLine[]     @relation("PickLineCompletedBy")
+  shipmentsCreated        Shipment[]
 
   @@index([tenantId])
   @@index([email])
@@ -384,6 +427,9 @@ model Item {
   consumptions      ProductionConsumption[] @relation("ConsumptionItem")
   outputs           ProductionOutput[]  @relation("OutputItem")
   componentScans    ComponentScan[]
+  salesOrderLines   SalesOrderLine[]
+  shipmentLines     ShipmentLine[]
+  pickTaskLines     PickTaskLine[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -413,6 +459,8 @@ model Location {
   receipts        Receipt[]
   consumptions    ProductionConsumption[] @relation("ConsumptionLocation")
   outputs         ProductionOutput[] @relation("OutputLocation")
+  pickTaskLinesFrom    PickTaskLine[]     @relation("PickFromLocation")
+  pickTaskLinesActual  PickTaskLine[]     @relation("ActualPickLocation")
 
   @@unique([tenantId, siteId, label])
   @@index([tenantId])
@@ -1106,4 +1154,362 @@ model Notification {
   @@index([isRead])
   @@index([targetDepartment])
   @@index([createdAt])
+}
+
+// ============================================================
+// SALES & OUTBOUND
+// ============================================================
+
+model Customer {
+  id              String   @id @default(uuid())
+  tenantId        String
+  
+  // Customer Info
+  code            String   // Customer code/number
+  name            String
+  email           String?
+  phone           String?
+  
+  // Billing Address
+  billingAddress1 String?
+  billingAddress2 String?
+  billingCity     String?
+  billingState    String?
+  billingZip      String?
+  billingCountry  String?
+  
+  // Shipping Address (default)
+  shippingAddress1 String?
+  shippingAddress2 String?
+  shippingCity     String?
+  shippingState    String?
+  shippingZip      String?
+  shippingCountry  String?
+  
+  // Terms & Settings
+  paymentTerms    String?  // NET30, NET60, etc.
+  creditLimit     Float?
+  taxExempt       Boolean  @default(false)
+  taxId           String?
+  notes           String?
+  
+  // Status
+  isActive        Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  salesOrders     SalesOrder[]
+  shipments       Shipment[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([name])
+}
+
+model SalesOrder {
+  id              String           @id @default(uuid())
+  tenantId        String
+  siteId          String
+  customerId      String
+  
+  // Order Info
+  orderNumber     String
+  customerPO      String?          // Customer's PO number
+  status          SalesOrderStatus @default(DRAFT)
+  
+  // Dates
+  orderDate       DateTime         @default(now())
+  requestedDate   DateTime?        // Customer's requested delivery date
+  promisedDate    DateTime?        // Our promised delivery date
+  
+  // Shipping
+  shipToName      String?
+  shipToAddress1  String?
+  shipToAddress2  String?
+  shipToCity      String?
+  shipToState     String?
+  shipToZip       String?
+  shipToCountry   String?
+  shippingMethod  String?          // GROUND, EXPRESS, OVERNIGHT, etc.
+  
+  // Financials
+  subtotal        Float            @default(0)
+  taxAmount       Float            @default(0)
+  shippingAmount  Float            @default(0)
+  discountAmount  Float            @default(0)
+  total           Float            @default(0)
+  currency        String           @default("USD")
+  
+  // Notes
+  notes           String?
+  internalNotes   String?
+  
+  // Audit
+  createdByUserId String?
+  approvedByUserId String?
+  approvedAt      DateTime?
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site            Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  customer        Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdBy       User?            @relation("SOCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  approvedBy      User?            @relation("SOApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  lines           SalesOrderLine[]
+  shipments       Shipment[]
+  pickTasks       PickTask[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([customerId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+model SalesOrderLine {
+  id              String       @id @default(uuid())
+  salesOrderId    String
+  
+  // Line Info
+  lineNumber      Int
+  itemId          String
+  description     String?
+  
+  // Quantities
+  qtyOrdered      Float
+  qtyAllocated    Float        @default(0)
+  qtyPicked       Float        @default(0)
+  qtyShipped      Float        @default(0)
+  uom             Uom
+  
+  // Pricing
+  unitPrice       Float
+  discount        Float        @default(0)
+  taxRate         Float        @default(0)
+  lineTotal       Float
+  
+  // Status
+  status          SOLineStatus @default(OPEN)
+  
+  // Lot/Serial (if applicable)
+  lotNumber       String?
+  serialNumber    String?
+  
+  // Notes
+  notes           String?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  salesOrder      SalesOrder   @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  item            Item         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  shipmentLines   ShipmentLine[]
+  pickTaskLines   PickTaskLine[]
+
+  @@unique([salesOrderId, lineNumber])
+  @@index([salesOrderId])
+  @@index([itemId])
+}
+
+model PickTask {
+  id              String       @id @default(uuid())
+  tenantId        String
+  siteId          String
+  salesOrderId    String
+  
+  // Task Info
+  taskNumber      String
+  status          String       @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+  priority        Int          @default(5)
+  
+  // Assignment
+  assignedToUserId String?
+  assignedAt      DateTime?
+  
+  // Completion
+  startedAt       DateTime?
+  completedAt     DateTime?
+  completedByUserId String?
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site            Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  salesOrder      SalesOrder   @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  assignedTo      User?        @relation("PickTaskAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  completedBy     User?        @relation("PickTaskCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  lines           PickTaskLine[]
+
+  @@unique([tenantId, taskNumber])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([salesOrderId])
+  @@index([status])
+}
+
+model PickTaskLine {
+  id              String       @id @default(uuid())
+  pickTaskId      String
+  salesOrderLineId String
+  
+  // What to pick
+  itemId          String
+  locationId      String       // Source location
+  
+  // Quantities
+  qtyToPick       Float
+  qtyPicked       Float        @default(0)
+  uom             Uom
+  
+  // Lot tracking
+  lotNumber       String?
+  
+  // Status
+  status          String       @default("PENDING") // PENDING, PICKED, SHORT
+  
+  // Actual pick info
+  pickedAt        DateTime?
+  pickedByUserId  String?
+  actualLocationId String?     // If picked from different location
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  pickTask        PickTask     @relation(fields: [pickTaskId], references: [id], onDelete: Cascade)
+  salesOrderLine  SalesOrderLine @relation(fields: [salesOrderLineId], references: [id], onDelete: Cascade)
+  item            Item         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  location        Location     @relation("PickFromLocation", fields: [locationId], references: [id], onDelete: Restrict)
+  actualLocation  Location?    @relation("ActualPickLocation", fields: [actualLocationId], references: [id], onDelete: SetNull)
+  pickedBy        User?        @relation("PickLineCompletedBy", fields: [pickedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([pickTaskId])
+  @@index([salesOrderLineId])
+  @@index([itemId])
+}
+
+model Shipment {
+  id              String         @id @default(uuid())
+  tenantId        String
+  siteId          String
+  salesOrderId    String
+  customerId      String
+  
+  // Shipment Info
+  shipmentNumber  String
+  status          ShipmentStatus @default(DRAFT)
+  
+  // Carrier Info
+  carrier         String?        // UPS, FedEx, USPS, etc.
+  serviceLevel    String?        // Ground, Express, etc.
+  trackingNumber  String?
+  
+  // Ship To
+  shipToName      String?
+  shipToAddress1  String?
+  shipToAddress2  String?
+  shipToCity      String?
+  shipToState     String?
+  shipToZip       String?
+  shipToCountry   String?
+  
+  // Package Info
+  totalPackages   Int            @default(1)
+  totalWeight     Float?
+  weightUnit      String         @default("LB")
+  
+  // Dates
+  shipDate        DateTime?
+  deliveryDate    DateTime?
+  
+  // Costs
+  shippingCost    Float          @default(0)
+  
+  // Notes
+  notes           String?
+  
+  // Audit
+  shippedByUserId String?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site            Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  salesOrder      SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Restrict)
+  customer        Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  shippedBy       User?          @relation(fields: [shippedByUserId], references: [id], onDelete: SetNull)
+  lines           ShipmentLine[]
+  packages        ShipmentPackage[]
+
+  @@unique([tenantId, shipmentNumber])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([salesOrderId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model ShipmentLine {
+  id              String       @id @default(uuid())
+  shipmentId      String
+  salesOrderLineId String
+  
+  // Line Info
+  itemId          String
+  qtyShipped      Float
+  uom             Uom
+  
+  // Lot tracking
+  lotNumber       String?
+  serialNumber    String?
+  
+  createdAt       DateTime     @default(now())
+
+  // Relations
+  shipment        Shipment     @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  salesOrderLine  SalesOrderLine @relation(fields: [salesOrderLineId], references: [id], onDelete: Restrict)
+  item            Item         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([shipmentId])
+  @@index([salesOrderLineId])
+}
+
+model ShipmentPackage {
+  id              String       @id @default(uuid())
+  shipmentId      String
+  
+  // Package Info
+  packageNumber   Int
+  trackingNumber  String?
+  
+  // Dimensions
+  length          Float?
+  width           Float?
+  height          Float?
+  dimensionUnit   String       @default("IN")
+  weight          Float?
+  weightUnit      String       @default("LB")
+  
+  // Contents description
+  contents        String?
+  
+  createdAt       DateTime     @default(now())
+
+  // Relations
+  shipment        Shipment     @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, packageNumber])
+  @@index([shipmentId])
 }

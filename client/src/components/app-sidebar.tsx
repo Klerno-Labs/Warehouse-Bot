@@ -25,6 +25,8 @@ import {
   Target,
   Boxes,
   CalendarClock,
+  ShoppingBag,
+  UserCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -65,6 +67,15 @@ const purchasingItems = [
   { title: "Purchase Orders", url: "/purchasing/purchase-orders", icon: FileText },
   { title: "Receipts", url: "/purchasing/receipts", icon: ArrowDownToLine },
   { title: "Suppliers", url: "/purchasing/suppliers", icon: Truck },
+];
+
+// Sales - Customer orders and fulfillment
+const salesItems = [
+  { title: "Overview", url: "/sales", icon: ShoppingBag },
+  { title: "Customers", url: "/sales/customers", icon: UserCircle },
+  { title: "Sales Orders", url: "/sales/orders", icon: FileText },
+  { title: "Shipments", url: "/sales/shipments", icon: Truck },
+  { title: "Analytics", url: "/sales/analytics", icon: BarChart3 },
 ];
 
 // Planning - Analytics, forecasting, and production planning
@@ -188,6 +199,32 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive}>
                       <Link href={item.url} data-testid={`link-purchasing-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        {/* Sales - Customer orders and fulfillment */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Sales
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {salesItems.map((item) => {
+                const isActive = pathname === item.url || (item.url !== "/sales" && pathname.startsWith(item.url));
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <Link href={item.url} data-testid={`link-sales-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>

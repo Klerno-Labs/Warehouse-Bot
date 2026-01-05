@@ -317,7 +317,7 @@ export class AnalyticsService {
     for (const count of cycleCounts) {
       for (const line of count.lines) {
         totalLines++;
-        if (line.varianceQty === 0) {
+        if (line.varianceQtyBase === 0) {
           accurateLines++;
         }
       }

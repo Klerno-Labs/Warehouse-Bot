@@ -23,6 +23,121 @@ export type AuthenticatedContext = {
 };
 
 // ============================================================================
+// RATE LIMITING (In-Memory for Single Instance)
+// For production: Use Redis or similar distributed store
+// ============================================================================
+
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+// In-memory store for rate limiting
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+// Clean up expired entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (entry.resetTime < now) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+/**
+ * Rate limit configuration
+ */
+export interface RateLimitConfig {
+  windowMs: number;     // Time window in milliseconds
+  maxRequests: number;  // Max requests per window
+}
+
+// Default configurations for different API types
+export const RATE_LIMITS = {
+  auth: { windowMs: 60 * 1000, maxRequests: 10 },      // 10 per minute for auth
+  write: { windowMs: 60 * 1000, maxRequests: 60 },    // 60 per minute for writes
+  read: { windowMs: 60 * 1000, maxRequests: 200 },    // 200 per minute for reads
+  search: { windowMs: 60 * 1000, maxRequests: 30 },   // 30 per minute for search
+  default: { windowMs: 60 * 1000, maxRequests: 100 }, // 100 per minute default
+} as const;
+
+/**
+ * Check rate limit for a given identifier (IP, user ID, etc.)
+ * Returns NextResponse if rate limited, otherwise true
+ */
+export function checkRateLimit(
+  identifier: string,
+  config: RateLimitConfig = RATE_LIMITS.default
+): NextResponse | true {
+  const now = Date.now();
+  const key = identifier;
+  
+  let entry = rateLimitStore.get(key);
+  
+  // Reset if window has passed
+  if (!entry || entry.resetTime < now) {
+    entry = {
+      count: 1,
+      resetTime: now + config.windowMs,
+    };
+    rateLimitStore.set(key, entry);
+    return true;
+  }
+  
+  // Check if over limit
+  if (entry.count >= config.maxRequests) {
+    const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
+    return NextResponse.json(
+      { 
+        error: "Too many requests", 
+        retryAfter,
+        message: `Rate limit exceeded. Try again in ${retryAfter} seconds.`
+      },
+      { 
+        status: 429,
+        headers: {
+          'Retry-After': String(retryAfter),
+          'X-RateLimit-Limit': String(config.maxRequests),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(entry.resetTime),
+        }
+      }
+    );
+  }
+  
+  // Increment counter
+  entry.count++;
+  rateLimitStore.set(key, entry);
+  return true;
+}
+
+/**
+ * Get client identifier for rate limiting
+ * In production, consider using X-Forwarded-For or X-Real-IP headers
+ */
+export function getClientIdentifier(request: Request, userId?: string): string {
+  // Use userId if available (more accurate)
+  if (userId) {
+    return `user:${userId}`;
+  }
+  
+  // Try to get IP from headers
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) {
+    return `ip:${forwarded.split(',')[0].trim()}`;
+  }
+  
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) {
+    return `ip:${realIp}`;
+  }
+  
+  // Fallback to a generic identifier
+  return `ip:unknown`;
+}
+
+// ============================================================================
 // AUTHENTICATION MIDDLEWARE
 // ============================================================================
 

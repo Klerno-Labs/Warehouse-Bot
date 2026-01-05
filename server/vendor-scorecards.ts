@@ -433,7 +433,7 @@ export class VendorScorecardService {
     const suppliers = await prisma.supplier.findMany({
       where: {
         tenantId,
-        active: true,
+        isActive: true,
       },
     });
 

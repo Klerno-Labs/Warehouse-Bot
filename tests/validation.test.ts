@@ -4,7 +4,7 @@
  * Comprehensive tests for input validation, sanitization, and security.
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect } from "vitest";
 import {
   sanitizeString,
   validatePagination,

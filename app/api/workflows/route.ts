@@ -305,14 +305,14 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, description, trigger, conditions, actions } = body;
 
-    const workflowId = `workflow-${Date.now()}`;
+    const newWorkflowId = `workflow-${Date.now()}`;
 
     // In production, save to database
-    console.log("Creating workflow:", { workflowId, name, trigger, conditions, actions });
+    console.log("Creating workflow:", { workflowId: newWorkflowId, name, trigger, conditions, actions });
 
     return NextResponse.json({
       success: true,
-      workflowId,
+      workflowId: newWorkflowId,
       message: "Workflow created successfully",
     });
   } catch (error) {

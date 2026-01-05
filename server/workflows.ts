@@ -82,14 +82,17 @@ export interface WorkflowExecution {
   triggeredBy: string; // User ID or "SYSTEM"
   triggeredAt: Date;
   status: "SUCCESS" | "FAILED" | "PARTIAL";
-  results: {
-    action: string;
-    success: boolean;
-    message?: string;
-    error?: string;
-  }[];
+  results: ActionResult[];
   duration: number; // milliseconds
 }
+
+// Type for action results - used by all execute methods
+export type ActionResult = {
+  action: string;
+  success: boolean;
+  message?: string;
+  error?: string;
+};
 
 export class WorkflowEngine {
   /**
@@ -302,7 +305,7 @@ export class WorkflowEngine {
   private static async executeSendEmail(
     config: Record<string, any>,
     context: Record<string, any>
-  ): Promise<{ action: string; success: boolean; message?: string }> {
+  ): Promise<ActionResult> {
     try {
       const { to, subject, template } = config;
 
@@ -325,7 +328,7 @@ export class WorkflowEngine {
       return {
         action: "SEND_EMAIL",
         success: false,
-        error: error.message,
+        message: `Email failed: ${error.message}`,
       };
     }
   }
@@ -337,7 +340,7 @@ export class WorkflowEngine {
     config: Record<string, any>,
     context: Record<string, any>,
     tenantId: string
-  ): Promise<{ action: string; success: boolean; message?: string }> {
+  ): Promise<ActionResult> {
     try {
       const { supplierId, items, siteId } = config;
 
@@ -373,7 +376,7 @@ export class WorkflowEngine {
     config: Record<string, any>,
     context: Record<string, any>,
     tenantId: string
-  ): Promise<{ action: string; success: boolean; message?: string }> {
+  ): Promise<ActionResult> {
     try {
       const { itemId, locationId, adjustment, reason } = config;
 
@@ -407,7 +410,7 @@ export class WorkflowEngine {
     config: Record<string, any>,
     context: Record<string, any>,
     tenantId: string
-  ): Promise<{ action: string; success: boolean; message?: string }> {
+  ): Promise<ActionResult> {
     try {
       const { itemId, updates } = config;
 
@@ -437,7 +440,7 @@ export class WorkflowEngine {
     config: Record<string, any>,
     context: Record<string, any>,
     tenantId: string
-  ): Promise<{ action: string; success: boolean; message?: string }> {
+  ): Promise<ActionResult> {
     try {
       const { title, message, severity } = config;
 
@@ -469,7 +472,7 @@ export class WorkflowEngine {
   private static async executeCallWebhook(
     config: Record<string, any>,
     context: Record<string, any>
-  ): Promise<{ action: string; success: boolean; message?: string }> {
+  ): Promise<ActionResult> {
     try {
       const { url, method = "POST", headers = {}, body } = config;
 
@@ -507,7 +510,7 @@ export class WorkflowEngine {
     config: Record<string, any>,
     context: Record<string, any>,
     tenantId: string
-  ): Promise<{ action: string; success: boolean; message?: string }> {
+  ): Promise<ActionResult> {
     try {
       const { entityType, entityId, newStatus } = config;
 

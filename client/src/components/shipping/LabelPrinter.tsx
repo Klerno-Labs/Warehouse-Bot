@@ -196,14 +196,14 @@ export function LabelPrinter({ orderId, orderType = "purchase" }: { orderId: str
       doc.text("TO:", 0.3, y);
       y += 0.15;
       doc.setFontSize(12);
-      doc.setFont(undefined, "bold");
+      doc.setFont("helvetica", "bold");
       doc.text(label.shipTo.name, 0.3, y);
       y += 0.2;
       if (label.shipTo.company) {
         doc.text(label.shipTo.company, 0.3, y);
         y += 0.2;
       }
-      doc.setFont(undefined, "normal");
+      doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
       doc.text(label.shipTo.address1, 0.3, y);
       y += 0.18;

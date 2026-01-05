@@ -10,8 +10,8 @@ import { logger, RequestTimer, createLogger } from "./logger";
 import { toErrorResponse, AppError, AuthenticationError } from "./errors";
 import { extractIPAddress, validatePagination } from "./validation";
 import { rateLimit, RateLimitConfig, RateLimitPresets } from "./rate-limit";
-import type { AuthenticatedContext, UserRole } from "@/app/api/_utils/middleware";
-import { requireAuth as baseRequireAuth, requireRole as baseRequireRole } from "@/app/api/_utils/middleware";
+import type { AuthenticatedContext, UserRole } from "@app/api/_utils/middleware";
+import { requireAuth as baseRequireAuth, requireRole as baseRequireRole } from "@app/api/_utils/middleware";
 
 /**
  * Request context with enhanced information
@@ -110,8 +110,8 @@ export async function requireRole(
     return context;
   }
 
-  // Call base role check
-  const baseResult = await baseRequireRole(roles);
+  // Call base role check (it's synchronous and takes context as first arg)
+  const baseResult = baseRequireRole(context, roles);
 
   if (baseResult instanceof NextResponse) {
     // Authorization failed

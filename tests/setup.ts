@@ -4,7 +4,7 @@
  * Provides test infrastructure for unit, integration, and load testing.
  */
 
-import { beforeAll, afterAll, beforeEach, afterEach } from "@jest/globals";
+import { beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import { prisma } from "@/server/prisma";
 
 /**

@@ -143,10 +143,13 @@ export class OfflineManager {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction("pendingTransactions", "readonly");
       const store = transaction.objectStore("pendingTransactions");
-      const index = store.index("synced");
-      const request = index.getAll(false);
+      const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        // Filter for unsynced transactions
+        const pending = (request.result as PendingTransaction[]).filter(tx => !tx.synced);
+        resolve(pending);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -184,13 +187,15 @@ export class OfflineManager {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction("pendingTransactions", "readwrite");
       const store = transaction.objectStore("pendingTransactions");
-      const index = store.index("synced");
-      const request = index.openCursor(true);
+      const request = store.openCursor();
 
       request.onsuccess = (event: any) => {
         const cursor = event.target.result;
         if (cursor) {
-          cursor.delete();
+          const record = cursor.value as PendingTransaction;
+          if (record.synced) {
+            cursor.delete();
+          }
           cursor.continue();
         } else {
           resolve();
@@ -258,8 +263,12 @@ export class OfflineManager {
     if ("serviceWorker" in navigator && "sync" in ServiceWorkerRegistration.prototype) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.sync.register(tag);
-        console.log(`[Offline Manager] Background sync registered: ${tag}`);
+        // Cast to extended interface that includes sync
+        const syncManager = (registration as unknown as { sync?: { register: (tag: string) => Promise<void> } }).sync;
+        if (syncManager) {
+          await syncManager.register(tag);
+          console.log(`[Offline Manager] Background sync registered: ${tag}`);
+        }
       } catch (error) {
         console.error("[Offline Manager] Background sync failed:", error);
       }

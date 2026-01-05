@@ -31,6 +31,12 @@ export function sanitizeString(input: string, maxLength?: number): string {
   // Remove null bytes
   sanitized = sanitized.replace(/\0/g, "");
 
+  // Strip XSS-dangerous patterns (script tags, event handlers)
+  sanitized = sanitized.replace(/<script[^>]*>.*?<\/script>/gi, "");
+  sanitized = sanitized.replace(/<script[^>]*>/gi, "");
+  sanitized = sanitized.replace(/<\/script>/gi, "");
+  sanitized = sanitized.replace(/\bon\w+\s*=/gi, ""); // onerror=, onload=, etc.
+
   // Limit length
   if (maxLength) {
     sanitized = sanitized.slice(0, maxLength);
@@ -48,8 +54,8 @@ export function validatePagination(params: {
   limit?: string | number | null;
   offset?: string | number | null;
 }): { limit: number; offset: number } {
-  let limit = VALIDATION_LIMITS.DEFAULT_PAGE_SIZE;
-  let offset = 0;
+  let limit: number = VALIDATION_LIMITS.DEFAULT_PAGE_SIZE;
+  let offset: number = 0;
 
   if (params.limit !== undefined && params.limit !== null) {
     const parsedLimit = typeof params.limit === "string"
@@ -193,10 +199,31 @@ export function validateDate(
     pastOnly?: boolean;
   }
 ): Date {
+  // Strict ISO format validation: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
+  const isoDatePattern = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?(Z|[+-]\d{2}:?\d{2})?)?$/;
+  
+  if (!isoDatePattern.test(dateString)) {
+    throw new ValidationError(`Invalid ${fieldName} format - use ISO format (YYYY-MM-DD)`, {
+      [fieldName]: dateString,
+    });
+  }
+
   const date = new Date(dateString);
 
   if (isNaN(date.getTime())) {
     throw new ValidationError(`Invalid ${fieldName} format`, {
+      [fieldName]: dateString,
+    });
+  }
+  
+  // Validate that the parsed date matches input (catches invalid month/day)
+  const [yearStr, monthStr, dayStr] = dateString.split("T")[0].split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const day = parseInt(dayStr, 10);
+  
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) {
+    throw new ValidationError(`Invalid ${fieldName} - date doesn't exist`, {
       [fieldName]: dateString,
     });
   }
@@ -374,16 +401,13 @@ export function validateJSON<T = any>(
   }
 
   if (schema) {
-    try {
-      return schema.parse(parsed);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError("JSON validation failed", {
-          errors: error.errors,
-        });
-      }
-      throw error;
+    const result = schema.safeParse(parsed);
+    if (!result.success) {
+      throw new ValidationError("JSON validation failed", {
+        errors: result.error.errors,
+      });
     }
+    return result.data;
   }
 
   return parsed;

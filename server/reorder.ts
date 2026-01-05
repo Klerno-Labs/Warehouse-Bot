@@ -198,6 +198,7 @@ export class ReorderService {
         tenantId,
         siteId,
         supplierId,
+        poNumber,
         status: "DRAFT",
         orderDate: new Date(),
         expectedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now

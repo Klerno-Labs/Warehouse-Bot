@@ -410,7 +410,8 @@ export class SearchService {
           tenantId,
           OR: [
             { label: { contains: query, mode: "insensitive" } },
-            { aisle: { contains: query, mode: "insensitive" } },
+            { zone: { contains: query, mode: "insensitive" } },
+            { bin: { contains: query, mode: "insensitive" } },
           ],
         },
         take: limit,

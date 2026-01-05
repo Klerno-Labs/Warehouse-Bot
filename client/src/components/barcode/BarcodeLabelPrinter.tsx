@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { BarcodeGenerator } from './BarcodeGenerator';
+import { SimpleBarcodeDisplay } from './SimpleBarcodeDisplay';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface BarcodeLabelPrinterProps {
@@ -17,6 +17,14 @@ export function BarcodeLabelPrinter({
   sku,
   onClose,
 }: BarcodeLabelPrinterProps) {
+  // Map uppercase format to lowercase for SimpleBarcodeDisplay
+  const typeMap: Record<string, 'code128' | 'ean13' | 'upc' | 'code39'> = {
+    'CODE128': 'code128',
+    'EAN13': 'ean13',
+    'UPC': 'upc',
+    'CODE39': 'code39',
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -40,13 +48,11 @@ export function BarcodeLabelPrinter({
                 <p className="text-sm text-muted-foreground">SKU: {sku}</p>
               </div>
 
-              <BarcodeGenerator
+              <SimpleBarcodeDisplay
                 value={barcode}
-                format={barcodeType}
+                type={typeMap[barcodeType] || 'code128'}
                 width={2}
                 height={80}
-                displayValue={true}
-                fontSize={16}
               />
             </div>
           </div>

@@ -80,7 +80,7 @@ export async function POST(req: Request) {
         quantityProduced: order.qtyCompleted || 0,
         scheduledDate: order.scheduledStart,
         startedAt: order.actualStart,
-        completedAt: order.completedAt,
+        completedAt: order.actualEnd,
         estimatedCompletion: order.scheduledEnd || order.scheduledStart,
         site: {
           name: order.site.name,
@@ -148,7 +148,7 @@ export async function GET(req: Request) {
         quantityOrdered: order.qtyOrdered,
         quantityProduced: order.qtyCompleted || 0,
         scheduledDate: order.scheduledStart,
-        completedAt: order.completedAt,
+        completedAt: order.actualEnd,
         site: order.site.name,
         progress: order.qtyOrdered > 0 ? ((order.qtyCompleted || 0) / order.qtyOrdered) * 100 : 0,
       })),

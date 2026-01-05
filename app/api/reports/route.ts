@@ -12,9 +12,9 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAuth, handleApiError } from "@/app/api/_utils/middleware";
-import { storage } from "@/server/storage";
-import { cache, cacheKeys, cacheTTL } from "@/server/cache";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
+import { storage } from "@server/storage";
+import type { InventoryBalance, Item } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -125,15 +125,15 @@ async function generateInventorySummary(tenantId: string, siteIds: string[], sit
   ]);
 
   // Index balances by item
-  const balancesByItem = new Map<string, typeof balances>();
-  balances.forEach(b => {
+  const balancesByItem = new Map<string, InventoryBalance[]>();
+  balances.forEach((b: InventoryBalance) => {
     if (!balancesByItem.has(b.itemId)) balancesByItem.set(b.itemId, []);
     balancesByItem.get(b.itemId)!.push(b);
   });
 
-  const summary = items.map(item => {
+  const summary = items.map((item: Item) => {
     const itemBalances = balancesByItem.get(item.id) || [];
-    const totalQty = itemBalances.reduce((sum, b) => sum + b.qtyBase, 0);
+    const totalQty = itemBalances.reduce((sum: number, b: InventoryBalance) => sum + b.qtyBase, 0);
     const cost = item.avgCostBase || item.costBase || 0;
     const value = totalQty * cost;
 
@@ -497,10 +497,10 @@ async function generateProductionReport(tenantId: string, startDate?: string | n
   }, {} as Record<string, number>);
 
   const completed = filtered.filter(po => po.status === "COMPLETED");
-  const avgCompletionTime = completed.length > 0 && completed[0].completedAt
+  const avgCompletionTime = completed.length > 0 && completed[0].actualEnd
     ? completed.reduce((sum, po) => {
-        if (po.completedAt && po.startedAt) {
-          return sum + (new Date(po.completedAt).getTime() - new Date(po.startedAt).getTime());
+        if (po.actualEnd && po.actualStart) {
+          return sum + (new Date(po.actualEnd).getTime() - new Date(po.actualStart).getTime());
         }
         return sum;
       }, 0) / completed.length / (1000 * 60 * 60) // Convert to hours
@@ -512,8 +512,8 @@ async function generateProductionReport(tenantId: string, startDate?: string | n
       status: po.status,
       qtyOrdered: po.qtyOrdered,
       qtyCompleted: po.qtyCompleted,
-      startDate: po.startedAt,
-      completedDate: po.completedAt,
+      startDate: po.actualStart,
+      completedDate: po.actualEnd,
     })),
     summary: {
       totalOrders: filtered.length,
@@ -533,15 +533,15 @@ async function generateCycleCountReport(tenantId: string, siteIds: string[]) {
   // Get lines for completed counts
   const countData = await Promise.all(
     completed.slice(0, 20).map(async cc => {
-      const lines = await storage.getCycleCountLines(cc.id);
+      const lines = await storage.getCycleCountLinesByCycleCount(cc.id);
       return { count: cc, lines };
     })
   );
 
   const variances = countData.flatMap(({ count, lines }) => 
     lines
-      .filter(line => line.varianceQtyBase && line.varianceQtyBase !== 0)
-      .map(line => ({
+      .filter((line: { varianceQtyBase: number | null }) => line.varianceQtyBase && line.varianceQtyBase !== 0)
+      .map((line: { itemId: string; expectedQtyBase: number; countedQtyBase: number | null; varianceQtyBase: number | null; status: string }) => ({
         countName: count.name,
         countDate: count.completedAt || count.scheduledDate,
         itemId: line.itemId,

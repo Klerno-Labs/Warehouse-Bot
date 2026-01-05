@@ -114,7 +114,7 @@ export class LabelService {
 
     // Build shipping label
     const label: ShippingLabel = {
-      orderNumber: order.orderNumber || `PO-${order.id.substring(0, 8)}`,
+      orderNumber: order.poNumber || `PO-${order.id.substring(0, 8)}`,
       orderDate: order.orderDate,
       shipTo: {
         name: order.supplier.contactName || order.supplier.name,
@@ -122,7 +122,7 @@ export class LabelService {
         address1: order.supplier.address || "Address not provided",
         city: order.supplier.city || "Unknown",
         state: order.supplier.state || "",
-        postalCode: order.supplier.postalCode || "",
+        postalCode: order.supplier.zipCode || "",
         country: order.supplier.country || "USA",
         phone: order.supplier.phone || undefined,
         email: order.supplier.email || undefined,
@@ -140,7 +140,7 @@ export class LabelService {
       carrier: "UPS", // In production, get from order or site settings
       serviceLevel: "Ground",
       trackingNumber: this.generateTrackingNumber(),
-      barcode: order.orderNumber || `PO-${order.id}`,
+      barcode: order.poNumber || `PO-${order.id}`,
       specialInstructions: order.notes || undefined,
     };
 
@@ -171,9 +171,9 @@ export class LabelService {
       where: { id: orderId, tenantId },
       include: {
         item: true,
-        bomHeader: {
+        bom: {
           include: {
-            lines: {
+            components: {
               include: {
                 item: true,
               },
@@ -188,14 +188,14 @@ export class LabelService {
     }
 
     // Build packing slip lines from BOM
-    const lines: PackingSlipLine[] = order.bomHeader
-      ? order.bomHeader.lines.map((line) => ({
-          sku: line.item.sku,
-          name: line.item.name,
-          description: line.item.description || undefined,
-          quantityOrdered: line.qtyPer * order.qtyOrdered,
-          quantityShipped: line.qtyPer * (order.qtyCompleted || 0),
-          uom: line.item.baseUom,
+    const lines: PackingSlipLine[] = order.bom
+      ? order.bom.components.map((component) => ({
+          sku: component.item.sku,
+          name: component.item.name,
+          description: component.item.description || undefined,
+          quantityOrdered: component.qtyPer * order.qtyOrdered,
+          quantityShipped: component.qtyPer * (order.qtyCompleted || 0),
+          uom: component.item.baseUom,
         }))
       : [
           {
@@ -213,7 +213,7 @@ export class LabelService {
     const slip: PackingSlip = {
       orderNumber: order.orderNumber || `MO-${order.id.substring(0, 8)}`,
       orderDate: order.createdAt,
-      shipDate: order.completedAt || new Date(),
+      shipDate: order.actualEnd || new Date(),
       shipTo: {
         name: "Internal Production",
         address1: "Production Floor",

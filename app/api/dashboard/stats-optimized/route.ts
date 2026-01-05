@@ -12,9 +12,9 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@/app/api/_utils/middleware";
-import { storage } from "@/server/storage";
-import { logger, RequestTimer } from "@/server/logger";
+import { requireAuth } from "@app/api/_utils/middleware";
+import { storage } from "@server/storage";
+import { logger, RequestTimer } from "@server/logger";
 import type { InventoryEvent } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -245,8 +245,8 @@ export async function GET(req: Request) {
     // Production orders summary
     // =========================================================================
 
-    const pendingOrders = productionOrders.filter((po) => po.status === "PENDING" || po.status === "IN_PROGRESS").length;
-    const completedOrders = productionOrders.filter((po) => po.status === "COMPLETED").length;
+    const pendingOrders = productionOrders.filter((po) => po.status === "PLANNED" || po.status === "RELEASED" || po.status === "IN_PROGRESS").length;
+    const completedOrders = productionOrders.filter((po) => po.status === "COMPLETED" || po.status === "CLOSED").length;
 
     // =========================================================================
     // Transaction velocity (events per day, last 30 days)

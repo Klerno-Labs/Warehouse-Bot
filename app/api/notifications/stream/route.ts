@@ -19,8 +19,8 @@ export const runtime = "nodejs";
 // Track active connections per tenant for broadcasting
 const connections = new Map<string, Set<ReadableStreamDefaultController>>();
 
-// Helper to broadcast to all connections for a tenant
-export function broadcastNotification(tenantId: string, notification: object) {
+// Helper to broadcast to all connections for a tenant (internal use only, not exported)
+function broadcastNotification(tenantId: string, notification: object) {
   const tenantConnections = connections.get(tenantId);
   if (!tenantConnections) return;
 
@@ -89,8 +89,8 @@ export async function GET(req: NextRequest) {
                   id: recent.id,
                   title: recent.title,
                   message: recent.message,
-                  severity: recent.severity,
-                  category: recent.category,
+                  severity: recent.priority, // Using priority field
+                  category: recent.type, // Using type field
                   isRead: recent.isRead,
                   createdAt: recent.createdAt,
                 },
