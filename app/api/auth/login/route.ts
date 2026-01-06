@@ -45,9 +45,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ user: sessionUser, sites });
   } catch (error) {
+    console.error("Login error:", error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid request", details: error.errors }, { status: 400 });
     }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Internal server error", details: errorMessage }, { status: 500 });
   }
 }
