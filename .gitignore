@@ -27,3 +27,4 @@ coverage/
 # Windows reserved filenames
 nul
 tsc_output.txt
+.vercel
