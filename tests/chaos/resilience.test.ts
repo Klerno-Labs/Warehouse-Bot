@@ -44,7 +44,7 @@ vi.mock("@/server/prisma", async () => {
   };
 });
 
-import { prisma } from "@/server/prisma";
+import { prisma } from "@server/prisma";
 
 describe("Chaos Tests - System Resilience", () => {
   beforeEach(() => {
@@ -112,7 +112,7 @@ describe("Chaos Tests - System Resilience", () => {
       );
 
       await expect(async () => {
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: unknown) => {
           // Long running operations
         });
       }).rejects.toThrow("Transaction timed out");
@@ -124,7 +124,7 @@ describe("Chaos Tests - System Resilience", () => {
       );
 
       await expect(async () => {
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: unknown) => {
           // Operations that cause deadlock
         });
       }).rejects.toThrow("Deadlock detected");
@@ -156,7 +156,7 @@ describe("Chaos Tests - System Resilience", () => {
       });
 
       await expect(async () => {
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: unknown) => {
           await (tx as any).item.create({ data: { sku: "1" } });
           await (tx as any).item.create({ data: { sku: "2" } });
           await (tx as any).item.create({ data: { sku: "3" } }); // This fails
@@ -376,7 +376,7 @@ describe("Chaos Tests - Recovery Mechanisms", () => {
         return { success: true };
       });
 
-      const result = await retryOperation(operation);
+      const result = await retryOperation(operation) as { success: boolean };
 
       expect(result.success).toBe(true);
       expect(callCount).toBe(3);

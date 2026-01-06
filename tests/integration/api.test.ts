@@ -52,7 +52,7 @@ vi.mock("@/app/api/_utils/session", () => ({
   })),
 }));
 
-import { prisma } from "@/server/prisma";
+import { prisma } from "@server/prisma";
 
 describe("API Integration Tests", () => {
   beforeEach(() => {
