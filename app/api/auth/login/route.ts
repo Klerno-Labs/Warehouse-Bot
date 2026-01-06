@@ -6,6 +6,19 @@ import { audit } from "@server/audit";
 import { setSessionCookie } from "@app/api/_utils/session";
 import { z } from "zod";
 
+// Handle CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Credentials": "true",
+    },
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const payload = loginSchema.parse(await req.json());
