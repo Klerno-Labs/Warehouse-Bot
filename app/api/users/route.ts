@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { storage } from "@server/storage";
 import { audit } from "@server/audit";
 import { getSessionUserWithRecord } from "@app/api/_utils/session";

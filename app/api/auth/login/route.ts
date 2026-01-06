@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { loginSchema } from "@shared/validation";
 import { storage } from "@server/storage";
 import { audit } from "@server/audit";
