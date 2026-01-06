@@ -89,8 +89,9 @@ export async function GET() {
       }
     });
 
-    // Calculate recent activity (last 24 hours)
+    // Calculate recent activity (last 24 hours and 7 days)
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentEvents = events.filter((e) => new Date(e.createdAt) > oneDayAgo);
     const recentTransactions = recentEvents.length;
 
@@ -184,7 +185,6 @@ export async function GET() {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     const inventoryAging = {
       current: 0,      // 0-30 days
