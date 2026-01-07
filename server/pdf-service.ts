@@ -28,7 +28,7 @@ const PRIMARY_COLOR: [number, number, number] = [15, 23, 42];
 const SECONDARY_COLOR: [number, number, number] = [71, 85, 105];
 const ACCENT_COLOR: [number, number, number] = [59, 130, 246];
 
-interface Address {
+export interface Address {
   name?: string;
   address1?: string;
   address2?: string;
@@ -38,7 +38,7 @@ interface Address {
   country?: string;
 }
 
-interface LineItem {
+export interface LineItem {
   sku?: string;
   description: string;
   qty: number;
@@ -52,7 +52,7 @@ interface LineItem {
 // SALES ORDER / ORDER CONFIRMATION PDF
 // ============================================================================
 
-interface SalesOrderPDFData {
+export interface SalesOrderPDFData {
   orderNumber: string;
   orderDate: Date;
   requestedDate?: Date;
@@ -212,7 +212,7 @@ export function generateSalesOrderPDF(data: SalesOrderPDFData): Buffer {
 // INVOICE PDF
 // ============================================================================
 
-interface InvoicePDFData extends SalesOrderPDFData {
+export interface InvoicePDFData extends SalesOrderPDFData {
   invoiceNumber: string;
   invoiceDate: Date;
   dueDate: Date;
@@ -348,7 +348,7 @@ export function generateInvoicePDF(data: InvoicePDFData): Buffer {
 // PACKING SLIP PDF
 // ============================================================================
 
-interface PackingSlipPDFData {
+export interface PackingSlipPDFData {
   shipmentNumber: string;
   orderNumber: string;
   shipDate: Date;
@@ -504,7 +504,7 @@ export function generatePackingSlipPDF(data: PackingSlipPDFData): Buffer {
 // PURCHASE ORDER PDF
 // ============================================================================
 
-interface PurchaseOrderPDFData {
+export interface PurchaseOrderPDFData {
   poNumber: string;
   orderDate: Date;
   expectedDate?: Date;
@@ -682,7 +682,7 @@ export function generatePurchaseOrderPDF(data: PurchaseOrderPDFData): Buffer {
 // PICK LIST PDF
 // ============================================================================
 
-interface PickListPDFData {
+export interface PickListPDFData {
   taskNumber: string;
   orderNumber: string;
   createdDate: Date;
@@ -789,7 +789,7 @@ export function generatePickListPDF(data: PickListPDFData): Buffer {
 // CYCLE COUNT SHEET PDF
 // ============================================================================
 
-interface CycleCountSheetPDFData {
+export interface CycleCountSheetPDFData {
   countName: string;
   countDate: Date;
   assignedTo?: string;

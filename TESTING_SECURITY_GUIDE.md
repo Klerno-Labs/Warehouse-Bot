@@ -6,7 +6,7 @@ This document describes the comprehensive testing and security infrastructure fo
 
 ## Test Structure
 
-```
+```text
 tests/
 ├── unit/                   # Business logic unit tests
 │   └── inventory.test.ts   # Inventory calculations, validation
@@ -50,7 +50,7 @@ npm run test:e2e
 
 ### Load Testing with K6
 
-K6 must be installed separately: https://k6.io/docs/get-started/installation/
+K6 must be installed separately: <https://k6.io/docs/get-started/installation/>
 
 ```bash
 # Set environment variables
@@ -70,14 +70,14 @@ k6 run --env SCENARIO=spike tests/load/order-flow.js
 
 ## Test Coverage
 
-| Suite | Tests | Coverage |
-|-------|-------|----------|
-| Unit Tests | 45 | Business logic, calculations |
-| Integration | 23 | API endpoints, database ops |
-| Validation | 46 | Input sanitization, formats |
-| Chaos | 24 | Failure scenarios, recovery |
-| Security | 62 | OWASP Top 10, auth, RBAC |
-| **Total** | **200** | Full coverage |
+| Suite       | Tests   | Coverage                     |
+| ----------- | ------- | ---------------------------- |
+| Unit Tests  | 45      | Business logic, calculations |
+| Integration | 23      | API endpoints, database ops  |
+| Validation  | 46      | Input sanitization, formats  |
+| Chaos       | 24      | Failure scenarios, recovery  |
+| Security    | 62      | OWASP Top 10, auth, RBAC     |
+| **Total**   | **200** | Full coverage                |
 
 ## Security Testing
 
@@ -141,6 +141,7 @@ npm run test:security
 ### Order Flow Test (`order-flow.js`)
 
 Simulates complete order lifecycle:
+
 1. Check inventory availability
 2. Create sales order
 3. Allocate inventory
@@ -150,12 +151,14 @@ Simulates complete order lifecycle:
 7. Verify order status
 
 **Scenarios:**
+
 - **Smoke**: 5 VUs, 1 minute
 - **Load**: Ramp to 100 VUs, 17 minutes
 - **Stress**: Ramp to 1000 VUs, 12 minutes
 - **Spike**: Instant 1000 VU spikes
 
 **Thresholds:**
+
 - 95% requests under 2s
 - 99% requests under 5s
 - Error rate < 10%
@@ -163,11 +166,13 @@ Simulates complete order lifecycle:
 ### Database Stress Test (`database-stress.js`)
 
 Tests database under write pressure:
+
 - Write stress: Up to 1000 writes/sec
 - Mixed read/write: 70/30 ratio
 - Transaction stress: Complex multi-operation transactions
 
 **Thresholds:**
+
 - 95% writes under 1s
 - 95% reads under 200ms
 - Error rate < 10%
@@ -175,10 +180,12 @@ Tests database under write pressure:
 ### API Flood Test (`api-flood.js`)
 
 Tests rate limiting and API resilience:
+
 - Constant: 1000 requests/sec for 5 minutes
 - Burst: Up to 3000 requests/sec spikes
 
 **Thresholds:**
+
 - 90% responses under 1s
 - Error rate < 20%
 - Rate limiting should activate
@@ -261,13 +268,13 @@ jobs:
 
 ### Target Metrics
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| API Response (p95) | < 200ms | TBD |
-| API Response (p99) | < 500ms | TBD |
-| Order Creation | < 500ms | TBD |
-| Inventory Check | < 100ms | TBD |
-| Concurrent Users | 1000+ | TBD |
+| Metric             | Target   | Current |
+| ------------------ | -------- | ------- |
+| API Response (p95) | < 200ms  | TBD     |
+| API Response (p99) | < 500ms  | TBD     |
+| Order Creation     | < 500ms  | TBD     |
+| Inventory Check    | < 100ms  | TBD     |
+| Concurrent Users   | 1000+    | TBD     |
 
 ### Running Benchmarks
 
@@ -283,11 +290,11 @@ k6 run tests/load/order-flow.js
 
 ### Currently Tracked
 
-| Package | Severity | Status | Notes |
-|---------|----------|--------|-------|
-| jspdf | Critical | Mitigated | Path traversal - inputs validated |
-| esbuild | Moderate | Acceptable | Dev dependency only |
-| vitest | Moderate | Acceptable | Dev dependency only |
+| Package | Severity | Status     | Notes                               |
+| ------- | -------- | ---------- | ----------------------------------- |
+| jspdf   | Critical | Mitigated  | Path traversal - inputs validated   |
+| esbuild | Moderate | Acceptable | Dev dependency only                 |
+| vitest  | Moderate | Acceptable | Dev dependency only                 |
 
 ### Mitigation Strategies
 

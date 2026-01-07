@@ -4,13 +4,13 @@
     "client/src/**/*",
     "shared/**/*",
     "server/**/*",
+    "tests/**/*",
     ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "build",
-    "dist",
-    "**/*.test.ts"
+    "dist"
   ],
   "compilerOptions": {
     "incremental": true,
@@ -29,7 +29,6 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
-    "baseUrl": ".",
     "types": [
       "node",
       "vite/client",
@@ -39,6 +38,9 @@
     "paths": {
       "@/*": [
         "./client/src/*"
+      ],
+      "@/server/*": [
+        "./server/*"
       ],
       "@shared/*": [
         "./shared/*"

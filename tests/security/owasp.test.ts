@@ -21,8 +21,8 @@ import {
   validatePagination,
   validateJSON,
   VALIDATION_LIMITS,
-} from "@server/validation";
-import { ValidationError } from "@server/errors";
+} from "../../server/validation";
+import { ValidationError } from "../../server/errors";
 
 describe("Security Tests - SQL Injection Prevention", () => {
   describe("Search Query Injection", () => {

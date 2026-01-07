@@ -3,7 +3,7 @@
 ## Test Summary
 
 | Test Type | Result | Details |
-|-----------|--------|---------|
+| --------- | ------ | ------- |
 | Unit Tests | ✅ 45 Pass | Business logic, validations, calculations |
 | Integration Tests | ✅ 23 Pass | API endpoints with mocked DB |
 | Validation Tests | ✅ 46 Pass | Input validation, sanitization |
@@ -25,6 +25,7 @@ The Next.js development server (`npm run dev`) crashed under even moderate load:
 - **Full Load Test (100-1000 VUs):** Complete failure, 100% error rate
 
 This is **expected behavior** for a development server, which:
+
 - Uses hot module reloading
 - Runs in single-threaded mode
 - Is not optimized for concurrent connections
@@ -58,7 +59,7 @@ k6 run tests/load/smoke-test.js
 For handling the target load (1000 concurrent users):
 
 | Component | Recommendation |
-|-----------|----------------|
+| --------- | -------------- |
 | **Application** | 2-4 Node.js instances (PM2/Docker) |
 | **Database** | Neon Pro with connection pooling (100+ connections) |
 | **Load Balancer** | Nginx/HAProxy or cloud LB |
@@ -82,12 +83,14 @@ RATE_LIMITS = {
 ### 4. Database Connection Pooling
 
 The Prisma client already has connection pooling configured:
+
 - Development: 20 connections
 - Production: Configurable via DATABASE_POOL_SIZE
 
 ### 5. Caching Strategy
 
 For production scalability:
+
 - Add Redis for session caching
 - Cache dashboard stats (5-minute TTL)
 - Cache inventory balances (1-minute TTL)
@@ -96,7 +99,7 @@ For production scalability:
 ## K6 Test Scripts Available
 
 | Script | Purpose |
-|--------|---------|
+| ------ | ------- |
 | `tests/load/smoke-test.js` | Light validation (5-10 users) |
 | `tests/load/order-flow.js` | Full order cycle stress test |
 | `tests/load/database-stress.js` | Database write spike testing |
@@ -107,6 +110,7 @@ For production scalability:
 1. **Deploy to staging environment** (Vercel, Railway, etc.)
 2. **Set environment variable:** `BASE_URL=https://your-staging-url.com`
 3. **Run K6:**
+
    ```bash
    k6 run -e BASE_URL=https://staging.example.com tests/load/smoke-test.js
    ```
@@ -131,4 +135,4 @@ For production scalability:
 
 ---
 
-*Document generated: January 5, 2026*
+Document generated: January 5, 2026

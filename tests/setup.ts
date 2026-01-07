@@ -167,7 +167,6 @@ export async function createTestBalance(
       locationId,
       tenantId,
       qtyBase,
-      unitOfMeasure: "EA",
     },
   });
 

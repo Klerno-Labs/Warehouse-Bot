@@ -12,11 +12,35 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+// Define mock prisma for use in tests
+const prisma = {
+  $connect: vi.fn(),
+  $disconnect: vi.fn(),
+  $transaction: vi.fn(),
+  item: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  inventoryBalance: {
+    findMany: vi.fn(),
+    upsert: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  salesOrder: {
+    create: vi.fn(),
+    update: vi.fn(),
+    findFirst: vi.fn(),
+  },
+  transaction: {
+    create: vi.fn(),
+  },
+};
+
 // Mock external dependencies
-vi.mock("@/server/prisma", async () => {
-  const actual = await vi.importActual("@/server/prisma");
+vi.mock("../../server/prisma", async () => {
   return {
-    ...actual,
     prisma: {
       $connect: vi.fn(),
       $disconnect: vi.fn(),
@@ -43,8 +67,6 @@ vi.mock("@/server/prisma", async () => {
     },
   };
 });
-
-import { prisma } from "@server/prisma";
 
 describe("Chaos Tests - System Resilience", () => {
   beforeEach(() => {
@@ -112,7 +134,7 @@ describe("Chaos Tests - System Resilience", () => {
       );
 
       await expect(async () => {
-        await prisma.$transaction(async (tx: unknown) => {
+        await prisma.$transaction(async (_tx: unknown) => {
           // Long running operations
         });
       }).rejects.toThrow("Transaction timed out");
@@ -124,7 +146,7 @@ describe("Chaos Tests - System Resilience", () => {
       );
 
       await expect(async () => {
-        await prisma.$transaction(async (tx: unknown) => {
+        await prisma.$transaction(async (_tx: unknown) => {
           // Operations that cause deadlock
         });
       }).rejects.toThrow("Deadlock detected");
@@ -156,10 +178,10 @@ describe("Chaos Tests - System Resilience", () => {
       });
 
       await expect(async () => {
-        await prisma.$transaction(async (tx: unknown) => {
-          await (tx as any).item.create({ data: { sku: "1" } });
-          await (tx as any).item.create({ data: { sku: "2" } });
-          await (tx as any).item.create({ data: { sku: "3" } }); // This fails
+        await prisma.$transaction(async (tx: { item: { create: (args: { data: { sku: string } }) => Promise<{ id: string }> } }) => {
+          await tx.item.create({ data: { sku: "1" } });
+          await tx.item.create({ data: { sku: "2" } });
+          await tx.item.create({ data: { sku: "3" } }); // This fails
         });
       }).rejects.toThrow("Constraint violation");
 
@@ -368,7 +390,7 @@ describe("Chaos Tests - Recovery Mechanisms", () => {
 
       // Simulate transient failure followed by success
       let callCount = 0;
-      const operation = vi.fn().mockImplementation(async () => {
+      const operation = vi.fn().mockImplementation(async (): Promise<{ success: boolean }> => {
         callCount++;
         if (callCount < 3) {
           throw new Error("Connection timeout");
@@ -376,9 +398,9 @@ describe("Chaos Tests - Recovery Mechanisms", () => {
         return { success: true };
       });
 
-      const result = await retryOperation(operation) as { success: boolean };
+      const result = await retryOperation(operation);
 
-      expect(result.success).toBe(true);
+      expect((result as { success: boolean }).success).toBe(true);
       expect(callCount).toBe(3);
       expect(attempts).toBe(2);
     });

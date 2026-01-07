@@ -6,8 +6,41 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock Prisma
-vi.mock("@/server/prisma", () => ({
+// Define mock prisma for use in tests
+const prisma = {
+  item: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  inventoryBalance: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    upsert: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  salesOrder: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  purchaseOrder: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  transaction: {
+    create: vi.fn(),
+  },
+  $transaction: vi.fn(),
+};
+
+// Mock Prisma client module
+vi.mock("../../server/prisma", () => ({
   prisma: {
     item: {
       findMany: vi.fn(),
@@ -51,8 +84,6 @@ vi.mock("@/app/api/_utils/session", () => ({
     },
   })),
 }));
-
-import { prisma } from "@server/prisma";
 
 describe("API Integration Tests", () => {
   beforeEach(() => {
