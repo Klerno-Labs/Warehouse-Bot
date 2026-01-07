@@ -15,6 +15,11 @@ import { useAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import type { InventoryBalance, Item, Location } from "@shared/inventory";
 
+interface ItemsResponse {
+  items: Item[];
+  total: number;
+}
+
 export default function InventoryBalancesPage() {
   const { currentSite } = useAuth();
   const siteId = currentSite?.id || "";
@@ -22,9 +27,10 @@ export default function InventoryBalancesPage() {
     queryKey: [`/api/inventory/balances?siteId=${siteId}`],
     enabled: !!siteId,
   });
-  const { data: items = [] } = useQuery<Item[]>({
+  const { data: itemsData } = useQuery<ItemsResponse>({
     queryKey: ["/api/inventory/items"],
   });
+  const items = itemsData?.items || [];
   const { data: locations = [] } = useQuery<Location[]>({
     queryKey: [`/api/inventory/locations?siteId=${siteId}`],
     enabled: !!siteId,

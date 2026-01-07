@@ -69,7 +69,7 @@ interface Item {
 }
 
 const statusOptions = [
-  { value: "", label: "All Statuses" },
+  { value: "all", label: "All Statuses" },
   { value: "DRAFT", label: "Draft" },
   { value: "CONFIRMED", label: "Confirmed" },
   { value: "ALLOCATED", label: "Allocated" },
@@ -82,7 +82,7 @@ const statusOptions = [
 
 export default function SalesOrdersPage() {
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [orderLines, setOrderLines] = useState<
@@ -101,7 +101,7 @@ export default function SalesOrdersPage() {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (search) params.append("search", search);
-      if (statusFilter) params.append("status", statusFilter);
+      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
       const res = await fetch(`/api/sales/orders?${params}`);
       if (!res.ok) throw new Error("Failed to fetch orders");
       return res.json();
@@ -122,7 +122,7 @@ export default function SalesOrdersPage() {
   const { data: itemsData } = useQuery({
     queryKey: ["items-list"],
     queryFn: async () => {
-      const res = await fetch("/api/items");
+      const res = await fetch("/api/inventory/items");
       if (!res.ok) throw new Error("Failed to fetch items");
       return res.json();
     },

@@ -45,7 +45,7 @@ interface Shipment {
 }
 
 const statusOptions = [
-  { value: "", label: "All Statuses" },
+  { value: "all", label: "All Statuses" },
   { value: "DRAFT", label: "Draft" },
   { value: "READY_TO_SHIP", label: "Ready to Ship" },
   { value: "SHIPPED", label: "Shipped" },
@@ -55,7 +55,7 @@ const statusOptions = [
 ];
 
 export default function ShipmentsPage() {
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -64,7 +64,7 @@ export default function ShipmentsPage() {
     queryKey: ["shipments", statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (statusFilter) params.append("status", statusFilter);
+      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
       const res = await fetch(`/api/sales/shipments?${params}`);
       if (!res.ok) throw new Error("Failed to fetch shipments");
       return res.json();
@@ -128,7 +128,7 @@ export default function ShipmentsPage() {
           <CardContent className="text-center py-12">
             <Truck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
-              {statusFilter
+              {statusFilter && statusFilter !== "all"
                 ? "No shipments match your filter"
                 : "No shipments yet. Shipments are created when orders are ready to ship."}
             </p>
