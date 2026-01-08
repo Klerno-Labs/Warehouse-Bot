@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { Uom } from "@prisma/client";
 import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/uoms - Fetch all units of measure (enum values)
  * Used by transaction forms and item management

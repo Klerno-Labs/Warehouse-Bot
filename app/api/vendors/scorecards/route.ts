@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import { VendorScorecardService } from "@server/vendor-scorecards";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Vendor Scorecard API
  *

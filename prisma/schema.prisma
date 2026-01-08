@@ -159,6 +159,178 @@ enum ComponentIssueMethod {
 // MULTI-TENANT & ORGANIZATIONAL STRUCTURE
 // ============================================================
 
+// ============================================================
+// SAAS SUBSCRIPTION & BILLING
+// ============================================================
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  PAUSED
+}
+
+enum PlanTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+model Plan {
+  id                  String          @id @default(uuid())
+  name                String          // "Starter", "Professional", "Enterprise"
+  tier                PlanTier        @unique
+  description         String?
+  
+  // Pricing (null for custom/enterprise pricing)
+  monthlyPrice        Float?          // Price in dollars (null = custom pricing)
+  yearlyPrice         Float?          // Price for annual billing (discounted)
+  currency            String          @default("USD")
+  
+  // Limits (null for unlimited)
+  maxUsers            Int?            // null for unlimited
+  maxSites            Int?
+  maxItems            Int?            // SKUs
+  maxStorageGb        Float?          // File storage limit
+  maxApiCallsPerMonth Int?            // Rate limiting
+  
+  // Features
+  features            String[]        // Array of feature keys
+  enabledModules      String[]        // Which modules are included
+  
+  // Stripe
+  stripeMonthlyPriceId String?        // Stripe Price ID for monthly
+  stripeYearlyPriceId  String?        // Stripe Price ID for yearly
+  
+  isActive            Boolean         @default(true)
+  isPublic            Boolean         @default(true) // Show on pricing page
+  sortOrder           Int             @default(0)
+  
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  
+  // Relations
+  subscriptions       Subscription[]
+  
+  @@index([tier])
+  @@index([isActive, isPublic])
+}
+
+model Subscription {
+  id                  String             @id @default(uuid())
+  tenantId            String             @unique
+  planId              String
+  status              SubscriptionStatus @default(TRIALING)
+  
+  // Billing
+  billingInterval     BillingInterval    @default(MONTHLY)
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  cancelAtPeriodEnd   Boolean            @default(false)
+  canceledAt          DateTime?
+  
+  // Trial
+  trialStart          DateTime?
+  trialEnd            DateTime?
+  
+  // Stripe
+  stripeCustomerId    String?            @unique
+  stripeSubscriptionId String?           @unique
+  
+  // Usage tracking
+  usersCount          Int                @default(0)
+  sitesCount          Int                @default(0)
+  itemsCount          Int                @default(0)
+  storageUsedGb       Float              @default(0)
+  apiCallsThisMonth   Int                @default(0)
+  
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  
+  // Relations
+  tenant              Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan                Plan               @relation(fields: [planId], references: [id])
+  invoices            Invoice[]
+  usageRecords        UsageRecord[]
+  
+  @@index([tenantId])
+  @@index([planId])
+  @@index([status])
+  @@index([stripeCustomerId])
+}
+
+model Invoice {
+  id                  String    @id @default(uuid())
+  subscriptionId      String
+  
+  // Amount
+  amountDue           Float     // In smallest currency unit (cents)
+  amountPaid          Float     @default(0)
+  currency            String    @default("USD")
+  
+  // Status
+  status              String    // draft, open, paid, void, uncollectible
+  dueDate             DateTime?
+  paidAt              DateTime?
+  
+  // Stripe
+  stripeInvoiceId     String?   @unique
+  stripeInvoiceUrl    String?   // Hosted invoice URL
+  stripePdfUrl        String?   // PDF download URL
+  
+  // Period
+  periodStart         DateTime
+  periodEnd           DateTime
+  
+  // Line items stored as JSON
+  lineItems           Json?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // Relations
+  subscription        Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([stripeInvoiceId])
+}
+
+model UsageRecord {
+  id              String   @id @default(uuid())
+  subscriptionId  String
+  
+  // What was used
+  metricName      String   // "api_calls", "storage_gb", "users", etc.
+  quantity        Float
+  
+  // When
+  recordedAt      DateTime @default(now())
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Metadata
+  metadata        Json?
+  
+  // Relations
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@index([subscriptionId, metricName])
+  @@index([recordedAt])
+}
+
+// ============================================================
+// TENANT & ORGANIZATION
+// ============================================================
+
 model Tenant {
   id              String   @id @default(uuid())
   name            String
@@ -166,10 +338,33 @@ model Tenant {
   enabledModules  String[]
   defaultCurrency String   @default("USD") // ISO 4217 currency code
   locale          String   @default("en-US") // Locale for formatting
+  
+  // Onboarding
+  onboardingCompleted Boolean  @default(false)
+  onboardingStep      Int      @default(0)
+  
+  // Contact
+  contactEmail    String?
+  contactPhone    String?
+  website         String?
+  
+  // Address
+  address1        String?
+  address2        String?
+  city            String?
+  state           String?
+  postalCode      String?
+  country         String?
+  
+  // Branding
+  logoUrl         String?
+  primaryColor    String?
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   // Relations
+  subscription      Subscription?
   sites             Site[]
   users             User[]
   departments       Department[]

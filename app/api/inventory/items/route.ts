@@ -22,10 +22,14 @@ export async function GET(req: Request) {
   // If low stock filter is enabled, fetch balances and filter items
   if (lowStock) {
     const balances = await storage.getInventoryBalancesBySite(session.user.siteIds[0] || "");
+    
+    // OPTIMIZATION: Create item map for O(1) lookups instead of O(n) find() in loop
+    const itemMap = new Map(items.map((i) => [i.id, i]));
+    
     const lowStockItemIds = new Set(
       balances
         .filter((b) => {
-          const item = items.find((i) => i.id === b.itemId);
+          const item = itemMap.get(b.itemId); // O(1) instead of O(n)
           return item?.reorderPointBase !== null && b.qtyBase <= (item?.reorderPointBase || 0);
         })
         .map((b) => b.itemId)

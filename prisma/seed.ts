@@ -46,8 +46,114 @@ async function main() {
   await prisma.user.deleteMany({});
   await prisma.auditEvent.deleteMany({});
   await prisma.site.deleteMany({});
+  await prisma.subscription.deleteMany({});
+  await prisma.invoice.deleteMany({});
+  await prisma.usageRecord.deleteMany({});
   await prisma.tenant.deleteMany({});
+  await prisma.plan.deleteMany({});
   console.log("Cleanup complete.");
+
+  // Create SaaS Plans
+  console.log("Creating SaaS plans...");
+  const freePlan = await prisma.plan.create({
+    data: {
+      name: "Free",
+      tier: "FREE",
+      description: "Perfect for getting started",
+      monthlyPrice: 0,
+      yearlyPrice: 0,
+      maxUsers: 2,
+      maxSites: 1,
+      maxItems: 100,
+      maxStorageGb: 1,
+      maxApiCallsPerMonth: 1000,
+      features: [
+        "Up to 2 users",
+        "1 warehouse location",
+        "100 inventory items",
+        "Basic inventory tracking",
+        "Email support",
+      ],
+      isActive: true,
+    },
+  });
+
+  const starterPlan = await prisma.plan.create({
+    data: {
+      name: "Starter",
+      tier: "STARTER",
+      description: "For small teams and warehouses",
+      monthlyPrice: 49,
+      yearlyPrice: 470, // ~20% discount
+      maxUsers: 5,
+      maxSites: 2,
+      maxItems: 1000,
+      maxStorageGb: 10,
+      maxApiCallsPerMonth: 10000,
+      features: [
+        "Up to 5 users",
+        "2 warehouse locations",
+        "1,000 inventory items",
+        "Barcode scanning",
+        "Basic reporting",
+        "Cycle counting",
+        "Priority email support",
+      ],
+      isActive: true,
+    },
+  });
+
+  const proPlan = await prisma.plan.create({
+    data: {
+      name: "Professional",
+      tier: "PROFESSIONAL",
+      description: "For growing operations",
+      monthlyPrice: 149,
+      yearlyPrice: 1430, // ~20% discount
+      maxUsers: 25,
+      maxSites: 5,
+      maxItems: 10000,
+      maxStorageGb: 50,
+      maxApiCallsPerMonth: 100000,
+      features: [
+        "Up to 25 users",
+        "5 warehouse locations",
+        "10,000 inventory items",
+        "Manufacturing & BOMs",
+        "Purchase orders",
+        "Advanced analytics",
+        "API access",
+        "Phone support",
+      ],
+      isActive: true,
+    },
+  });
+
+  const enterprisePlan = await prisma.plan.create({
+    data: {
+      name: "Enterprise",
+      tier: "ENTERPRISE",
+      description: "For large-scale operations",
+      monthlyPrice: null, // Custom pricing
+      yearlyPrice: null,
+      maxUsers: null, // Unlimited
+      maxSites: null,
+      maxItems: null,
+      maxStorageGb: null,
+      maxApiCallsPerMonth: null,
+      features: [
+        "Unlimited users",
+        "Unlimited locations",
+        "Unlimited items",
+        "Custom integrations",
+        "Dedicated account manager",
+        "SLA guarantee",
+        "On-premise deployment option",
+        "24/7 priority support",
+      ],
+      isActive: true,
+    },
+  });
 
   // Get seed credentials from environment
   const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@example.com";
@@ -63,6 +169,21 @@ async function main() {
       name: "Acme Warehouse",
       slug: "acme-warehouse",
       enabledModules: ["inventory", "cycle-counts", "jobs", "dashboards"],
+      onboardingCompleted: true,
+      onboardingStep: 4,
+    },
+  });
+
+  // Create subscription for tenant
+  console.log("Creating subscription...");
+  await prisma.subscription.create({
+    data: {
+      tenantId: tenant.id,
+      planId: proPlan.id,
+      status: "ACTIVE",
+      billingInterval: "MONTHLY",
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
   });
 

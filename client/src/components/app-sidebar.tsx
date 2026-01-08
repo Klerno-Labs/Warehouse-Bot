@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   Package,
   Briefcase,
@@ -14,6 +15,7 @@ import {
   ClipboardList,
   LogOut,
   ChevronDown,
+  ChevronRight,
   Factory,
   Smartphone,
   BarChart3,
@@ -105,6 +107,8 @@ interface AppSidebarProps {
 export function AppSidebar({ enabledModules }: AppSidebarProps) {
   const pathname = usePathname();
   const { user, currentSite, availableSites, selectSite, logout } = useAuth();
+  const [salesExpanded, setSalesExpanded] = useState(false);
+  const [planningExpanded, setPlanningExpanded] = useState(true);
 
   const userInitials = user
     ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
@@ -212,28 +216,38 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
 
         <SidebarSeparator />
 
-        {/* Sales - Customer orders and fulfillment */}
+        {/* Sales - Collapsed by default (less commonly used) */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Sales
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {salesItems.map((item) => {
-                const isActive = pathname === item.url || (item.url !== "/sales" && pathname.startsWith(item.url));
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive}>
-                      <Link href={item.url} data-testid={`link-sales-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
+          <button
+            onClick={() => setSalesExpanded(!salesExpanded)}
+            className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>Sales</span>
+            {salesExpanded ? (
+              <ChevronDown className="h-3 w-3" />
+            ) : (
+              <ChevronRight className="h-3 w-3" />
+            )}
+          </button>
+          {salesExpanded && (
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {salesItems.map((item) => {
+                  const isActive = pathname === item.url || (item.url !== "/sales" && pathname.startsWith(item.url));
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link href={item.url} data-testid={`link-sales-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          )}
         </SidebarGroup>
 
         <SidebarSeparator />

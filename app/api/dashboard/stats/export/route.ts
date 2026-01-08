@@ -3,6 +3,8 @@ import { storage } from "@server/storage";
 import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import type { InventoryBalance } from "@shared/inventory";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const context = await requireAuth();
@@ -23,6 +25,27 @@ export async function GET(req: Request) {
 
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
+    // OPTIMIZATION: Create indexes for O(1) lookups instead of O(n) find() in loops
+    const itemMap = new Map(items.map((item) => [item.id, item]));
+    
+    // Index balances by itemId
+    const balancesByItem = new Map<string, typeof balances>();
+    balances.forEach((balance) => {
+      if (!balancesByItem.has(balance.itemId)) {
+        balancesByItem.set(balance.itemId, []);
+      }
+      balancesByItem.get(balance.itemId)!.push(balance);
+    });
+    
+    // Index events by itemId
+    const eventsByItem = new Map<string, typeof allEvents>();
+    allEvents.forEach((event) => {
+      if (!eventsByItem.has(event.itemId)) {
+        eventsByItem.set(event.itemId, []);
+      }
+      eventsByItem.get(event.itemId)!.push(event);
+    });
+
     let csvContent = "";
     let filename = "";
 
@@ -33,11 +56,13 @@ export async function GET(req: Request) {
         csvContent = "SKU,Item Name,Quantity,Age Days,Age Category,Last Received\n";
 
         items.forEach((item) => {
-          const itemBalance = balances.find((b) => b.itemId === item.id);
-          if (!itemBalance || itemBalance.qtyBase === 0) return;
+          const itemBalances = balancesByItem.get(item.id) || [];
+          const itemBalance = itemBalances.reduce((sum, b) => sum + b.qtyBase, 0);
+          if (itemBalance === 0) return;
 
-          const lastReceive = allEvents
-            .filter((e) => e.itemId === item.id && e.eventType === 'RECEIVE')
+          const itemEvents = eventsByItem.get(item.id) || [];
+          const lastReceive = itemEvents
+            .filter((e) => e.eventType === 'RECEIVE')
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
           const ageDays = lastReceive
@@ -51,7 +76,7 @@ export async function GET(req: Request) {
 
           const lastReceivedDate = lastReceive ? new Date(lastReceive.createdAt).toLocaleDateString() : "Unknown";
 
-          csvContent += `"${item.sku}","${item.name.replace(/"/g, '""')}",${itemBalance.qtyBase},${ageDays},"${ageCategory}","${lastReceivedDate}"\n`;
+          csvContent += `"${item.sku}","${item.name.replace(/"/g, '""')}",${itemBalance},${ageDays},"${ageCategory}","${lastReceivedDate}"\n`;
         });
         break;
       }
@@ -62,16 +87,17 @@ export async function GET(req: Request) {
         csvContent = "SKU,Item Name,Transaction Count,Total Value,ABC Class\n";
 
         const ninetyDaysEvents = allEvents.filter((e) => new Date(e.createdAt) > ninetyDaysAgo);
-        const itemActivityMap = ninetyDaysEvents.reduce((acc, event) => {
-          if (!acc[event.itemId]) {
-            acc[event.itemId] = { count: 0, value: 0 };
+        const itemActivityMap: Record<string, { count: number; value: number }> = {};
+        
+        ninetyDaysEvents.forEach((event) => {
+          if (!itemActivityMap[event.itemId]) {
+            itemActivityMap[event.itemId] = { count: 0, value: 0 };
           }
-          acc[event.itemId].count++;
-          const item = items.find((i) => i.id === event.itemId);
+          itemActivityMap[event.itemId].count++;
+          const item = itemMap.get(event.itemId); // O(1) lookup
           const itemCost = item?.avgCostBase || item?.costBase || item?.lastCostBase || 10;
-          acc[event.itemId].value += Math.abs(event.qtyBase) * itemCost;
-          return acc;
-        }, {} as Record<string, { count: number; value: number }>);
+          itemActivityMap[event.itemId].value += Math.abs(event.qtyBase) * itemCost;
+        });
 
         const sortedItems = Object.entries(itemActivityMap)
           .sort(([, a], [, b]) => b.value - a.value);
@@ -87,7 +113,7 @@ export async function GET(req: Request) {
             percentageOfTotal <= 80 ? "A" :
             percentageOfTotal <= 95 ? "B" : "C";
 
-          const item = items.find((i) => i.id === itemId);
+          const item = itemMap.get(itemId); // O(1) lookup
           if (item) {
             csvContent += `"${item.sku}","${item.name.replace(/"/g, '""')}",${data.count},${data.value.toFixed(2)},"${abcClass}"\n`;
           }
@@ -108,9 +134,8 @@ export async function GET(req: Request) {
         csvContent = "SKU,Item Name,Quantity,Unit Cost,Total Value,Cost Method\n";
 
         items.forEach((item) => {
-          const itemQty = balances
-            .filter((b) => b.itemId === item.id)
-            .reduce((sum, b) => sum + b.qtyBase, 0);
+          const itemBalances = balancesByItem.get(item.id) || [];
+          const itemQty = itemBalances.reduce((sum, b) => sum + b.qtyBase, 0);
 
           if (itemQty > 0) {
             const itemCost = item.avgCostBase || item.costBase || item.lastCostBase || 0;
@@ -132,19 +157,18 @@ export async function GET(req: Request) {
         csvContent = "SKU,Item Name,Quantity,Unit Cost,Total Value,Days Idle,Last Activity\n";
 
         items.forEach((item) => {
-          const itemBalance = balances
-            .filter((b) => b.itemId === item.id)
-            .reduce((sum, b) => sum + b.qtyBase, 0);
+          const itemBalances = balancesByItem.get(item.id) || [];
+          const itemBalance = itemBalances.reduce((sum, b) => sum + b.qtyBase, 0);
 
           if (itemBalance === 0) return;
 
-          const recentActivity = allEvents.filter(
-            (e) => e.itemId === item.id && new Date(e.createdAt) > ninetyDaysAgo
+          const itemEvents = eventsByItem.get(item.id) || [];
+          const recentActivity = itemEvents.filter(
+            (e) => new Date(e.createdAt) > ninetyDaysAgo
           );
 
           if (recentActivity.length === 0) {
-            const lastActivity = allEvents
-              .filter((e) => e.itemId === item.id)
+            const lastActivity = itemEvents
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
             const daysIdle = lastActivity

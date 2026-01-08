@@ -65,6 +65,36 @@ export function clearSessionCookie() {
   cookies().set(COOKIE_NAME, "", { maxAge: 0, path: "/" });
 }
 
+/**
+ * Get session from NextRequest (for API routes that receive request object)
+ * Returns { userId, tenantId } or null if not authenticated
+ */
+export async function getSession(req: Request): Promise<{ userId: string; tenantId: string } | null> {
+  // Try to get cookie from the request
+  const cookieHeader = req.headers.get("cookie");
+  if (!cookieHeader) return null;
+  
+  // Parse cookies manually
+  const cookieMap = Object.fromEntries(
+    cookieHeader.split(";").map(c => {
+      const [key, ...valueParts] = c.trim().split("=");
+      return [key, valueParts.join("=")];
+    })
+  );
+  
+  const token = cookieMap[COOKIE_NAME];
+  if (!token) return null;
+  
+  const payload = verify(token, getSecret());
+  if (!payload) return null;
+  
+  // Get user to fetch tenantId
+  const user = await storage.getUser(payload.userId);
+  if (!user) return null;
+  
+  return { userId: payload.userId, tenantId: user.tenantId };
+}
+
 export async function getSessionUser(): Promise<SessionUser | null> {
   const token = cookies().get(COOKIE_NAME)?.value;
   if (!token) return null;

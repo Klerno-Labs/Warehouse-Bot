@@ -79,10 +79,10 @@ Phase 1.3 successfully implemented, delivering enterprise-grade analytics and re
 - **Top Value Items:** 10 highest value SKUs
 - Foundation for FIFO/WAC costing methods
 
-**Current Limitation:**
-- Item schema doesn't have `costBase` field yet
-- Using $0 estimated cost (shows quantity only)
-- **TODO:** Add cost tracking to Item model
+**Implementation:**
+- Uses `avgCostBase`, `costBase`, or `lastCostBase` fields from Item model (in that priority)
+- Cost fields are properly set in Item schema and used in calculations
+- Dashboard displays accurate inventory valuation
 
 **Business Value:**
 - Track total capital tied up in inventory

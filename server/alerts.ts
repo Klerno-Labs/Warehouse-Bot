@@ -201,15 +201,94 @@ export class AlertService {
 
   /**
    * Check for expiring inventory (items with expiration dates)
-   * Note: This feature requires a LotNumber model which is not yet implemented
+   * Uses ProductionOutput records that have expirationDate set
    */
   private static async checkExpiringInventory(
     tenantId: string,
     siteId?: string
   ): Promise<Alert[]> {
-    // TODO: Implement when LotNumber model is added to the schema
-    // The LotNumber model would track lot/batch information including expiration dates
-    return [];
+    const alerts: Alert[] = [];
+    
+    // Check for items expiring within 30 days
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+    
+    const now = new Date();
+
+    // Find production outputs with expiration dates that haven't passed yet
+    // but are within the warning window
+    const expiringOutputs = await prisma.productionOutput.findMany({
+      where: {
+        productionOrder: {
+          tenantId,
+          ...(siteId && {
+            site: { id: siteId }
+          })
+        },
+        expirationDate: {
+          gte: now,
+          lte: thirtyDaysFromNow,
+        },
+        qtyProduced: { gt: 0 },
+      },
+      include: {
+        item: true,
+        toLocation: true,
+        productionOrder: {
+          select: {
+            orderNumber: true,
+          },
+        },
+      },
+    });
+
+    for (const output of expiringOutputs) {
+      const daysUntilExpiration = Math.ceil(
+        (output.expirationDate!.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      // Determine severity based on days until expiration
+      let severity: AlertSeverity = "info";
+      if (daysUntilExpiration <= 7) {
+        severity = "critical";
+      } else if (daysUntilExpiration <= 14) {
+        severity = "warning";
+      }
+
+      const lotInfo = output.lotNumber ? ` (Lot: ${output.lotNumber})` : "";
+      const batchInfo = output.batchNumber ? ` (Batch: ${output.batchNumber})` : "";
+
+      alerts.push({
+        id: `alert-${Date.now()}-${output.id}`,
+        ruleId: "expiring-inventory-default",
+        type: "EXPIRING_INVENTORY",
+        severity,
+        title: `EXPIRING: ${output.item.name}${lotInfo}${batchInfo}`,
+        message: `${severity === "critical" ? "URGENT: " : ""}Item "${output.item.name}" (SKU: ${output.item.sku}) expires in ${daysUntilExpiration} day${daysUntilExpiration !== 1 ? "s" : ""} on ${output.expirationDate!.toLocaleDateString()}. Qty: ${output.qtyProduced} at ${output.toLocation.label}.`,
+        entityType: "ProductionOutput",
+        entityId: output.id,
+        metadata: {
+          sku: output.item.sku,
+          itemId: output.itemId,
+          lotNumber: output.lotNumber,
+          batchNumber: output.batchNumber,
+          expirationDate: output.expirationDate,
+          daysUntilExpiration,
+          quantity: output.qtyProduced,
+          locationId: output.toLocationId,
+          locationLabel: output.toLocation.label,
+          productionOrderNumber: output.productionOrder.orderNumber,
+        },
+        triggeredAt: new Date(),
+        resolved: false,
+        tenantId,
+      });
+    }
+
+    return alerts;
   }
 
   /**

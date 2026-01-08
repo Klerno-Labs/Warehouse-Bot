@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import { prisma } from "@server/prisma";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Operator Dashboard API
  *

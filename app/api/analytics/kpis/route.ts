@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import { AnalyticsService } from "@server/analytics";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Analytics & KPI API
  *

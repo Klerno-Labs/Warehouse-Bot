@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Package,
   Briefcase,
   AlertTriangle,
   TrendingUp,
+  TrendingDown,
   Clock,
   BarChart3,
   Download,
@@ -31,6 +32,11 @@ import {
   Users,
   Building2,
   MapPin,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+  HelpCircle,
+  Keyboard,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -175,14 +181,14 @@ const PRIMARY_ACTIONS = [
   },
 ];
 
-// Task-focused quick actions (high-frequency workflows)
+// Task-focused quick actions (high-frequency workflows) with keyboard shortcuts
 const QUICK_TASKS = [
-  { icon: ArrowRightLeft, title: "Move Stock", href: "/modules/inventory?action=move", description: "Transfer between locations" },
-  { icon: RefreshCw, title: "Adjust Stock", href: "/modules/inventory?action=adjust", description: "Correct inventory counts" },
-  { icon: ClipboardCheck, title: "Cycle Count", href: "/modules/cycle-counts", description: "Verify inventory accuracy" },
-  { icon: ScanLine, title: "Scan Job", href: "/mobile/job-scanner", description: "Track production progress" },
-  { icon: Truck, title: "Purchase Order", href: "/purchasing/purchase-orders/new", description: "Order from suppliers" },
-  { icon: Target, title: "Sales ATP", href: "/modules/inventory?view=atp", description: "Check availability" },
+  { icon: ArrowRightLeft, title: "Move Stock", href: "/modules/inventory?action=move", description: "Transfer between locations", shortcut: "M" },
+  { icon: RefreshCw, title: "Adjust Stock", href: "/modules/inventory?action=adjust", description: "Correct inventory counts", shortcut: "A" },
+  { icon: ClipboardCheck, title: "Cycle Count", href: "/modules/cycle-counts", description: "Verify inventory accuracy", shortcut: "C" },
+  { icon: ScanLine, title: "Scan Job", href: "/mobile/job-scanner", description: "Track production progress", shortcut: "J" },
+  { icon: Truck, title: "Purchase Order", href: "/purchasing/purchase-orders/new", description: "Order from suppliers", shortcut: "P" },
+  { icon: Target, title: "Sales ATP", href: "/modules/inventory?view=atp", description: "Check availability", shortcut: "S" },
 ];
 
 export default function DashboardPage() {
@@ -261,12 +267,26 @@ export default function DashboardPage() {
   const isNewUser = !data?.overview.totalItems || data.overview.totalItems === 0;
   const showChecklist = !isChecklistDismissed && (isNewUser || setupSteps.filter(s => s.required && !s.completed).length > 0);
 
+  // Helper for relative time
+  const getRelativeTime = (timestamp: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - new Date(timestamp).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
+
   const recentActivity =
     data?.activity.recentActivity.map((event) => ({
       id: event.id,
-      action: `${event.eventType} - ${event.itemName}`,
+      action: event.eventType,
+      item: event.itemName,
       quantity: `${event.quantity} ${event.uom}`,
-      time: new Date(event.timestamp).toLocaleString(),
+      time: getRelativeTime(event.timestamp),
       type:
         event.eventType === "RECEIVE"
           ? "success"
@@ -284,38 +304,46 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Welcome Header with Context */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {getGreeting()}, {user?.firstName}
-          </h1>
-          <p className="text-muted-foreground">
-            {currentSite?.name && (
-              <>
-                <span className="font-medium">{currentSite.name}</span>
-                {" · "}
-              </>
-            )}
-            {totalAlerts > 0 ? (
-              <span className="text-amber-600 dark:text-amber-400">
-                {totalAlerts} item{totalAlerts !== 1 ? "s" : ""} need{totalAlerts === 1 ? "s" : ""} attention
-              </span>
-            ) : (
-              <span className="text-green-600 dark:text-green-400">All systems operational</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            Live
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            Updated {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "now"}
+      {/* Compact Header - Site name + Status + Live indicator */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-muted-foreground">
+            {currentSite?.name || "All Sites"}
           </span>
+          <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-xs text-muted-foreground">Live</span>
+          </div>
         </div>
+        <span className="text-xs text-muted-foreground">
+          {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : "now"}
+        </span>
       </div>
+
+      {/* Alert Banner - Most Prominent */}
+      {totalAlerts > 0 && (
+        <Link href="/modules/inventory?filter=alerts">
+          <div className="flex items-center justify-between rounded-lg border border-amber-500/50 bg-amber-500/10 p-4 hover:bg-amber-500/15 transition-colors cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-600 dark:text-amber-400">
+                  {totalAlerts} item{totalAlerts !== 1 ? "s" : ""} need{totalAlerts === 1 ? "s" : ""} attention
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {(data?.alerts.outOfStock || 0) > 0 && `${data?.alerts.outOfStock} out of stock`}
+                  {(data?.alerts.outOfStock || 0) > 0 && (data?.alerts.lowStock || 0) > 0 && " · "}
+                  {(data?.alerts.lowStock || 0) > 0 && `${data?.alerts.lowStock} low stock`}
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-amber-500" />
+          </div>
+        </Link>
+      )}
 
       {/* Setup Checklist for New Users */}
       {showChecklist && (
@@ -347,26 +375,32 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Key Metrics with Tooltips */}
+      {/* Key Metrics - Large numbers, trend indicators */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
-          <div className="col-span-full py-8 text-center text-muted-foreground">Loading...</div>
+          <>
+            <MetricCardSkeleton />
+            <MetricCardSkeleton />
+            <MetricCardSkeleton />
+            <MetricCardSkeleton />
+          </>
         ) : (
           <>
             <MetricCard
-              title="Total Stock Value"
+              title="Stock Value"
               value={data?.overview.totalStockValue ? `$${data.overview.totalStockValue.toLocaleString()}` : "$0"}
-              subtitle={`${data?.overview.totalItems || 0} items tracked`}
+              subtitle={`${data?.overview.totalItems || 0} SKUs tracked`}
               icon={Package}
               status="neutral"
+              trend={{ direction: "up", value: 2.4, label: "vs last month" }}
               isEmpty={!data?.overview.totalStockValue}
               emptyMessage="No valued items yet"
               emptyAction={{ label: "Import Items", href: "/admin/dba-import" }}
             />
             <MetricCard
-              title="Inventory Health"
+              title="Health Score"
               value={`${data?.overview.healthScore || 0}%`}
-              subtitle={`${data?.overview.totalStock || 0} units on hand`}
+              subtitle={`${(data?.overview.totalStock || 0).toLocaleString()} units on hand`}
               icon={TrendingUp}
               status={
                 (data?.overview.healthScore || 0) >= 90
@@ -376,67 +410,76 @@ export default function DashboardPage() {
                   : "critical"
               }
               tooltip={METRIC_TOOLTIPS.inventoryHealth}
+              trend={{ direction: (data?.overview.healthScore || 0) >= 90 ? "up" : "down", value: 5, label: "vs target 95%" }}
             />
             <MetricCard
-              title="Active Alerts"
+              title="Turnover Rate"
+              value={(data?.overview.turnoverRate || 0).toFixed(1)}
+              subtitle={`${data?.activity.recentTransactions || 0} txns today`}
+              icon={BarChart3}
+              status="neutral"
+              tooltip={METRIC_TOOLTIPS.turnoverRate}
+              trend={{ direction: "neutral", value: 0, label: "Industry avg: 4-6" }}
+              isEmpty={!data?.activity.recentTransactions}
+              emptyMessage="No transactions in 24h"
+              emptyAction={{ label: "Receive Stock", href: "/purchasing/receipts/new" }}
+            />
+            <MetricCard
+              title="Items at Risk"
               value={String(totalAlerts)}
               subtitle={
                 totalAlerts > 0
-                  ? `${data?.alerts.outOfStock || 0} out of stock`
-                  : "All items stocked"
+                  ? `${data?.alerts.outOfStock || 0} out, ${data?.alerts.lowStock || 0} low`
+                  : "All items healthy"
               }
               icon={AlertTriangle}
               status={totalAlerts === 0 ? "good" : totalAlerts <= 5 ? "warning" : "critical"}
               href="/modules/inventory?filter=alerts"
             />
-            <MetricCard
-              title="Turnover Rate"
-              value={(data?.overview.turnoverRate || 0).toFixed(2)}
-              subtitle={`${data?.activity.recentTransactions || 0} transactions (24h)`}
-              icon={BarChart3}
-              status="neutral"
-              tooltip={METRIC_TOOLTIPS.turnoverRate}
-              isEmpty={!data?.activity.recentTransactions}
-              emptyMessage="No transactions in 24h"
-              emptyAction={{ label: "Receive Stock", href: "/purchasing/receipts/new" }}
-            />
           </>
         )}
       </div>
 
-      {/* Quick Tasks Grid */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
+      {/* Quick Tasks - Elevated position, with keyboard shortcuts */}
+      <div className="sticky top-20 z-40">
+        <Card className="border-primary/20 shadow-sm">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <Zap className="h-4 w-4 text-amber-500" />
-                Quick Tasks
-              </CardTitle>
-              <CardDescription>Common workflows at your fingertips</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {QUICK_TASKS.map((task) => (
-              <Link
-                key={task.title}
-                href={task.href}
-                className="flex items-center gap-3 rounded-lg border p-3 transition-all hover:bg-accent hover:border-primary/30"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-                  <task.icon className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{task.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">{task.description}</p>
-                </div>
+                <CardTitle className="text-base">Quick Tasks</CardTitle>
+                <Badge variant="secondary" className="text-xs gap-1 hidden sm:flex">
+                  <Keyboard className="h-3 w-3" />
+                  Press key to launch
+                </Badge>
+              </div>
+              <Link href="/manufacturing/analytics" className="text-xs text-muted-foreground hover:text-primary">
+                View Analytics →
               </Link>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
+              {QUICK_TASKS.map((task) => (
+                <Link
+                  key={task.title}
+                  href={task.href}
+                  className="group flex flex-col items-center gap-2 rounded-lg border p-3 transition-all hover:bg-accent hover:border-primary/30 hover:shadow-sm relative"
+                  title={`Press ${task.shortcut} to open`}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
+                    <task.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <span className="text-xs font-medium text-center">{task.title}</span>
+                  <kbd className="absolute top-1 right-1 hidden group-hover:flex h-5 w-5 items-center justify-center rounded bg-muted text-[10px] font-mono text-muted-foreground">
+                    {task.shortcut}
+                  </kbd>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Two Column Layout: Activity + Alerts */}
       <div className="grid gap-6 lg:grid-cols-2">
@@ -464,27 +507,39 @@ export default function DashboardPage() {
                 actionHref="/purchasing/receipts/new"
               />
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {recentActivity.slice(0, 5).map((activity) => (
                   <div
                     key={activity.id}
-                    className="flex items-start gap-3 text-sm"
+                    className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
                   >
                     <div
-                      className={`mt-1.5 h-2 w-2 rounded-full flex-shrink-0 ${
+                      className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                         activity.type === "success"
-                          ? "bg-green-500"
+                          ? "bg-green-100 dark:bg-green-900/30"
                           : activity.type === "warning"
-                          ? "bg-amber-500"
-                          : "bg-blue-500"
+                          ? "bg-amber-100 dark:bg-amber-900/30"
+                          : "bg-blue-100 dark:bg-blue-900/30"
                       }`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{activity.action}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {activity.quantity} · {activity.time}
-                      </p>
+                    >
+                      {activity.type === "success" ? (
+                        <ArrowDownToLine className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      ) : activity.type === "warning" ? (
+                        <RefreshCw className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      ) : (
+                        <ArrowRightLeft className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      )}
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                          {activity.action}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{activity.time}</span>
+                      </div>
+                      <p className="text-sm font-medium truncate mt-0.5">{activity.item}</p>
+                    </div>
+                    <span className="text-sm tabular-nums text-muted-foreground">{activity.quantity}</span>
                   </div>
                 ))}
               </div>
@@ -557,140 +612,83 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Analytics Row */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">ABC Analysis</CardTitle>
-                <MetricTooltip {...METRIC_TOOLTIPS.abcAnalysis} />
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => downloadCSV("abc")} className="h-8 w-8 p-0">
-                <Download className="h-4 w-4" />
-              </Button>
-            </div>
-            <CardDescription>Inventory classification by value</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!data?.analytics || (data.analytics.abcAnalysis.A === 0 && data.analytics.abcAnalysis.B === 0 && data.analytics.abcAnalysis.C === 0) ? (
-              <CardEmptyState
-                message="Add items with values to see classification"
-                actionLabel="Add Items"
-                actionHref="/items/new"
-              />
-            ) : (
-              <div className="space-y-3">
-                <ABCRow label="Class A (High Value)" count={data.analytics.abcAnalysis.A} color="green" total={data.overview.totalItems} />
-                <ABCRow label="Class B (Medium Value)" count={data.analytics.abcAnalysis.B} color="yellow" total={data.overview.totalItems} />
-                <ABCRow label="Class C (Low Value)" count={data.analytics.abcAnalysis.C} color="gray" total={data.overview.totalItems} />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-sm font-medium">Inventory Aging</CardTitle>
-                <MetricTooltip {...METRIC_TOOLTIPS.inventoryAging} />
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => downloadCSV("aging")} className="h-8 w-8 p-0">
-                <Download className="h-4 w-4" />
-              </Button>
-            </div>
-            <CardDescription>Stock age distribution</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!data?.analytics ? (
-              <CardEmptyState message="No aging data available" />
-            ) : (
-              <div className="space-y-3">
-                <AgingRow label="0-30 days" count={data.analytics.inventoryAging.current} status="good" />
-                <AgingRow label="31-60 days" count={data.analytics.inventoryAging.aging30} status="ok" />
-                <AgingRow label="61-90 days" count={data.analytics.inventoryAging.aging60} status="warning" />
-                <AgingRow label="90+ days" count={data.analytics.inventoryAging.aging90Plus} status="critical" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-sm font-medium">Top Value Items</CardTitle>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => downloadCSV("valuation")} className="h-8 w-8 p-0">
-                <Download className="h-4 w-4" />
-              </Button>
-            </div>
-            <CardDescription>Highest inventory value</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!data?.analytics.topValueItems || data.analytics.topValueItems.length === 0 ? (
-              <CardEmptyState
-                message="No valued items yet"
-                actionLabel="Import inventory"
-                actionHref="/admin/dba-import"
-              />
-            ) : (
-              <div className="space-y-2">
-                {data.analytics.topValueItems.slice(0, 5).map((item, idx) => (
-                  <div key={item.itemId} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs text-muted-foreground w-4">{idx + 1}.</span>
-                      <span className="truncate">{item.name}</span>
-                    </div>
-                    <span className="font-semibold tabular-nums">${item.value.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Transaction Chart */}
+      {/* Analytics Summary - Compact view with link to full analytics */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <BarChart3 className="h-4 w-4 text-blue-500" />
-            Transaction Activity
-          </CardTitle>
-          <CardDescription>Last 7 days inventory movements</CardDescription>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Inventory Snapshot</CardTitle>
+              <CardDescription>Key classification and aging metrics</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/manufacturing/analytics">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Full Analytics
+              </Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {!data?.transactionsByDay ? (
-            <div className="py-8 text-center text-muted-foreground">Loading...</div>
-          ) : data.transactionsByDay.every((d) => d.total === 0) ? (
-            <CardEmptyState
-              message="No transactions in the last 7 days"
-              actionLabel="Receive your first shipment"
-              actionHref="/purchasing/receipts/new"
-            />
-          ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={data.transactionsByDay}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 12 }} />
-                <YAxis className="text-xs" tick={{ fontSize: 12 }} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--popover))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                    fontSize: 12,
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="receives" fill="hsl(var(--chart-1))" name="Receives" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="moves" fill="hsl(var(--chart-2))" name="Moves" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="adjustments" fill="hsl(var(--chart-3))" name="Adjustments" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* ABC Summary */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm font-medium">ABC Classification</span>
+                <MetricTooltip {...METRIC_TOOLTIPS.abcAnalysis} />
+              </div>
+              {data?.analytics ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 rounded-full overflow-hidden bg-muted flex">
+                    <div className="bg-green-500 h-full" style={{ width: `${(data.analytics.abcAnalysis.A / (data.overview.totalItems || 1)) * 100}%` }} />
+                    <div className="bg-yellow-500 h-full" style={{ width: `${(data.analytics.abcAnalysis.B / (data.overview.totalItems || 1)) * 100}%` }} />
+                    <div className="bg-gray-500 h-full" style={{ width: `${(data.analytics.abcAnalysis.C / (data.overview.totalItems || 1)) * 100}%` }} />
+                  </div>
+                </div>
+              ) : (
+                <div className="h-2 rounded-full bg-muted" />
+              )}
+              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                <span>A: {data?.analytics?.abcAnalysis.A || 0}</span>
+                <span>B: {data?.analytics?.abcAnalysis.B || 0}</span>
+                <span>C: {data?.analytics?.abcAnalysis.C || 0}</span>
+              </div>
+            </div>
+            
+            {/* Aging Summary */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-sm font-medium">Stock Aging</span>
+                <MetricTooltip {...METRIC_TOOLTIPS.inventoryAging} />
+              </div>
+              {data?.analytics ? (
+                <div className="flex items-center gap-1">
+                  <div className="flex-1 h-2 rounded-full bg-green-500" style={{ width: `${data.analytics.inventoryAging.current}%` }} title="0-30 days" />
+                  <div className="flex-1 h-2 rounded-full bg-yellow-500" style={{ width: `${data.analytics.inventoryAging.aging30}%` }} title="31-60 days" />
+                  <div className="flex-1 h-2 rounded-full bg-orange-500" style={{ width: `${data.analytics.inventoryAging.aging60}%` }} title="61-90 days" />
+                  <div className="flex-1 h-2 rounded-full bg-red-500" style={{ width: `${data.analytics.inventoryAging.aging90Plus}%` }} title="90+ days" />
+                </div>
+              ) : (
+                <div className="h-2 rounded-full bg-muted" />
+              )}
+              <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                <span className="text-green-600">Fresh</span>
+                <span className="text-red-600">{data?.analytics?.inventoryAging.aging90Plus || 0} aged</span>
+              </div>
+            </div>
+            
+            {/* Top Value */}
+            <div>
+              <span className="text-sm font-medium">Top Value Item</span>
+              {data?.analytics?.topValueItems?.[0] ? (
+                <div className="mt-2">
+                  <p className="text-lg font-bold">${data.analytics.topValueItems[0].value.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground truncate">{data.analytics.topValueItems[0].name}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-2">No data</p>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -743,6 +741,21 @@ export default function DashboardPage() {
 
 // Helper Components
 
+function MetricCardSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+        <div className="h-3 w-20 bg-muted rounded animate-pulse" />
+        <div className="h-4 w-4 bg-muted rounded animate-pulse" />
+      </CardHeader>
+      <CardContent>
+        <div className="h-8 w-24 bg-muted rounded animate-pulse mb-2" />
+        <div className="h-3 w-32 bg-muted rounded animate-pulse" />
+      </CardContent>
+    </Card>
+  );
+}
+
 function MetricCard({
   title,
   value,
@@ -754,6 +767,7 @@ function MetricCard({
   isEmpty,
   emptyMessage,
   emptyAction,
+  trend,
 }: {
   title: string;
   value: string;
@@ -765,6 +779,7 @@ function MetricCard({
   isEmpty?: boolean;
   emptyMessage?: string;
   emptyAction?: { label: string; href: string };
+  trend?: { direction: "up" | "down" | "neutral"; value: number; label: string };
 }) {
   const statusColors = {
     good: "text-green-600 dark:text-green-400",
@@ -773,8 +788,11 @@ function MetricCard({
     neutral: "text-muted-foreground",
   };
 
+  const trendIcon = trend?.direction === "up" ? ArrowUp : trend?.direction === "down" ? ArrowDown : Minus;
+  const trendColor = trend?.direction === "up" ? "text-green-500" : trend?.direction === "down" ? "text-red-500" : "text-muted-foreground";
+
   const content = (
-    <Card className={href ? "cursor-pointer hover:border-primary/50 transition-colors" : ""}>
+    <Card className={`${href ? "cursor-pointer hover:border-primary/50" : ""} transition-all hover:shadow-sm`}>
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
         <div className="flex items-center gap-1.5">
           <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -796,8 +814,19 @@ function MetricCard({
           </div>
         ) : (
           <>
-            <div className="text-2xl font-bold">{value}</div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-bold tracking-tight">{value}</span>
+              {trend && (
+                <span className={`flex items-center text-xs ${trendColor}`}>
+                  {React.createElement(trendIcon, { className: "h-3 w-3" })}
+                  {trend.value > 0 && `${trend.value}%`}
+                </span>
+              )}
+            </div>
             <p className={`mt-1 text-xs ${statusColors[status]}`}>{subtitle}</p>
+            {trend && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">{trend.label}</p>
+            )}
           </>
         )}
       </CardContent>

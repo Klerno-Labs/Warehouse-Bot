@@ -1,4 +1,4 @@
-import { Menu, Search, Bell } from "lucide-react";
+import { Menu, Search, Bell, HelpCircle, Command } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -14,6 +14,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -127,11 +133,26 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search..."
-                  className="w-[200px] pl-9 lg:w-[300px] bg-background border-border hover:border-primary/50 focus:border-primary transition-colors"
+                  placeholder="Search items, SKUs, orders..."
+                  className="w-[200px] pl-9 pr-12 lg:w-[300px] bg-background border-border hover:border-primary/50 focus:border-primary transition-colors"
                   data-testid="input-global-search"
                 />
+                <kbd className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <Command className="h-3 w-3" />K
+                </kbd>
               </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" asChild>
+                      <Link href="/help">
+                        <HelpCircle className="h-5 w-5" />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Help & Documentation</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" data-testid="button-notifications">
                 <Bell className="h-5 w-5" />
               </Button>
