@@ -478,22 +478,29 @@ model TenantSettings {
 }
 
 // Tenant-specific role customization
-// Allows executives to customize role names and permissions within their tenant
+// Allows executives to create multiple custom roles based on base tiers
 model TenantRoleConfig {
   id          String   @id @default(uuid())
   tenantId    String
-  role        Role     // Base role from enum
-  customName  String?  // Custom display name (e.g., "Floor Supervisor" instead of "Operator")
+  baseRole    Role     // Base role tier (e.g., Operator, Sales, Engineering)
+  customName  String   // Custom display name (e.g., "Capping Machine Operator", "Welding Operator")
   description String?  // Custom description
   permissions Json     // Custom permissions array
+
+  // Department/Workcell restrictions for operators
+  assignedDepartments String[] @default([]) // Which departments this role can access
+  assignedWorkcells   String[] @default([]) // Which workcells this role can access
+
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       User[]   @relation("UserCustomRole")
 
-  @@unique([tenantId, role])
+  @@unique([tenantId, customName]) // Each custom role name must be unique per tenant
   @@index([tenantId])
+  @@index([baseRole])
 }
 
 model Site {
@@ -607,6 +614,10 @@ model User {
   // Department/Workcell assignment for operators
   assignedDepartments String[] @default([]) // For operators - which departments they work in
   assignedWorkcells   String[] @default([]) // For operators - specific workcells
+
+  // Custom role assignment (for tenant-specific custom roles)
+  customRoleId String?
+  customRole   TenantRoleConfig? @relation("UserCustomRole", fields: [customRoleId], references: [id], onDelete: SetNull)
 
   // Super Admin flag - platform owner access
   isSuperAdmin Boolean  @default(false) // Can manage ALL tenants
