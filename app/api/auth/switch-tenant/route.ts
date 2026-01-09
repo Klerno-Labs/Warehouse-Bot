@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser, setSessionCookie } from '@/app/api/_utils/getSessionUser';
+import { getSession, setSessionCookie } from '@/app/api/_utils/session';
 import storage from '@/server/storage';
 
 /**
@@ -8,8 +8,8 @@ import storage from '@/server/storage';
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
+    const session = await getSession(req);
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const access = await storage.userTenantAccess.findUnique({
       where: {
         userId_tenantId: {
-          userId: user.id,
+          userId: session.userId,
           tenantId: tenantId
         }
       },
@@ -36,16 +36,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Access denied to this tenant' }, { status: 403 });
     }
 
-    // Update session with new tenant
-    const updatedUser = {
-      ...user,
-      tenantId: access.tenantId,
-      tenantName: access.tenant.name,
-      role: access.role
-    };
+    // Set new session cookie for the new tenant
+    setSessionCookie(session.userId);
 
-    // Set new session cookie
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       tenant: {
         id: access.tenant.id,
@@ -54,10 +48,6 @@ export async function POST(req: NextRequest) {
       },
       role: access.role
     });
-
-    await setSessionCookie(response, updatedUser);
-
-    return response;
   } catch (error) {
     console.error('Error switching tenant:', error);
     return NextResponse.json(
@@ -73,15 +63,15 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
+    const session = await getSession(req);
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get all tenants user has access to
     const accessList = await storage.userTenantAccess.findMany({
       where: {
-        userId: user.id
+        userId: session.userId
       },
       include: {
         tenant: {
@@ -108,7 +98,7 @@ export async function GET(req: NextRequest) {
         slug: access.tenant.slug,
         role: access.role,
         isDefault: access.isDefault,
-        isActive: user.tenantId === access.tenant.id,
+        isActive: session.tenantId === access.tenant.id,
         branding: {
           logo: access.tenant.brandLogo || access.tenant.logoUrl,
           color: access.tenant.brandColor || access.tenant.primaryColor
