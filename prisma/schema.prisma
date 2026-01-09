@@ -400,6 +400,12 @@ model Tenant {
   customDepartments CustomDepartment[]
   productionRoutings ProductionRouting[]
   workflowRules     WorkflowRule[]
+  lots              Lot[]
+  serialNumbers     SerialNumber[]
+  qualityInspections QualityInspection[]
+  qualityInspectionPlans QualityInspectionPlan[]
+  ncrs              NonConformanceReport[]
+  capas             CAPA[]
 }
 
 // Multi-company access control
@@ -689,6 +695,11 @@ model Item {
   shipmentLines     ShipmentLine[]
   pickTaskLines     PickTaskLine[]
   productionRoutings ProductionRouting[]
+  lots              Lot[]               @relation("LotItem")
+  serialNumbers     SerialNumber[]      @relation("SerialItem")
+  qualityInspections QualityInspection[] @relation("InspectionItem")
+  qualityInspectionPlans QualityInspectionPlan[] @relation("InspectionPlanItem")
+  ncrs              NonConformanceReport[] @relation("NCRItem")
 
   @@unique([tenantId, sku])
   @@index([tenantId])
@@ -720,6 +731,7 @@ model Location {
   outputs         ProductionOutput[] @relation("OutputLocation")
   pickTaskLinesFrom    PickTaskLine[]     @relation("PickFromLocation")
   pickTaskLinesActual  PickTaskLine[]     @relation("ActualPickLocation")
+  serialNumbers        SerialNumber[]     @relation("SerialLocation")
 
   @@unique([tenantId, siteId, label])
   @@index([tenantId])
@@ -739,6 +751,7 @@ model ReasonCode {
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   inventoryEvents InventoryEvent[]
   consumptions    ProductionConsumption[]
+  lotHolds        Lot[]            @relation("LotHoldReason")
 
   @@unique([tenantId, type, code])
   @@index([tenantId])
@@ -969,6 +982,7 @@ model Supplier {
   // Relations
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchaseOrders PurchaseOrder[]
+  lots           Lot[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1004,6 +1018,7 @@ model PurchaseOrder {
   approvedBy User?             @relation("POApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
   lines      PurchaseOrderLine[]
   receipts   Receipt[]
+  qualityInspections QualityInspection[] @relation("InspectionPurchaseOrder")
 
   @@unique([tenantId, poNumber])
   @@index([tenantId])
@@ -1213,6 +1228,9 @@ model ProductionOrder {
   jobOperations     JobOperation[]
   scanEvents        OperationScanEvent[]
   componentScans    ComponentScan[]
+  lots              Lot[]               @relation("LotProductionOrder")
+  qualityInspections QualityInspection[] @relation("InspectionProductionOrder")
+  ncrs              NonConformanceReport[] @relation("NCRProductionOrder")
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId])
@@ -1465,6 +1483,7 @@ model Customer {
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   salesOrders     SalesOrder[]
   shipments       Shipment[]
+  serialNumbers   SerialNumber[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
@@ -1526,6 +1545,7 @@ model SalesOrder {
   lines           SalesOrderLine[]
   shipments       Shipment[]
   pickTasks       PickTask[]
+  serialNumbers   SerialNumber[]
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId])
@@ -1714,6 +1734,7 @@ model Shipment {
   shippedBy       User?          @relation(fields: [shippedByUserId], references: [id], onDelete: SetNull)
   lines           ShipmentLine[]
   packages        ShipmentPackage[]
+  serialNumbers   SerialNumber[]
 
   @@unique([tenantId, shipmentNumber])
   @@index([tenantId])
@@ -1774,6 +1795,431 @@ model ShipmentPackage {
 
   @@unique([shipmentId, packageNumber])
   @@index([shipmentId])
+}
+
+// ============================================================
+// LOT/SERIAL TRACKING & QUALITY MANAGEMENT (Phase 4)
+// ============================================================
+
+// Lot master - tracking production lots
+model Lot {
+  id               String   @id @default(uuid())
+  tenantId         String
+  itemId           String
+  lotNumber        String   // Unique lot identifier
+
+  // Quantities
+  qtyProduced      Float
+  qtyAvailable     Float    // Current available quantity
+  qtyAllocated     Float    @default(0)
+  qtyConsumed      Float    @default(0)
+  uom              Uom
+
+  // Dates
+  productionDate   DateTime
+  expirationDate   DateTime?
+  receiptDate      DateTime?
+
+  // Source
+  supplierId       String?  // If from external supplier
+  productionOrderId String? // If internally produced
+
+  // Status
+  status           String   @default("AVAILABLE") // AVAILABLE, QUARANTINE, HOLD, CONSUMED, EXPIRED
+  holdReasonId     String?
+
+  // Quality
+  qcStatus         String?  @default("PENDING") // PENDING, PASSED, FAILED, CONDITIONAL
+  qcDate           DateTime?
+  qcNotes          String?
+
+  // Metadata
+  batchNumber      String?
+  supplierLotNumber String?
+  notes            String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item             Item     @relation("LotItem", fields: [itemId], references: [id], onDelete: Restrict)
+  supplier         Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  productionOrder  ProductionOrder? @relation("LotProductionOrder", fields: [productionOrderId], references: [id], onDelete: SetNull)
+  holdReason       ReasonCode? @relation("LotHoldReason", fields: [holdReasonId], references: [id], onDelete: SetNull)
+  serialNumbers    SerialNumber[]
+  inspections      QualityInspection[]
+  lotHistory       LotHistory[]
+
+  @@unique([tenantId, itemId, lotNumber])
+  @@index([tenantId])
+  @@index([itemId])
+  @@index([lotNumber])
+  @@index([status])
+  @@index([expirationDate])
+}
+
+// Serial number tracking for serialized items
+model SerialNumber {
+  id               String   @id @default(uuid())
+  tenantId         String
+  itemId           String
+  lotId            String?
+  serialNumber     String   // Unique serial identifier
+
+  // Status
+  status           String   @default("AVAILABLE") // AVAILABLE, ALLOCATED, SHIPPED, CONSUMED, WARRANTY_RETURN, SCRAPPED
+
+  // Lifecycle
+  manufacturedDate DateTime?
+  receivedDate     DateTime?
+  shippedDate      DateTime?
+  warrantyExpiry   DateTime?
+
+  // Location
+  currentLocationId String?
+
+  // Ownership
+  customerId       String?  // If shipped to customer
+  salesOrderId     String?
+  shipmentId       String?
+
+  // Quality
+  qcStatus         String?  // PENDING, PASSED, FAILED
+
+  // Metadata
+  notes            String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item             Item      @relation("SerialItem", fields: [itemId], references: [id], onDelete: Restrict)
+  lot              Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  location         Location? @relation("SerialLocation", fields: [currentLocationId], references: [id], onDelete: SetNull)
+  customer         Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  salesOrder       SalesOrder? @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  shipment         Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
+  history          SerialNumberHistory[]
+
+  @@unique([tenantId, itemId, serialNumber])
+  @@index([tenantId])
+  @@index([itemId])
+  @@index([lotId])
+  @@index([serialNumber])
+  @@index([status])
+}
+
+// Lot history tracking
+model LotHistory {
+  id               String   @id @default(uuid())
+  lotId            String
+  eventType        String   // CREATED, RECEIVED, QC_PASSED, QC_FAILED, HOLD, RELEASE, CONSUMED, EXPIRED
+  qtyBefore        Float
+  qtyAfter         Float
+  qtyChanged       Float
+  notes            String?
+  userId           String?
+  createdAt        DateTime @default(now())
+
+  // Relations
+  lot              Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+
+  @@index([lotId])
+  @@index([createdAt])
+}
+
+// Serial number history tracking
+model SerialNumberHistory {
+  id               String   @id @default(uuid())
+  serialNumberId   String
+  eventType        String   // RECEIVED, ALLOCATED, SHIPPED, QC_TESTED, LOCATION_MOVED, STATUS_CHANGED
+  statusBefore     String?
+  statusAfter      String?
+  locationBefore   String?
+  locationAfter    String?
+  notes            String?
+  userId           String?
+  createdAt        DateTime @default(now())
+
+  // Relations
+  serialNumber     SerialNumber @relation(fields: [serialNumberId], references: [id], onDelete: Cascade)
+
+  @@index([serialNumberId])
+  @@index([createdAt])
+}
+
+// Quality inspections
+model QualityInspection {
+  id               String   @id @default(uuid())
+  tenantId         String
+  inspectionNumber String
+
+  // What's being inspected
+  inspectionType   String   // RECEIVING, IN_PROCESS, FINAL, AUDIT
+  itemId           String?
+  lotId            String?
+  productionOrderId String?
+  purchaseOrderId  String?
+
+  // Inspection plan
+  planId           String?
+
+  // Results
+  status           String   @default("PENDING") // PENDING, IN_PROGRESS, PASSED, FAILED, CONDITIONAL
+  overallResult    String?  // ACCEPT, REJECT, CONDITIONAL_ACCEPT
+
+  // Quantities
+  sampleSize       Int?
+  qtyPassed        Float?
+  qtyFailed        Float?
+
+  // People
+  inspectorId      String?
+  reviewerId       String?
+
+  // Dates
+  scheduledDate    DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  reviewedAt       DateTime?
+
+  // Notes
+  notes            String?
+  internalNotes    String?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item             Item?    @relation("InspectionItem", fields: [itemId], references: [id], onDelete: SetNull)
+  lot              Lot?     @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  productionOrder  ProductionOrder? @relation("InspectionProductionOrder", fields: [productionOrderId], references: [id], onDelete: SetNull)
+  purchaseOrder    PurchaseOrder? @relation("InspectionPurchaseOrder", fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  plan             QualityInspectionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  checkpoints      QualityCheckpoint[]
+  ncrs             NonConformanceReport[] @relation("NCRInspection")
+
+  @@unique([tenantId, inspectionNumber])
+  @@index([tenantId])
+  @@index([itemId])
+  @@index([lotId])
+  @@index([status])
+  @@index([inspectionType])
+}
+
+// Quality inspection plan template
+model QualityInspectionPlan {
+  id               String   @id @default(uuid())
+  tenantId         String
+  name             String
+  description      String?
+  inspectionType   String   // RECEIVING, IN_PROCESS, FINAL, AUDIT
+
+  // Applicability
+  itemId           String?  // Specific to an item or generic
+  category         ItemCategory?
+
+  // Sampling
+  sampleSizeType   String   @default("FIXED") // FIXED, PERCENTAGE, AQL
+  sampleSize       Int?
+  samplePercentage Float?
+
+  // Status
+  isActive         Boolean  @default(true)
+  version          Int      @default(1)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item             Item?    @relation("InspectionPlanItem", fields: [itemId], references: [id], onDelete: SetNull)
+  checkpointTemplates QualityCheckpointTemplate[]
+  inspections      QualityInspection[]
+
+  @@index([tenantId])
+  @@index([itemId])
+  @@index([isActive])
+}
+
+// Checkpoint template for inspection plans
+model QualityCheckpointTemplate {
+  id               String   @id @default(uuid())
+  planId           String
+  sequence         Int
+  checkpointName   String
+  description      String?
+  measurementType  String   // PASS_FAIL, NUMERIC, VISUAL, DIMENSION
+
+  // For numeric measurements
+  targetValue      Float?
+  upperLimit       Float?
+  lowerLimit       Float?
+  unit             String?
+
+  // Criticality
+  isCritical       Boolean  @default(false)
+
+  // Instructions
+  instructions     String?
+
+  // Relations
+  plan             QualityInspectionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, sequence])
+  @@index([planId])
+}
+
+// Actual inspection checkpoints (filled during inspection)
+model QualityCheckpoint {
+  id               String   @id @default(uuid())
+  inspectionId     String
+  sequence         Int
+  checkpointName   String
+  description      String?
+  measurementType  String
+
+  // Result
+  result           String?  // PASS, FAIL, N/A
+  measuredValue    Float?
+  notes            String?
+
+  // Reference values
+  targetValue      Float?
+  upperLimit       Float?
+  lowerLimit       Float?
+  unit             String?
+
+  // Criticality
+  isCritical       Boolean  @default(false)
+
+  checkedAt        DateTime?
+  checkedBy        String?
+
+  // Relations
+  inspection       QualityInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@unique([inspectionId, sequence])
+  @@index([inspectionId])
+}
+
+// Non-conformance reports (NCR)
+model NonConformanceReport {
+  id               String   @id @default(uuid())
+  tenantId         String
+  ncrNumber        String
+
+  // What's non-conforming
+  itemId           String?
+  lotId            String?
+  inspectionId     String?
+  productionOrderId String?
+
+  // Issue details
+  issueType        String   // DIMENSIONAL, COSMETIC, FUNCTIONAL, MATERIAL, DOCUMENTATION
+  severity         String   // MINOR, MAJOR, CRITICAL
+  description      String
+  rootCause        String?
+
+  // Quantities
+  qtyAffected      Float
+  uom              Uom
+
+  // Disposition
+  disposition      String   @default("PENDING") // PENDING, USE_AS_IS, REWORK, SCRAP, RETURN_TO_SUPPLIER
+  dispositionNotes String?
+  dispositionDate  DateTime?
+
+  // Status
+  status           String   @default("OPEN") // OPEN, IN_REVIEW, RESOLVED, CLOSED
+
+  // People
+  reportedBy       String?
+  reviewedBy       String?
+  approvedBy       String?
+
+  // Dates
+  reportedAt       DateTime @default(now())
+  reviewedAt       DateTime?
+  closedAt         DateTime?
+
+  // CAPA link
+  capaRequired     Boolean  @default(false)
+
+  // Attachments
+  attachments      Json?    // Array of file URLs
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item             Item?    @relation("NCRItem", fields: [itemId], references: [id], onDelete: SetNull)
+  inspection       QualityInspection? @relation("NCRInspection", fields: [inspectionId], references: [id], onDelete: SetNull)
+  productionOrder  ProductionOrder? @relation("NCRProductionOrder", fields: [productionOrderId], references: [id], onDelete: SetNull)
+  capas            CAPA[]
+
+  @@unique([tenantId, ncrNumber])
+  @@index([tenantId])
+  @@index([itemId])
+  @@index([status])
+  @@index([severity])
+}
+
+// Corrective and Preventive Actions (CAPA)
+model CAPA {
+  id               String   @id @default(uuid())
+  tenantId         String
+  capaNumber       String
+
+  // Type
+  type             String   // CORRECTIVE, PREVENTIVE
+
+  // Source
+  sourceType       String   // NCR, AUDIT, CUSTOMER_COMPLAINT, INTERNAL_REVIEW
+  ncrId            String?
+
+  // Issue
+  problemStatement String
+  rootCauseAnalysis String?
+
+  // Action plan
+  proposedActions  String
+  responsiblePerson String?
+  targetDate       DateTime?
+
+  // Implementation
+  implementationPlan String?
+  implementedAt    DateTime?
+
+  // Verification
+  verificationMethod String?
+  verifiedAt       DateTime?
+  verifiedBy       String?
+  verificationNotes String?
+
+  // Status
+  status           String   @default("OPEN") // OPEN, IN_PROGRESS, IMPLEMENTED, VERIFIED, CLOSED
+
+  // Effectiveness
+  effectivenessCheck String?
+  effectivenessDate DateTime?
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ncr              NonConformanceReport? @relation(fields: [ncrId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, capaNumber])
+  @@index([tenantId])
+  @@index([ncrId])
+  @@index([status])
+  @@index([type])
 }
 
 // ============================================================
