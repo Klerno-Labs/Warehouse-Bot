@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -8,10 +8,8 @@ import storage from '@/server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type');
@@ -19,7 +17,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
 
     const where: any = {
-      tenantId: user.tenantId,
+      tenantId: context.user.tenantId,
     };
 
     if (type) {
@@ -53,11 +51,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ capas });
   } catch (error) {
-    console.error('Error fetching CAPAs:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch CAPAs' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -67,15 +61,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only QC, Supervisor, and Admin can create CAPAs
-    if (!['Admin', 'Supervisor', 'QC'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const {
@@ -101,13 +92,13 @@ export async function POST(req: NextRequest) {
 
     // Generate CAPA number
     const count = await storage.cAPA.count({
-      where: { tenantId: user.tenantId },
+      where: { tenantId: context.user.tenantId },
     });
     const capaNumber = `CAPA-${String(count + 1).padStart(6, '0')}`;
 
     const capa = await storage.cAPA.create({
       data: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         capaNumber,
         type,
         sourceType,
@@ -128,10 +119,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ capa }, { status: 201 });
   } catch (error) {
-    console.error('Error creating CAPA:', error);
-    return NextResponse.json(
-      { error: 'Failed to create CAPA' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

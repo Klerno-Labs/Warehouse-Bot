@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -8,10 +8,8 @@ import storage from '@/server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get('itemId');
@@ -20,7 +18,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
 
     const where: any = {
-      tenantId: user.tenantId,
+      tenantId: context.user.tenantId,
     };
 
     if (itemId) {
@@ -88,11 +86,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ lots });
   } catch (error) {
-    console.error('Error fetching lots:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch lots' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -102,15 +96,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only certain roles can create lots
-    if (!['Admin', 'Supervisor', 'Inventory', 'QC'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor', 'Inventory'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const {
@@ -139,7 +130,7 @@ export async function POST(req: NextRequest) {
     const existingLot = await storage.lot.findUnique({
       where: {
         tenantId_itemId_lotNumber: {
-          tenantId: user.tenantId,
+          tenantId: context.user.tenantId,
           itemId,
           lotNumber,
         },
@@ -156,7 +147,7 @@ export async function POST(req: NextRequest) {
     // Create the lot
     const lot = await storage.lot.create({
       data: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         itemId,
         lotNumber,
         qtyProduced,
@@ -205,10 +196,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ lot }, { status: 201 });
   } catch (error) {
-    console.error('Error creating lot:', error);
-    return NextResponse.json(
-      { error: 'Failed to create lot' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

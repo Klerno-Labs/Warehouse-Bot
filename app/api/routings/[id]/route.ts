@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -11,14 +11,11 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin' && user.role !== 'Supervisor') {
-      return NextResponse.json({ error: 'Admin or Supervisor access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor']);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const { id } = params;
     const body = await req.json();
@@ -34,7 +31,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Routing not found' }, { status: 404 });
     }
 
-    if (existingRouting.tenantId !== user.tenantId) {
+    if (existingRouting.tenantId !== context.user.tenantId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -42,7 +39,7 @@ export async function PATCH(
     if (isDefault && !existingRouting.isDefault) {
       await storage.productionRouting.updateMany({
         where: {
-          tenantId: user.tenantId,
+          tenantId: context.user.tenantId,
           isDefault: true,
           id: { not: id },
         },
@@ -87,11 +84,7 @@ export async function PATCH(
 
     return NextResponse.json({ routing });
   } catch (error) {
-    console.error('Error updating routing:', error);
-    return NextResponse.json(
-      { error: 'Failed to update routing' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -104,14 +97,11 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin' && user.role !== 'Supervisor') {
-      return NextResponse.json({ error: 'Admin or Supervisor access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor']);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const { id } = params;
 
@@ -131,7 +121,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Routing not found' }, { status: 404 });
     }
 
-    if (routing.tenantId !== user.tenantId) {
+    if (routing.tenantId !== context.user.tenantId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -150,10 +140,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting routing:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete routing' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

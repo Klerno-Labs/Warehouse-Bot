@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -8,15 +8,13 @@ import storage from '@/server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Fetch all production orders with their current step information
     const productionOrders = await storage.productionOrder.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         status: {
           in: ['PENDING', 'IN_PROGRESS', 'ACTIVE', 'PAUSED'],
         },
@@ -130,10 +128,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ jobs });
   } catch (error) {
-    console.error('Error fetching Kanban data:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch Kanban data' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

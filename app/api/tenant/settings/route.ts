@@ -1,38 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { NextResponse } from "next/server";
+import storage from "@/server/storage";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 
 /**
  * GET /api/tenant/settings
  * Get tenant settings
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     let settings = await storage.tenantSettings.findUnique({
-      where: { tenantId: user.tenantId }
+      where: { tenantId: context.user.tenantId }
     });
 
     // Create default settings if they don't exist
     if (!settings) {
       settings = await storage.tenantSettings.create({
         data: {
-          tenantId: user.tenantId
+          tenantId: context.user.tenantId
         }
       });
     }
 
     return NextResponse.json({ settings });
   } catch (error) {
-    console.error('Error fetching tenant settings:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch settings' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -40,16 +34,13 @@ export async function GET(req: NextRequest) {
  * PATCH /api/tenant/settings
  * Update tenant settings (Admin only)
  */
-export async function PATCH(req: NextRequest) {
+export async function PATCH(req: Request) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const {
@@ -70,7 +61,7 @@ export async function PATCH(req: NextRequest) {
     } = body;
 
     // Prepare update data - only include defined fields
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (currency !== undefined) updateData.currency = currency;
     if (locale !== undefined) updateData.locale = locale;
     if (timezone !== undefined) updateData.timezone = timezone;
@@ -88,10 +79,10 @@ export async function PATCH(req: NextRequest) {
 
     // Upsert settings
     const settings = await storage.tenantSettings.upsert({
-      where: { tenantId: user.tenantId },
+      where: { tenantId: context.user.tenantId },
       update: updateData,
       create: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         ...updateData
       }
     });
@@ -101,10 +92,6 @@ export async function PATCH(req: NextRequest) {
       settings
     });
   } catch (error) {
-    console.error('Error updating tenant settings:', error);
-    return NextResponse.json(
-      { error: 'Failed to update settings' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

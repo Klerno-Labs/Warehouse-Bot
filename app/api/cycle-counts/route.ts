@@ -1,33 +1,29 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, requireSiteAccess, validateBody, handleApiError } from "@app/api/_utils/middleware";
 import { createCycleCountSchema } from "@shared/cycle-counts";
 
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!["Admin", "Supervisor", "Inventory"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
+
+  const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
+  if (roleCheck instanceof NextResponse) return roleCheck;
 
   const { searchParams } = new URL(req.url);
   const siteId = searchParams.get("siteId");
   const status = searchParams.get("status");
 
-  let cycleCounts = await storage.getCycleCountsByTenant(session.user.tenantId);
+  let cycleCounts = await storage.getCycleCountsByTenant(context.user.tenantId);
 
   // Filter by site
   if (siteId) {
-    if (!session.user.siteIds.includes(siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const siteCheck = requireSiteAccess(context, siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
     cycleCounts = cycleCounts.filter((c) => c.siteId === siteId);
   } else {
     // Only show counts for sites user has access to
-    cycleCounts = cycleCounts.filter((c) => session.user.siteIds.includes(c.siteId));
+    cycleCounts = cycleCounts.filter((c) => context.user.siteIds.includes(c.siteId));
   }
 
   // Filter by status
@@ -40,23 +36,21 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!["Admin", "Supervisor", "Inventory"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const payload = createCycleCountSchema.parse(await req.json());
+    const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
-    if (!session.user.siteIds.includes(payload.siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const payload = await validateBody(req, createCycleCountSchema);
+    if (payload instanceof NextResponse) return payload;
+
+    const siteCheck = requireSiteAccess(context, payload.siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
 
     // Create the cycle count
     const cycleCount = await storage.createCycleCount({
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
       siteId: payload.siteId,
       name: payload.name,
       type: payload.type,
@@ -64,7 +58,7 @@ export async function POST(req: Request) {
       scheduledDate: payload.scheduledDate,
       assignedToUserId: payload.assignedToUserId || null,
       notes: payload.notes || null,
-      createdByUserId: session.user.id,
+      createdByUserId: context.user.id,
       startedAt: null,
       completedAt: null,
     });
@@ -91,7 +85,7 @@ export async function POST(req: Request) {
     for (const balance of linesToCreate) {
       await storage.createCycleCountLine({
         cycleCountId: cycleCount.id,
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
         siteId: payload.siteId,
         itemId: balance.itemId,
         locationId: balance.locationId,
@@ -109,13 +103,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json(cycleCount, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid request", details: error.errors },
-        { status: 400 }
-      );
-    }
-    console.error("Error creating cycle count:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleApiError(error);
   }
 }

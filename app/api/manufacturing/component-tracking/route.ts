@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/server/prisma";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import { z } from "zod";
 
 /**
  * Manufacturing Component Tracking API
- * 
+ *
  * Tracks component consumption and lot traceability for production orders
  * Uses ProductionConsumption model for component tracking
  */
@@ -67,23 +67,21 @@ interface TraceabilityRecord {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const productionOrderId = searchParams.get("productionOrderId");
-  const lotNumber = searchParams.get("lotNumber");
-  const action = searchParams.get("action");
-
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const { searchParams } = new URL(req.url);
+    const productionOrderId = searchParams.get("productionOrderId");
+    const lotNumber = searchParams.get("lotNumber");
+    const action = searchParams.get("action");
+
     // Get component usage for a production order
     if (productionOrderId && action !== "trace") {
       const order = await prisma.productionOrder.findFirst({
         where: {
           id: productionOrderId,
-          tenantId: session.user.tenantId,
+          tenantId: context.user.tenantId,
         },
         include: {
           item: true,
@@ -113,7 +111,7 @@ export async function GET(req: NextRequest) {
 
       // Build component usage list from BOM
       const componentUsage: ComponentUsage[] = [];
-      
+
       if (order.bom) {
         for (const comp of order.bom.components) {
           const qtyRequired = comp.qtyPer * order.qtyOrdered;
@@ -166,7 +164,7 @@ export async function GET(req: NextRequest) {
       if (lotNumber) {
         const orders = await prisma.productionOrder.findMany({
           where: {
-            tenantId: session.user.tenantId,
+            tenantId: context.user.tenantId,
             lotNumber: { contains: lotNumber },
           },
           include: {
@@ -208,7 +206,7 @@ export async function GET(req: NextRequest) {
     const recentActivity = await prisma.productionConsumption.findMany({
       where: {
         productionOrder: {
-          tenantId: session.user.tenantId,
+          tenantId: context.user.tenantId,
         },
       },
       include: {
@@ -234,21 +232,15 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error("Component tracking GET error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch component tracking data" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
     const body = await req.json();
     const action = body.action || "scan";
 
@@ -260,7 +252,7 @@ export async function POST(req: NextRequest) {
       const order = await prisma.productionOrder.findFirst({
         where: {
           id: data.productionOrderId,
-          tenantId: session.user.tenantId,
+          tenantId: context.user.tenantId,
         },
       });
 
@@ -304,14 +296,14 @@ export async function POST(req: NextRequest) {
           uom: item.baseUom,
           qtyBase: data.quantity,
           fromLocationId,
-          createdByUserId: session.user.id,
+          createdByUserId: context.user.id,
         },
       });
 
       // Also create inventory event for tracking
       await prisma.inventoryEvent.create({
         data: {
-          tenantId: session.user.tenantId,
+          tenantId: context.user.tenantId,
           siteId: order.siteId,
           itemId: data.itemId,
           eventType: "ISSUE_TO_WORKCELL",
@@ -323,7 +315,7 @@ export async function POST(req: NextRequest) {
           workcellId: order.workcellId,
           referenceId: order.id,
           notes: `Component issued to ${order.orderNumber}`,
-          createdByUserId: session.user.id,
+          createdByUserId: context.user.id,
         },
       });
 
@@ -341,7 +333,7 @@ export async function POST(req: NextRequest) {
       const order = await prisma.productionOrder.findFirst({
         where: {
           id: data.productionOrderId,
-          tenantId: session.user.tenantId,
+          tenantId: context.user.tenantId,
         },
       });
 
@@ -391,13 +383,13 @@ export async function POST(req: NextRequest) {
             uom: item.baseUom,
             qtyBase: comp.quantity,
             fromLocationId,
-            createdByUserId: session.user.id,
+            createdByUserId: context.user.id,
           },
         });
 
         await prisma.inventoryEvent.create({
           data: {
-            tenantId: session.user.tenantId,
+            tenantId: context.user.tenantId,
             siteId: order.siteId,
             itemId: comp.itemId,
             eventType: "ISSUE_TO_WORKCELL",
@@ -409,7 +401,7 @@ export async function POST(req: NextRequest) {
             workcellId: order.workcellId,
             referenceId: order.id,
             notes: `Batch component issue to ${order.orderNumber}`,
-            createdByUserId: session.user.id,
+            createdByUserId: context.user.id,
           },
         });
 
@@ -436,16 +428,6 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Validation error", details: error.errors },
-        { status: 400 }
-      );
-    }
-    console.error("Component tracking POST error:", error);
-    return NextResponse.json(
-      { error: "Failed to process component tracking" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

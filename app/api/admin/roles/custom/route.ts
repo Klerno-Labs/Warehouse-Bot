@@ -1,27 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
-import { Role } from '@prisma/client';
+import { NextResponse } from "next/server";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
+import storage from "@/server/storage";
+import { Role } from "@prisma/client";
 
 /**
  * POST /api/admin/roles/custom
  * Create a custom role variant
  * Executives can create multiple custom roles per base tier
  */
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only Executive and Admin can create custom roles
-    if (!['Executive', 'Admin', 'SuperAdmin'].includes(user.role)) {
-      return NextResponse.json(
-        { error: 'Only executives can create custom roles' },
-        { status: 403 }
-      );
-    }
+    const roleCheck = requireRole(context, ["Executive", "Admin", "SuperAdmin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const { baseRole, customName, description, permissions, assignedDepartments, assignedWorkcells } =
       await req.json();
@@ -50,7 +44,7 @@ export async function POST(req: NextRequest) {
     const existing = await storage.tenantRoleConfig.findUnique({
       where: {
         tenantId_customName: {
-          tenantId: user.tenantId,
+          tenantId: context.user.tenantId,
           customName,
         },
       },
@@ -66,7 +60,7 @@ export async function POST(req: NextRequest) {
     // Create custom role
     const customRole = await storage.tenantRoleConfig.create({
       data: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         baseRole: baseRole,
         customName,
         description: description || null,
@@ -89,11 +83,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error creating custom role:', error);
-    return NextResponse.json(
-      { error: 'Failed to create custom role' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -101,16 +91,14 @@ export async function POST(req: NextRequest) {
  * GET /api/admin/roles/custom
  * Get all custom roles for the tenant
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const customRoles = await storage.tenantRoleConfig.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         _count: {
@@ -138,10 +126,6 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('Error fetching custom roles:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch custom roles' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

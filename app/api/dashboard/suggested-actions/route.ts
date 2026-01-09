@@ -1,30 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { NextResponse } from "next/server";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
+import storage from "@/server/storage";
 
 /**
  * GET /api/dashboard/suggested-actions
  * AI-powered suggested next actions based on system state and user role
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const suggestions = await generateSuggestedActions(user);
+    const suggestions = await generateSuggestedActions(context.user);
 
     return NextResponse.json({
       suggestions,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Error generating suggested actions:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate suggestions' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -42,7 +36,13 @@ interface SuggestedAction {
   data?: any;
 }
 
-async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
+interface UserContext {
+  id: string;
+  tenantId: string;
+  role: string;
+}
+
+async function generateSuggestedActions(user: UserContext): Promise<SuggestedAction[]> {
   const suggestions: SuggestedAction[] = [];
   const now = new Date();
 

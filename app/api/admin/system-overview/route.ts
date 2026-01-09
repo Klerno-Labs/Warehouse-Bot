@@ -1,38 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { NextResponse } from "next/server";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
+import storage from "@/server/storage";
 
 /**
  * GET /api/admin/system-overview
  * Get comprehensive system overview statistics
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only Admin can access system overview
-    if (user.role !== 'Admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
+
+    const tenantId = context.user.tenantId;
 
     // Users statistics
     const totalUsers = await storage.user.count({
-      where: { tenantId: user.tenantId },
+      where: { tenantId },
     });
 
     const activeUsers = await storage.user.count({
       where: {
-        tenantId: user.tenantId,
+        tenantId,
         isActive: true,
       },
     });
 
     // Get users by role
     const users = await storage.user.findMany({
-      where: { tenantId: user.tenantId },
+      where: { tenantId },
       select: { role: true },
     });
 
@@ -43,12 +42,12 @@ export async function GET(req: NextRequest) {
 
     // Departments statistics
     const totalDepartments = await storage.customDepartment.count({
-      where: { tenantId: user.tenantId },
+      where: { tenantId },
     });
 
     const activeDepartments = await storage.customDepartment.count({
       where: {
-        tenantId: user.tenantId,
+        tenantId,
         isActive: true,
       },
     });
@@ -56,7 +55,7 @@ export async function GET(req: NextRequest) {
     // Get most used departments (mock data for now - would need job tracking)
     const departments = await storage.customDepartment.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId,
         isActive: true,
       },
       take: 5,
@@ -73,19 +72,19 @@ export async function GET(req: NextRequest) {
 
     // Routings statistics
     const totalRoutings = await storage.productionRouting.count({
-      where: { tenantId: user.tenantId },
+      where: { tenantId },
     });
 
     const activeRoutings = await storage.productionRouting.count({
       where: {
-        tenantId: user.tenantId,
+        tenantId,
         isActive: true,
       },
     });
 
     const defaultRoutings = await storage.productionRouting.count({
       where: {
-        tenantId: user.tenantId,
+        tenantId,
         isDefault: true,
       },
     });
@@ -94,14 +93,14 @@ export async function GET(req: NextRequest) {
     const production = {
       activeOrders: await storage.productionOrder.count({
         where: {
-          tenantId: user.tenantId,
+          tenantId,
           status: { in: ['IN_PROGRESS', 'ACTIVE'] },
         },
       }).catch(() => 0),
       completedToday: 0, // Would need date filtering
       pendingOrders: await storage.productionOrder.count({
         where: {
-          tenantId: user.tenantId,
+          tenantId,
           status: 'PENDING',
         },
       }).catch(() => 0),
@@ -111,7 +110,7 @@ export async function GET(req: NextRequest) {
     // Inventory statistics
     const inventory = {
       totalItems: await storage.item.count({
-        where: { tenantId: user.tenantId },
+        where: { tenantId },
       }).catch(() => 0),
       lowStockItems: 0, // Would need stock level checks
       totalValue: 0, // Would need value calculation
@@ -121,13 +120,13 @@ export async function GET(req: NextRequest) {
     const purchasing = {
       openPOs: await storage.purchaseOrder.count({
         where: {
-          tenantId: user.tenantId,
+          tenantId,
           status: { in: ['DRAFT', 'SUBMITTED', 'APPROVED'] },
         },
       }).catch(() => 0),
       awaitingApproval: await storage.purchaseOrder.count({
         where: {
-          tenantId: user.tenantId,
+          tenantId,
           status: 'SUBMITTED',
         },
       }).catch(() => 0),
@@ -138,7 +137,7 @@ export async function GET(req: NextRequest) {
     const sales = {
       openOrders: await storage.salesOrder.count({
         where: {
-          tenantId: user.tenantId,
+          tenantId,
           status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
         },
       }).catch(() => 0),
@@ -178,10 +177,6 @@ export async function GET(req: NextRequest) {
       recentActivity,
     });
   } catch (error) {
-    console.error('Error fetching system overview:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch system overview' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

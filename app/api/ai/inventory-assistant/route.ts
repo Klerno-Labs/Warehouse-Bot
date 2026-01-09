@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -8,10 +8,8 @@ import storage from '@/server/storage';
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const body = await req.json();
     const { itemId, locationId, expectedQty, actualQty, description } = body;
@@ -48,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     const recentEvents = await storage.inventoryEvent.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         itemId,
         ...(locationId && {
           OR: [
@@ -240,11 +238,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error in inventory assistant:', error);
-    return NextResponse.json(
-      { error: 'Failed to analyze inventory discrepancy' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

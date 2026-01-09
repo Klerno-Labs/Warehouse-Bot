@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError, validateBody, createAuditLog } from "@app/api/_utils/middleware";
 import { convertQuantity } from "@server/inventory";
 
 const consumeComponentSchema = z.object({
@@ -21,19 +21,13 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const order = await storage.getProductionOrderById(params.id);
-    if (!order || order.tenantId !== session.user.tenantId) {
-      return NextResponse.json(
-        { error: "Production order not found" },
-        { status: 404 }
-      );
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const rawOrder = await storage.getProductionOrderById(params.id);
+    const order = await requireTenantResource(context, rawOrder, "Production order");
+    if (order instanceof NextResponse) return order;
 
     // Can only consume for RELEASED or IN_PROGRESS orders
     if (!["RELEASED", "IN_PROGRESS"].includes(order.status)) {
@@ -43,13 +37,13 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
-    const validatedData = consumeComponentSchema.parse(body);
+    const validatedData = await validateBody(req, consumeComponentSchema);
+    if (validatedData instanceof NextResponse) return validatedData;
 
     // Convert to base UOM
     const { qtyBase } = await convertQuantity(
       storage.prisma,
-      session.user.tenantId,
+      context.user.tenantId,
       validatedData.itemId,
       validatedData.qtyConsumed,
       validatedData.uom
@@ -70,7 +64,7 @@ export async function POST(
       isScrap: validatedData.isScrap,
       reasonCodeId: validatedData.reasonCodeId,
       notes: validatedData.notes,
-      createdByUserId: session.user.id,
+      createdByUserId: context.user.id,
     });
 
     // Update order status to IN_PROGRESS if not already
@@ -81,25 +75,16 @@ export async function POST(
       });
     }
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "CREATE",
-      entityType: "ProductionConsumption",
-      entityId: consumption.id,
-      details: `Consumed ${validatedData.qtyConsumed} ${validatedData.uom} of ${consumption.item.name} for order ${order.orderNumber}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "CREATE",
+      "ProductionConsumption",
+      consumption.id,
+      `Consumed ${validatedData.qtyConsumed} ${validatedData.uom} of ${consumption.item.name} for order ${order.orderNumber}`
+    );
 
     return NextResponse.json({ consumption }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error consuming component:", error);
-    return NextResponse.json(
-      { error: "Failed to consume component" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

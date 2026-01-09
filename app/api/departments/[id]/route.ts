@@ -1,24 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { NextResponse } from "next/server";
+import storage from "@/server/storage";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 
 /**
  * PATCH /api/departments/[id]
  * Update a custom department
  */
 export async function PATCH(
-  req: NextRequest,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin' && user.role !== 'Supervisor') {
-      return NextResponse.json({ error: 'Admin or Supervisor access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin", "Supervisor"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const {
@@ -36,12 +33,12 @@ export async function PATCH(
     const existing = await storage.customDepartment.findFirst({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'Department not found' }, { status: 404 });
+      return NextResponse.json({ error: "Department not found" }, { status: 404 });
     }
 
     const department = await storage.customDepartment.update({
@@ -60,11 +57,7 @@ export async function PATCH(
 
     return NextResponse.json({ department });
   } catch (error) {
-    console.error('Error updating department:', error);
-    return NextResponse.json(
-      { error: 'Failed to update department' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -73,29 +66,26 @@ export async function PATCH(
  * Delete a custom department
  */
 export async function DELETE(
-  req: NextRequest,
+  _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     // Verify department exists and belongs to tenant
     const existing = await storage.customDepartment.findFirst({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
     if (!existing) {
-      return NextResponse.json({ error: 'Department not found' }, { status: 404 });
+      return NextResponse.json({ error: "Department not found" }, { status: 404 });
     }
 
     // Check if department is used in any routings
@@ -107,7 +97,7 @@ export async function DELETE(
 
     if (routingSteps) {
       return NextResponse.json(
-        { error: 'Cannot delete department that is used in production routings' },
+        { error: "Cannot delete department that is used in production routings" },
         { status: 400 }
       );
     }
@@ -118,10 +108,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting department:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete department' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

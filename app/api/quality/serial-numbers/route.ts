@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -8,10 +8,8 @@ import storage from '@/server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get('itemId');
@@ -20,7 +18,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
 
     const where: any = {
-      tenantId: user.tenantId,
+      tenantId: context.user.tenantId,
     };
 
     if (itemId) {
@@ -82,11 +80,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ serialNumbers });
   } catch (error) {
-    console.error('Error fetching serial numbers:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch serial numbers' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -96,15 +90,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only certain roles can create serial numbers
-    if (!['Admin', 'Supervisor', 'Inventory', 'QC'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor', 'Inventory'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const {
@@ -127,7 +118,7 @@ export async function POST(req: NextRequest) {
     // Check for duplicate serial numbers
     const existingSerials = await storage.serialNumber.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         itemId,
         serialNumber: { in: serialNumberList },
       },
@@ -148,7 +139,7 @@ export async function POST(req: NextRequest) {
       serialNumberList.map(async (serialNumber: string) => {
         const serial = await storage.serialNumber.create({
           data: {
-            tenantId: user.tenantId,
+            tenantId: context.user.tenantId,
             itemId,
             lotId,
             serialNumber,
@@ -197,10 +188,6 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating serial numbers:', error);
-    return NextResponse.json(
-      { error: 'Failed to create serial numbers' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

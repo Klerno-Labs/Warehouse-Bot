@@ -1,24 +1,18 @@
 import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError, createAuditLog } from "@app/api/_utils/middleware";
 
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const order = await storage.getProductionOrderById(params.id);
-    if (!order || order.tenantId !== session.user.tenantId) {
-      return NextResponse.json(
-        { error: "Production order not found" },
-        { status: 404 }
-      );
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const rawOrder = await storage.getProductionOrderById(params.id);
+    const order = await requireTenantResource(context, rawOrder, "Production order");
+    if (order instanceof NextResponse) return order;
 
     // Can only release PLANNED orders
     if (order.status !== "PLANNED") {
@@ -38,26 +32,20 @@ export async function POST(
 
     const updatedOrder = await storage.updateProductionOrder(params.id, {
       status: "RELEASED",
-      releasedByUserId: session.user.id,
+      releasedByUserId: context.user.id,
       releasedAt: new Date(),
     });
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "UPDATE",
-      entityType: "ProductionOrder",
-      entityId: order.id,
-      details: `Released production order ${order.orderNumber} for execution`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "UPDATE",
+      "ProductionOrder",
+      order.id,
+      `Released production order ${order.orderNumber} for execution`
+    );
 
     return NextResponse.json({ order: updatedOrder });
   } catch (error) {
-    console.error("Error releasing production order:", error);
-    return NextResponse.json(
-      { error: "Failed to release production order" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

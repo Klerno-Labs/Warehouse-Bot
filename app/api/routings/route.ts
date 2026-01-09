@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -8,17 +8,15 @@ import storage from '@/server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get('itemId');
 
     const routings = await storage.productionRouting.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         ...(itemId && { itemId }),
       },
       include: {
@@ -45,11 +43,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ routings });
   } catch (error) {
-    console.error('Error fetching routings:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch routings' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -59,14 +53,11 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin' && user.role !== 'Supervisor') {
-      return NextResponse.json({ error: 'Admin or Supervisor access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor']);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const { name, description, itemId, isDefault, steps } = body;
@@ -87,7 +78,7 @@ export async function POST(req: NextRequest) {
     if (isDefault) {
       await storage.productionRouting.updateMany({
         where: {
-          tenantId: user.tenantId,
+          tenantId: context.user.tenantId,
           isDefault: true,
         },
         data: {
@@ -99,7 +90,7 @@ export async function POST(req: NextRequest) {
     // Create routing with steps
     const routing = await storage.productionRouting.create({
       data: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         name,
         description,
         itemId: itemId || null,
@@ -128,10 +119,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ routing }, { status: 201 });
   } catch (error) {
-    console.error('Error creating routing:', error);
-    return NextResponse.json(
-      { error: 'Failed to create routing' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

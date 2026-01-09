@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/server/prisma";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 
 /**
  * Manufacturing Analytics API
- * 
+ *
  * Provides aggregated metrics and analytics for production operations
  */
 
@@ -35,22 +35,20 @@ interface TopProduct {
 }
 
 export async function GET(req: NextRequest) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  const period = searchParams.get("period") || "30"; // days
-  const siteId = searchParams.get("siteId");
-
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const { searchParams } = new URL(req.url);
+    const period = searchParams.get("period") || "30"; // days
+    const siteId = searchParams.get("siteId");
+
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - parseInt(period));
 
     // Get production orders within period
     const whereClause: Record<string, unknown> = {
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
       createdAt: { gte: startDate },
     };
     if (siteId) {
@@ -81,9 +79,9 @@ export async function GET(req: NextRequest) {
           const end = new Date(o.actualEnd!).getTime();
           return (end - start) / (1000 * 60 * 60); // hours
         });
-      
+
       if (completionTimes.length > 0) {
-        avgCompletionTime = 
+        avgCompletionTime =
           completionTimes.reduce((a, b) => a + b, 0) / completionTimes.length;
       }
     }
@@ -203,10 +201,6 @@ export async function GET(req: NextRequest) {
       period: parseInt(period),
     });
   } catch (error) {
-    console.error("Manufacturing analytics error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch analytics" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

@@ -1,26 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { NextResponse } from "next/server";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
+import storage from "@/server/storage";
 
 /**
  * GET /api/admin/stats
  * Get admin dashboard statistics
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only Admin can access admin stats
-    if (user.role !== 'Admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     // Get tenant info
     const tenant = await storage.tenant.findUnique({
-      where: { id: user.tenantId },
+      where: { id: context.user.tenantId },
       select: {
         id: true,
         name: true,
@@ -31,24 +28,24 @@ export async function GET(req: NextRequest) {
 
     // Count users
     const totalUsers = await storage.user.count({
-      where: { tenantId: user.tenantId },
+      where: { tenantId: context.user.tenantId },
     });
 
     const activeUsers = await storage.user.count({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         isActive: true,
       },
     });
 
     // Count departments
     const totalDepartments = await storage.customDepartment.count({
-      where: { tenantId: user.tenantId },
+      where: { tenantId: context.user.tenantId },
     });
 
     // Count routings
     const totalRoutings = await storage.productionRouting.count({
-      where: { tenantId: user.tenantId },
+      where: { tenantId: context.user.tenantId },
     });
 
     // Get recent audit events (if available)
@@ -68,10 +65,6 @@ export async function GET(req: NextRequest) {
       recentActivity,
     });
   } catch (error) {
-    console.error('Error fetching admin stats:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch admin stats' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

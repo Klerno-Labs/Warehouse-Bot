@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -11,15 +11,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const lot = await storage.lot.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         item: true,
@@ -62,11 +60,7 @@ export async function GET(
 
     return NextResponse.json({ lot });
   } catch (error) {
-    console.error('Error fetching lot:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch lot' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -79,20 +73,17 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only certain roles can update lots
-    if (!['Admin', 'Supervisor', 'Inventory', 'QC'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor', 'Inventory'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const existingLot = await storage.lot.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -177,11 +168,7 @@ export async function PATCH(
 
     return NextResponse.json({ lot });
   } catch (error) {
-    console.error('Error updating lot:', error);
-    return NextResponse.json(
-      { error: 'Failed to update lot' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -194,20 +181,17 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only Admin can delete lots
-    if (user.role !== 'Admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin']);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const lot = await storage.lot.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         _count: {
@@ -250,10 +234,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting lot:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete lot' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
