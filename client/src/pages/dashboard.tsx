@@ -1,8 +1,45 @@
 "use client";
 
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import {
+  Package,
+  TrendingUp,
+  BarChart3,
+  AlertTriangle,
+  Clock,
+  ChevronRight,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Play,
+  ArrowRightLeft,
+  RefreshCw,
+  ClipboardCheck,
+  ScanLine,
+  Truck,
+  Target,
+  XCircle,
+  Timer,
+  CheckCircle2,
+  Zap,
+  Keyboard,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+} from "lucide-react";
+import { SuggestedActions } from "@/components/dashboard/suggested-actions";
+import { useSetupChecklist } from "@/lib/hooks/use-setup-checklist";
+import { SetupChecklist } from "@/components/onboarding/setup-checklist";
+import { MetricTooltip } from "@/components/ui/metric-tooltip";
+import { CardEmptyState } from "@/components/ui/empty-state";
+import { InteractiveTour } from "@/components/onboarding/interactive-tour";
+import { getTourSteps } from "@/lib/tour-definitions";
 
 // Role-specific dashboards
 import PurchasingDashboard from "@/pages/dashboards/PurchasingDashboard";
@@ -11,8 +48,28 @@ import InventoryDashboard from "@/pages/dashboards/InventoryDashboard";
 import QualityDashboard from "@/pages/dashboards/QualityDashboard";
 import SalesDashboard from "@/pages/dashboards/SalesDashboard";
 
-// Import the original dashboard for Admin/Supervisor roles
-import { DefaultDashboard } from "@/pages/dashboards/DefaultDashboard";
+// Metric tooltips content
+const METRIC_TOOLTIPS = {
+  inventoryHealth: {
+    title: "Inventory Health Score",
+    description: "Overall health of your inventory based on stock levels, turnover, and accuracy",
+    goodRange: "90-100%: Excellent | 70-89%: Good | <70%: Needs Attention",
+  },
+  turnoverRate: {
+    title: "Turnover Rate",
+    description: "How many times inventory is sold and replaced over a period",
+    formula: "Cost of Goods Sold ÷ Average Inventory",
+    goodRange: "4-6 turns per year for most industries",
+  },
+  abcAnalysis: {
+    title: "ABC Classification",
+    description: "A: High-value items (top 20%), B: Medium-value (next 30%), C: Low-value (remaining 50%)",
+  },
+  inventoryAging: {
+    title: "Stock Aging",
+    description: "How long inventory has been in stock",
+  },
+};
 
 type DashboardStats = {
   overview: {
@@ -351,6 +408,11 @@ function DefaultDashboardContent() {
         />
       )}
 
+      {/* AI-Powered Suggested Actions - Most Prominent */}
+      <div data-tour="suggested-actions">
+        <SuggestedActions />
+      </div>
+
       {/* Primary Action Buttons - "What should I do next?" */}
       <div className="grid gap-4 md:grid-cols-3">
         {PRIMARY_ACTIONS.map((action) => (
@@ -374,7 +436,7 @@ function DefaultDashboardContent() {
       </div>
 
       {/* Key Metrics - Large numbers, trend indicators */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" data-tour="metrics">
         {isLoading ? (
           <>
             <MetricCardSkeleton />
@@ -439,7 +501,7 @@ function DefaultDashboardContent() {
       </div>
 
       {/* Quick Tasks - Elevated position, with keyboard shortcuts */}
-      <div className="sticky top-20 z-40">
+      <div className="sticky top-20 z-40" data-tour="quick-tasks">
         <Card className="border-primary/20 shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -546,7 +608,7 @@ function DefaultDashboardContent() {
         </Card>
 
         {/* Alerts & Issues */}
-        <Card>
+        <Card data-tour="alerts">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -733,6 +795,12 @@ function DefaultDashboardContent() {
           </CardContent>
         </Card>
       )}
+
+      {/* Interactive Tour for new users */}
+      <InteractiveTour
+        steps={getTourSteps("dashboard") || []}
+        tourId="dashboard-tour"
+      />
     </div>
   );
 }
