@@ -30,7 +30,8 @@
       "Bash(grep:*)",
       "Bash(git rm:*)",
       "Bash(echo:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(start:*)"
     ]
   }
 }

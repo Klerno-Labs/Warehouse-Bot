@@ -65,6 +65,18 @@ export default function MobileOperatorApp() {
   const [newNote, setNewNote] = useState("");
   const [noteType, setNoteType] = useState<"info" | "issue" | "part_replacement">("info");
 
+  // Get user department from mobile login
+  const [userDepartment, setUserDepartment] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Load department from mobile auth
+    const mobileUser = localStorage.getItem("mobile_user");
+    if (mobileUser) {
+      const parsedUser = JSON.parse(mobileUser);
+      setUserDepartment(parsedUser.department || null);
+    }
+  }, []);
+
   // Simulate QR scanner (in real app, use device camera)
   const [manualJobNumber, setManualJobNumber] = useState("");
 
@@ -157,7 +169,14 @@ export default function MobileOperatorApp() {
               </div>
               <div>
                 <p className="font-semibold text-sm">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-muted-foreground">{user?.role || "Operator"}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-muted-foreground">{user?.role || "Operator"}</p>
+                  {userDepartment && (
+                    <Badge variant="outline" className="text-xs">
+                      {userDepartment}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
             <Button variant="ghost" size="icon">

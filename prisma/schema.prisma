@@ -13,14 +13,27 @@ datasource db {
 // ============================================================
 
 enum Role {
-  Admin
+  // Tier 1: Operators (Department-specific, job-based access)
+  Operator
+
+  // Tier 2: Management (Extended functions within departments)
   Supervisor
   Inventory
-  Operator
-  Sales
   Purchasing
   Maintenance
   QC
+
+  // Tier 3: Sales (Sales Pit access only)
+  Sales
+
+  // Tier 4: Engineering (Inventory view + job submission)
+  Engineering
+
+  // Tier 5: Executive (Full system control)
+  Admin
+  Executive
+
+  // Legacy/Limited
   Viewer
 }
 
@@ -567,6 +580,11 @@ model User {
   lastName  String
   role      Role     @default(Viewer)
   siteIds   String[]
+
+  // Department/Workcell assignment for operators
+  assignedDepartments String[] @default([]) // For operators - which departments they work in
+  assignedWorkcells   String[] @default([]) // For operators - specific workcells
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
