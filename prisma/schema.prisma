@@ -387,6 +387,7 @@ model Tenant {
   // Relations
   subscription      Subscription?
   settings          TenantSettings?
+  roleConfigs       TenantRoleConfig[]
   userAccess        UserTenantAccess[]
   sites             Site[]
   users             User[]
@@ -474,6 +475,25 @@ model TenantSettings {
   updatedAt         DateTime @updatedAt
 
   tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// Tenant-specific role customization
+// Allows executives to customize role names and permissions within their tenant
+model TenantRoleConfig {
+  id          String   @id @default(uuid())
+  tenantId    String
+  role        Role     // Base role from enum
+  customName  String?  // Custom display name (e.g., "Floor Supervisor" instead of "Operator")
+  description String?  // Custom description
+  permissions Json     // Custom permissions array
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, role])
+  @@index([tenantId])
 }
 
 model Site {
