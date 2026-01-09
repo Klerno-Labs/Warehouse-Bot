@@ -598,6 +598,7 @@ model User {
   pickTasksCompleted      PickTask[]         @relation("PickTaskCompletedBy")
   pickTaskLinesCompleted  PickTaskLine[]     @relation("PickLineCompletedBy")
   shipmentsCreated        Shipment[]
+  productionOrderNotes    ProductionOrderNote[]
 
   @@index([tenantId])
   @@index([email])
@@ -1231,6 +1232,7 @@ model ProductionOrder {
   lots              Lot[]               @relation("LotProductionOrder")
   qualityInspections QualityInspection[] @relation("InspectionProductionOrder")
   ncrs              NonConformanceReport[] @relation("NCRProductionOrder")
+  operatorNotes     ProductionOrderNote[]
 
   @@unique([tenantId, orderNumber])
   @@index([tenantId])
@@ -1239,6 +1241,24 @@ model ProductionOrder {
   @@index([itemId])
   @@index([status])
   @@index([scheduledStart])
+}
+
+// Notes on production orders (for mobile operator tracking)
+model ProductionOrderNote {
+  id                String          @id @default(uuid())
+  productionOrderId String
+  content           String
+  noteType          String          @default("info") // info, issue, part_replacement
+  createdById       String
+  createdAt         DateTime        @default(now())
+
+  // Relations
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  createdBy         User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([productionOrderId])
+  @@index([noteType])
+  @@index([createdAt])
 }
 
 model ProductionConsumption {
