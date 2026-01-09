@@ -1,6 +1,6 @@
 /**
  * Role-Based Access Control (RBAC) System
- * Defines permissions for the 5-tier user system
+ * Defines permissions for the 6-tier user system
  */
 
 export enum Role {
@@ -20,9 +20,12 @@ export enum Role {
   // Tier 4: Engineering (Inventory view + job submission)
   Engineering = 'Engineering',
 
-  // Tier 5: Executive (Full system control)
+  // Tier 5: Executive (Full control within their tenant/warehouse)
   Admin = 'Admin',
   Executive = 'Executive',
+
+  // Tier 6: Super Admin (Platform owner - manages ALL tenants)
+  SuperAdmin = 'SuperAdmin',
 
   // Legacy/Limited
   Viewer = 'Viewer',
@@ -86,6 +89,16 @@ export enum Permission {
 
   // Mobile app
   USE_MOBILE_APP = 'use_mobile_app',
+
+  // Super Admin - Platform Management
+  MANAGE_ALL_TENANTS = 'manage_all_tenants',
+  CREATE_TENANT = 'create_tenant',
+  DELETE_TENANT = 'delete_tenant',
+  VIEW_ALL_TENANTS = 'view_all_tenants',
+  IMPERSONATE_USER = 'impersonate_user',
+  VIEW_PLATFORM_ANALYTICS = 'view_platform_analytics',
+  MANAGE_SUBSCRIPTIONS = 'manage_subscriptions',
+  MANAGE_BILLING = 'manage_billing',
 }
 
 /**
@@ -274,6 +287,29 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ],
 
   // VIEWER: Read-only access
+  // TIER 6: SUPER ADMIN (Platform Owner)
+  // Can manage ALL tenants and access platform-level features
+  [Role.SuperAdmin]: [
+    // All Executive permissions
+    ...Object.values(Permission).filter(p =>
+      !p.includes('SUPER') &&
+      !p.includes('TENANT') &&
+      !p.includes('PLATFORM') &&
+      !p.includes('IMPERSONATE') &&
+      !p.includes('SUBSCRIPTION') &&
+      !p.includes('BILLING')
+    ),
+    // Plus super admin exclusive permissions
+    Permission.MANAGE_ALL_TENANTS,
+    Permission.CREATE_TENANT,
+    Permission.DELETE_TENANT,
+    Permission.VIEW_ALL_TENANTS,
+    Permission.IMPERSONATE_USER,
+    Permission.VIEW_PLATFORM_ANALYTICS,
+    Permission.MANAGE_SUBSCRIPTIONS,
+    Permission.MANAGE_BILLING,
+  ],
+
   [Role.Viewer]: [
     Permission.VIEW_DASHBOARD,
     Permission.VIEW_INVENTORY,
@@ -309,7 +345,7 @@ export function hasAllPermissions(userRole: Role, permissions: Permission[]): bo
 }
 
 /**
- * Get role tier level (1-5)
+ * Get role tier level (1-6)
  */
 export function getRoleTier(role: Role): number {
   const tierMap: Record<Role, number> = {
@@ -323,6 +359,7 @@ export function getRoleTier(role: Role): number {
     [Role.Engineering]: 4,
     [Role.Executive]: 5,
     [Role.Admin]: 5,
+    [Role.SuperAdmin]: 6,
     [Role.Viewer]: 0,
   };
   return tierMap[role] || 0;
@@ -343,6 +380,7 @@ export function getRoleDisplayName(role: Role): string {
     [Role.Engineering]: 'Engineering',
     [Role.Executive]: 'Executive',
     [Role.Admin]: 'Administrator',
+    [Role.SuperAdmin]: 'Super Administrator',
     [Role.Viewer]: 'Viewer',
   };
   return displayNames[role] || role;

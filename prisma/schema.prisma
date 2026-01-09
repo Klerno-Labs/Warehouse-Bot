@@ -29,9 +29,12 @@ enum Role {
   // Tier 4: Engineering (Inventory view + job submission)
   Engineering
 
-  // Tier 5: Executive (Full system control)
+  // Tier 5: Executive (Full control within their tenant/warehouse)
   Admin
   Executive
+
+  // Tier 6: Super Admin (Platform owner - manages ALL tenants)
+  SuperAdmin
 
   // Legacy/Limited
   Viewer
@@ -584,6 +587,9 @@ model User {
   // Department/Workcell assignment for operators
   assignedDepartments String[] @default([]) // For operators - which departments they work in
   assignedWorkcells   String[] @default([]) // For operators - specific workcells
+
+  // Super Admin flag - platform owner access
+  isSuperAdmin Boolean  @default(false) // Can manage ALL tenants
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
