@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, setSessionCookie } from '@/app/api/_utils/session';
+import { getSession, setSessionCookie } from '@app/api/_utils/session';
 import storage from '@/server/storage';
 
 /**
