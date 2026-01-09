@@ -1,53 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import {
-  Package,
-  Briefcase,
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  BarChart3,
-  Download,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  ArrowRightLeft,
-  ClipboardCheck,
-  Play,
-  Factory,
-  Truck,
-  Timer,
-  CheckCircle2,
-  XCircle,
-  ChevronRight,
-  Zap,
-  Target,
-  RefreshCw,
-  ScanLine,
-  Plus,
-  Upload,
-  Settings,
-  Users,
-  Building2,
-  MapPin,
-  ArrowUp,
-  ArrowDown,
-  Minus,
-  HelpCircle,
-  Keyboard,
-} from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import React from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useQuery } from "@tanstack/react-query";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { MetricTooltip, METRIC_TOOLTIPS } from "@/components/ui/metric-tooltip";
-import { SetupChecklist, useSetupChecklist } from "@/components/onboarding/setup-checklist";
-import { CardEmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Role-specific dashboards
+import PurchasingDashboard from "@/pages/dashboards/PurchasingDashboard";
+import ProductionDashboard from "@/pages/dashboards/ProductionDashboard";
+import InventoryDashboard from "@/pages/dashboards/InventoryDashboard";
+import QualityDashboard from "@/pages/dashboards/QualityDashboard";
+import SalesDashboard from "@/pages/dashboards/SalesDashboard";
+
+// Import the original dashboard for Admin/Supervisor roles
+import { DefaultDashboard } from "@/pages/dashboards/DefaultDashboard";
 
 type DashboardStats = {
   overview: {
@@ -191,7 +156,40 @@ const QUICK_TASKS = [
   { icon: Target, title: "Sales ATP", href: "/modules/inventory?view=atp", description: "Check availability", shortcut: "S" },
 ];
 
+// Role-based dashboard router
 export default function DashboardPage() {
+  const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Skeleton className="h-32 w-full max-w-md" />
+      </div>
+    );
+  }
+
+  // Route to role-specific dashboards
+  switch (user.role) {
+    case "Purchasing":
+      return <PurchasingDashboard />;
+    case "Operator":
+      return <ProductionDashboard />;
+    case "Inventory":
+      return <InventoryDashboard />;
+    case "QC":
+      return <QualityDashboard />;
+    case "Sales":
+      return <SalesDashboard />;
+    case "Admin":
+    case "Supervisor":
+    default:
+      // Admin and Supervisor get the full dashboard
+      return <DefaultDashboardContent />;
+  }
+}
+
+// Rename the original dashboard component
+function DefaultDashboardContent() {
   const { user, currentSite } = useAuth();
   const { isDismissed: isChecklistDismissed, dismiss: dismissChecklist } = useSetupChecklist();
 

@@ -3,6 +3,7 @@ import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { CompanySwitcher } from "@/components/company-switcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useBranding } from "@/hooks/useBranding";
 
 const breadcrumbLabels: Record<string, string> = {
   modules: "Modules",
@@ -53,7 +55,10 @@ const breadcrumbLabels: Record<string, string> = {
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
-  
+
+  // Apply custom branding
+  useBranding();
+
   const { data: tenantData, isLoading } = useQuery<{ enabledModules: string[] }>({
     queryKey: ["/api/tenant/modules"],
   });
@@ -96,6 +101,8 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
             <SidebarTrigger data-testid="button-sidebar-toggle" className="hover:bg-accent">
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
+
+            <CompanySwitcher />
 
             <Breadcrumb className="hidden md:flex">
               <BreadcrumbList>
