@@ -1,53 +1,12 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@server/prisma";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, validateBody, handleApiError } from "@app/api/_utils/middleware";
+import { createSOSchema } from "@shared/sales";
 import type { SalesOrderStatus, Uom } from "@prisma/client";
 
-const createSOLineSchema = z.object({
-  lineNumber: z.number().int().positive(),
-  itemId: z.string(),
-  description: z.string().optional(),
-  qtyOrdered: z.number().positive(),
-  uom: z.enum(["EA", "FT", "YD", "ROLL"]),
-  unitPrice: z.number().min(0),
-  discount: z.number().min(0).default(0),
-  taxRate: z.number().min(0).max(100).default(0),
-  notes: z.string().optional(),
-});
-
-const createSOSchema = z.object({
-  customerId: z.string(),
-  orderNumber: z.string().min(1),
-  customerPO: z.string().optional(),
-  orderDate: z.string(),
-  requestedDate: z.string().optional(),
-  promisedDate: z.string().optional(),
-  // Ship To
-  shipToName: z.string().optional(),
-  shipToAddress1: z.string().optional(),
-  shipToAddress2: z.string().optional(),
-  shipToCity: z.string().optional(),
-  shipToState: z.string().optional(),
-  shipToZip: z.string().optional(),
-  shipToCountry: z.string().default("US"),
-  // Shipping
-  shippingMethod: z.string().optional(),
-  // Financials (taxAmount is calculated from line taxRates)
-  shippingAmount: z.number().min(0).default(0),
-  discountAmount: z.number().min(0).default(0),
-  // Notes
-  notes: z.string().optional(),
-  internalNotes: z.string().optional(),
-  // Lines
-  lines: z.array(createSOLineSchema).min(1),
-});
-
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as SalesOrderStatus | null;
@@ -56,7 +15,7 @@ export async function GET(req: Request) {
 
   const salesOrders = await prisma.salesOrder.findMany({
     where: {
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
       ...(status && { status }),
       ...(customerId && { customerId }),
       ...(search && {
@@ -81,23 +40,20 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
-  if (!["Admin", "Supervisor", "Sales"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const roleCheck = requireRole(context, ["Admin", "Supervisor", "Sales"]);
+  if (roleCheck instanceof NextResponse) return roleCheck;
 
   try {
-    const body = await req.json();
-    const data = createSOSchema.parse(body);
+    const data = await validateBody(req, createSOSchema);
+    if (data instanceof NextResponse) return data;
 
     // Check for duplicate order number
     const existing = await prisma.salesOrder.findFirst({
       where: {
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
         orderNumber: data.orderNumber,
       },
     });
@@ -113,7 +69,7 @@ export async function POST(req: Request) {
     const customer = await prisma.customer.findFirst({
       where: {
         id: data.customerId,
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
         isActive: true,
       },
     });
@@ -130,7 +86,7 @@ export async function POST(req: Request) {
     const items = await prisma.item.findMany({
       where: {
         id: { in: itemIds },
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -157,8 +113,8 @@ export async function POST(req: Request) {
     // Create sales order with lines
     const salesOrder = await prisma.salesOrder.create({
       data: {
-        tenantId: session.user.tenantId,
-        siteId: session.user.siteIds[0],
+        tenantId: context.user.tenantId,
+        siteId: context.user.siteIds[0],
         customerId: data.customerId,
         orderNumber: data.orderNumber,
         customerPO: data.customerPO,
@@ -180,7 +136,7 @@ export async function POST(req: Request) {
         total,
         notes: data.notes,
         internalNotes: data.internalNotes,
-        createdByUserId: session.user.id,
+        createdByUserId: context.user.id,
         lines: {
           create: data.lines.map((line) => ({
             lineNumber: line.lineNumber,
@@ -207,13 +163,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ salesOrder }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error creating sales order:", error);
-    return NextResponse.json(
-      { error: "Failed to create sales order" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

@@ -1,12 +1,5 @@
 import { PrismaClient, type InventoryEventType, type Uom } from "@prisma/client";
-
-export class InventoryError extends Error {
-  status: number;
-  constructor(message: string, status = 400) {
-    super(message);
-    this.status = status;
-  }
-}
+import { ValidationError, NotFoundError, AuthorizationError } from "./errors";
 
 type AllowedUom = {
   uom: Uom;
@@ -25,7 +18,7 @@ export async function convertQuantity(
   });
 
   if (!item) {
-    throw new InventoryError("Item not found", 404);
+    throw new NotFoundError("Item", itemId);
   }
 
   const allowedUoms = item.allowedUoms as AllowedUom[];
@@ -34,7 +27,7 @@ export async function convertQuantity(
     (item.baseUom === uomEntered ? { uom: uomEntered, toBase: 1 } : undefined);
 
   if (!conversion) {
-    throw new InventoryError("Invalid UoM for item");
+    throw new ValidationError("Invalid UoM for item");
   }
 
   return { qtyBase: qtyEntered * conversion.toBase };
@@ -80,13 +73,13 @@ export async function applyInventoryEvent(
   } = event;
 
   if (tenantId !== user.tenantId) {
-    throw new InventoryError("Tenant mismatch", 403);
+    throw new AuthorizationError("Tenant mismatch");
   }
 
   // Validate reason code requirement
   const requiresReason = ["SCRAP", "ADJUST", "HOLD"].includes(eventType);
   if (requiresReason && !reasonCodeId) {
-    throw new InventoryError("Reason code is required");
+    throw new ValidationError("Reason code is required");
   }
 
   const isAdminAdjust =
@@ -94,7 +87,7 @@ export async function applyInventoryEvent(
 
   const ensureLocation = (id?: string | null, label?: string) => {
     if (!id) {
-      throw new InventoryError(`${label || "Location"} is required`);
+      throw new ValidationError(`${label || "Location"} is required`);
     }
   };
 
@@ -121,7 +114,7 @@ export async function applyInventoryEvent(
     ensureLocation(toLocationId, "toLocationId");
   } else if (eventType === "ADJUST") {
     if (!fromLocationId && !toLocationId) {
-      throw new InventoryError("fromLocationId or toLocationId is required");
+      throw new ValidationError("fromLocationId or toLocationId is required");
     }
   }
 
@@ -157,7 +150,7 @@ export async function applyInventoryEvent(
       break;
     case "COUNT": {
       if (!toLocationId) {
-        throw new InventoryError("toLocationId is required");
+        throw new ValidationError("toLocationId is required");
       }
       const current = await prisma.inventoryBalance.findUnique({
         where: {
@@ -177,7 +170,7 @@ export async function applyInventoryEvent(
       addDelta(toLocationId, qtyBase);
       break;
     default:
-      throw new InventoryError("Unsupported event type");
+      throw new ValidationError("Unsupported event type");
   }
 
   // Validate no negative balances (unless admin adjust)
@@ -193,7 +186,7 @@ export async function applyInventoryEvent(
     });
     const nextQty = (current?.qtyBase || 0) + delta;
     if (nextQty < 0 && !isAdminAdjust) {
-      throw new InventoryError("Negative balance prevented");
+      throw new ValidationError("Negative balance prevented");
     }
   }
 

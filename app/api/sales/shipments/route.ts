@@ -1,38 +1,12 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@server/prisma";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, validateBody, handleApiError } from "@app/api/_utils/middleware";
+import { createShipmentSchema } from "@shared/sales";
 import type { ShipmentStatus, Uom } from "@prisma/client";
 
-const createShipmentSchema = z.object({
-  salesOrderId: z.string(),
-  carrier: z.string().optional(),
-  serviceLevel: z.string().optional(),
-  shipToName: z.string().optional(),
-  shipToAddress1: z.string().optional(),
-  shipToAddress2: z.string().optional(),
-  shipToCity: z.string().optional(),
-  shipToState: z.string().optional(),
-  shipToZip: z.string().optional(),
-  shipToCountry: z.string().default("US"),
-  notes: z.string().optional(),
-  lines: z.array(
-    z.object({
-      salesOrderLineId: z.string(),
-      itemId: z.string(),
-      qtyShipped: z.number().positive(),
-      uom: z.enum(["EA", "FT", "YD", "ROLL"]),
-      lotNumber: z.string().optional(),
-      serialNumber: z.string().optional(),
-    })
-  ).min(1),
-});
-
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") as ShipmentStatus | null;
@@ -40,7 +14,7 @@ export async function GET(req: Request) {
 
   const shipments = await prisma.shipment.findMany({
     where: {
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
       ...(status && { status }),
       ...(salesOrderId && { salesOrderId }),
     },
@@ -62,24 +36,21 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
-  if (!["Admin", "Supervisor", "Inventory"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
+  if (roleCheck instanceof NextResponse) return roleCheck;
 
   try {
-    const body = await req.json();
-    const data = createShipmentSchema.parse(body);
+    const data = await validateBody(req, createShipmentSchema);
+    if (data instanceof NextResponse) return data;
 
     // Get sales order
     const salesOrder = await prisma.salesOrder.findFirst({
       where: {
         id: data.salesOrderId,
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: { customer: true },
     });
@@ -93,7 +64,7 @@ export async function POST(req: Request) {
 
     // Generate shipment number
     const lastShipment = await prisma.shipment.findFirst({
-      where: { tenantId: session.user.tenantId },
+      where: { tenantId: context.user.tenantId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -105,7 +76,7 @@ export async function POST(req: Request) {
     // Create shipment
     const shipment = await prisma.shipment.create({
       data: {
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
         siteId: salesOrder.siteId,
         salesOrderId: data.salesOrderId,
         customerId: salesOrder.customerId,
@@ -120,7 +91,7 @@ export async function POST(req: Request) {
         shipToZip: data.shipToZip || salesOrder.shipToZip,
         shipToCountry: data.shipToCountry || salesOrder.shipToCountry,
         notes: data.notes,
-        shippedByUserId: session.user.id,
+        shippedByUserId: context.user.id,
         lines: {
           create: data.lines.map((line) => ({
             salesOrderLineId: line.salesOrderLineId,
@@ -152,13 +123,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ shipment }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error creating shipment:", error);
-    return NextResponse.json(
-      { error: "Failed to create shipment" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
