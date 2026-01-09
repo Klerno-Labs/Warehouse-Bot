@@ -32,7 +32,11 @@
       "Bash(echo:*)",
       "Bash(xargs:*)",
       "Bash(start:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(timeout /t 5)",
+      "Bash(netstat:*)",
+      "Bash(tasklist:*)",
+      "Bash(ping:*)"
     ]
   }
 }
