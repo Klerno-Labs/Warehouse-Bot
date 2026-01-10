@@ -3,33 +3,10 @@
  * Defines permissions for the 6-tier user system
  */
 
-export enum Role {
-  // Tier 1: Operators (Department-specific, job-based access)
-  Operator = 'Operator',
+import { Role } from '@prisma/client';
 
-  // Tier 2: Management (Extended functions within departments)
-  Supervisor = 'Supervisor',
-  Inventory = 'Inventory',
-  Purchasing = 'Purchasing',
-  Maintenance = 'Maintenance',
-  QC = 'QC',
-
-  // Tier 3: Sales (Sales Pit access only)
-  Sales = 'Sales',
-
-  // Tier 4: Engineering (Inventory view + job submission)
-  Engineering = 'Engineering',
-
-  // Tier 5: Executive (Full control within their tenant/warehouse)
-  Admin = 'Admin',
-  Executive = 'Executive',
-
-  // Tier 6: Super Admin (Platform owner - manages ALL tenants)
-  SuperAdmin = 'SuperAdmin',
-
-  // Legacy/Limited
-  Viewer = 'Viewer',
-}
+// Re-export Role from Prisma for convenience
+export { Role };
 
 export enum Permission {
   // Dashboard access
