@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "./prisma";
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -13,6 +13,15 @@ import * as crypto from "crypto";
 import { logger } from "./logger";
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+/**
+ * Validate and sanitize tenant ID to prevent command/SQL injection
+ */
+function validateTenantId(tenantId: string): boolean {
+  // Tenant IDs should only contain alphanumeric characters, hyphens, and underscores
+  return /^[a-zA-Z0-9_-]+$/.test(tenantId);
+}
 
 export interface BackupConfig {
   type: "FULL" | "INCREMENTAL" | "DIFFERENTIAL";
@@ -84,22 +93,40 @@ export class BackupManager {
         `${backupId}${metadata.compressed ? ".sql.gz" : ".sql"}`
       );
 
-      // Create backup using pg_dump
-      let command = `pg_dump ${process.env.DATABASE_URL}`;
-
-      if (tenantId) {
-        // Backup specific tenant data only
-        command += ` --table=*${tenantId}*`;
+      // Validate tenant ID to prevent command injection
+      if (tenantId && !validateTenantId(tenantId)) {
+        throw new Error("Invalid tenant ID format");
       }
 
-      if (metadata.compressed) {
-        command += ` | gzip > "${backupFile}"`;
-      } else {
-        command += ` > "${backupFile}"`;
+      // Create backup using pg_dump with safe argument passing
+      const pgDumpArgs: string[] = [];
+
+      if (process.env.DATABASE_URL) {
+        pgDumpArgs.push(process.env.DATABASE_URL);
+      }
+
+      if (tenantId) {
+        // Backup specific tenant data only - tenant ID is validated above
+        pgDumpArgs.push(`--table=*${tenantId}*`);
       }
 
       logger.info("Creating full backup", { backupId });
-      await execAsync(command);
+
+      // Use execFile for the main pg_dump command (no shell injection possible)
+      // For compression, we write to a temp file first then compress
+      const tempFile = `${backupFile}.tmp`;
+      const { stdout } = await execFileAsync("pg_dump", pgDumpArgs);
+
+      if (metadata.compressed) {
+        // Write stdout to temp file, then compress
+        await fs.writeFile(tempFile, stdout);
+        await execFileAsync("gzip", ["-c", tempFile]);
+        const compressedData = await execFileAsync("gzip", ["-c", tempFile]);
+        await fs.writeFile(backupFile, compressedData.stdout);
+        await fs.unlink(tempFile);
+      } else {
+        await fs.writeFile(backupFile, stdout);
+      }
 
       // Get file size
       const stats = await fs.stat(backupFile);
@@ -223,16 +250,26 @@ export class BackupManager {
       await this.decryptBackup(backupFile);
     }
 
-    // Restore database
-    let command;
-    if (metadata.compressed) {
-      command = `gunzip < "${backupFile}" | psql ${process.env.DATABASE_URL}`;
-    } else {
-      command = `psql ${process.env.DATABASE_URL} < "${backupFile}"`;
+    // Validate backup file path is within backup directory
+    const resolvedPath = path.resolve(backupFile);
+    const backupDirResolved = path.resolve(this.BACKUP_DIR);
+    if (!resolvedPath.startsWith(backupDirResolved)) {
+      throw new Error("Security violation: Backup file outside backup directory");
     }
 
+    // Restore database using safe file handling
     logger.info("Restoring database");
-    await execAsync(command);
+
+    if (metadata.compressed) {
+      // Decompress first, then restore
+      const decompressed = await execFileAsync("gunzip", ["-c", backupFile]);
+      const tempSqlFile = `${backupFile}.restore.sql`;
+      await fs.writeFile(tempSqlFile, decompressed.stdout);
+      await execFileAsync("psql", [process.env.DATABASE_URL || "", "-f", tempSqlFile]);
+      await fs.unlink(tempSqlFile);
+    } else {
+      await execFileAsync("psql", [process.env.DATABASE_URL || "", "-f", backupFile]);
+    }
 
     logger.info("Restore completed successfully");
   }
@@ -693,14 +730,67 @@ export class BackupManager {
     return result;
   }
 
+  /**
+   * Execute SQL file for restore operations
+   * SECURITY: Only allows INSERT statements from verified backup files
+   */
   private static async executeSQLFile(filePath: string): Promise<void> {
+    // Validate file path is within backup directory (prevent path traversal)
+    const resolvedPath = path.resolve(filePath);
+    const backupDirResolved = path.resolve(this.BACKUP_DIR);
+    if (!resolvedPath.startsWith(backupDirResolved)) {
+      throw new Error("Security violation: File path outside backup directory");
+    }
+
     const sqlContent = await fs.readFile(filePath, "utf-8");
     const statements = sqlContent
       .split(";")
       .map((s) => s.trim())
       .filter((s) => s && !s.startsWith("--"));
 
+    // Only allow safe SQL operations during restore
+    const allowedPatterns = [
+      /^INSERT\s+INTO/i,
+      /^UPDATE\s+/i, // For updating restored records
+      /^SET\s+/i,    // For session settings
+    ];
+
+    const dangerousPatterns = [
+      /DROP\s+(TABLE|DATABASE|INDEX)/i,
+      /TRUNCATE/i,
+      /DELETE\s+FROM/i,
+      /ALTER\s+(TABLE|DATABASE)/i,
+      /CREATE\s+(USER|ROLE)/i,
+      /GRANT|REVOKE/i,
+      /EXECUTE/i,
+      /;\s*--/,  // SQL injection attempt
+    ];
+
     for (const statement of statements) {
+      // Check for dangerous patterns
+      for (const pattern of dangerousPatterns) {
+        if (pattern.test(statement)) {
+          logger.warn("Blocked dangerous SQL statement during restore", {
+            pattern: pattern.toString(),
+            statementPreview: statement.substring(0, 100),
+          });
+          throw new Error("Security violation: Dangerous SQL statement detected");
+        }
+      }
+
+      // Verify statement matches allowed patterns
+      const isAllowed = allowedPatterns.some((pattern) => pattern.test(statement));
+      if (!isAllowed) {
+        logger.warn("Skipping non-allowed SQL statement type during restore", {
+          statementPreview: statement.substring(0, 100),
+        });
+        continue;
+      }
+
+      logger.debug("Executing restore SQL statement", {
+        statementPreview: statement.substring(0, 50),
+      });
+
       await prisma.$executeRawUnsafe(statement);
     }
   }

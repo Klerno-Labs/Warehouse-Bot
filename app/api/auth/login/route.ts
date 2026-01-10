@@ -7,17 +7,39 @@ import { setSessionCookie } from "@app/api/_utils/session";
 import { logger } from "@server/logger";
 import { z } from "zod";
 
+// Get allowed origin from environment or use same-origin by default
+function getAllowedOrigin(requestOrigin: string | null): string {
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+  // In development, allow localhost origins
+  if (process.env.NODE_ENV === "development") {
+    allowedOrigins.push("http://localhost:3000", "http://127.0.0.1:3000");
+  }
+  // Only return the origin if it's in the allowed list
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+  // Default to same-origin (no CORS header)
+  return "";
+}
+
 // Handle CORS preflight requests
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      "Access-Control-Allow-Credentials": "true",
-    },
-  });
+export async function OPTIONS(req: Request) {
+  const origin = req.headers.get("origin");
+  const allowedOrigin = getAllowedOrigin(origin);
+
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Max-Age": "86400",
+  };
+
+  // Only add CORS headers if origin is allowed
+  if (allowedOrigin) {
+    headers["Access-Control-Allow-Origin"] = allowedOrigin;
+    headers["Access-Control-Allow-Credentials"] = "true";
+  }
+
+  return new NextResponse(null, { status: 200, headers });
 }
 
 export async function POST(req: Request) {

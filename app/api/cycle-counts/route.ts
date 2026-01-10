@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
+import { prisma } from "@server/prisma";
 import { requireAuth, requireRole, requireSiteAccess, validateBody, handleApiError } from "@app/api/_utils/middleware";
 import { createCycleCountSchema } from "@shared/cycle-counts";
 
@@ -81,23 +82,25 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create lines for each balance
-    for (const balance of linesToCreate) {
-      await storage.createCycleCountLine({
-        cycleCountId: cycleCount.id,
-        tenantId: context.user.tenantId,
-        siteId: payload.siteId,
-        itemId: balance.itemId,
-        locationId: balance.locationId,
-        expectedQtyBase: balance.qtyBase,
-        countedQtyBase: null,
-        varianceQtyBase: null,
-        status: "PENDING",
-        countedByUserId: null,
-        countedAt: null,
-        approvedByUserId: null,
-        approvedAt: null,
-        notes: null,
+    // Create all lines in a single batch operation (optimized from N queries to 1)
+    if (linesToCreate.length > 0) {
+      await prisma.cycleCountLine.createMany({
+        data: linesToCreate.map((balance) => ({
+          cycleCountId: cycleCount.id,
+          tenantId: context.user.tenantId,
+          siteId: payload.siteId,
+          itemId: balance.itemId,
+          locationId: balance.locationId,
+          expectedQtyBase: balance.qtyBase,
+          countedQtyBase: null,
+          varianceQtyBase: null,
+          status: "PENDING",
+          countedByUserId: null,
+          countedAt: null,
+          approvedByUserId: null,
+          approvedAt: null,
+          notes: null,
+        })),
       });
     }
 
