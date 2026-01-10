@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession, setSessionCookie } from '@app/api/_utils/session';
+import { setSessionCookie } from '@app/api/_utils/session';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -7,12 +8,10 @@ import storage from '@/server/storage';
  * Switch user's active tenant
  */
 export async function POST(req: NextRequest) {
-  try {
-    const session = await getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     const { tenantId } = await req.json();
 
     if (!tenantId) {
@@ -23,7 +22,7 @@ export async function POST(req: NextRequest) {
     const access = await storage.userTenantAccess.findUnique({
       where: {
         userId_tenantId: {
-          userId: session.userId,
+          userId: context.user.id,
           tenantId: tenantId
         }
       },
@@ -37,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Set new session cookie for the new tenant
-    setSessionCookie(session.userId);
+    setSessionCookie(context.user.id);
 
     return NextResponse.json({
       success: true,
@@ -49,11 +48,7 @@ export async function POST(req: NextRequest) {
       role: access.role
     });
   } catch (error) {
-    console.error('Error switching tenant:', error);
-    return NextResponse.json(
-      { error: 'Failed to switch tenant' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -61,17 +56,15 @@ export async function POST(req: NextRequest) {
  * GET /api/auth/switch-tenant
  * Get list of tenants user has access to
  */
-export async function GET(req: NextRequest) {
-  try {
-    const session = await getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+export async function GET() {
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     // Get all tenants user has access to
     const accessList = await storage.userTenantAccess.findMany({
       where: {
-        userId: session.userId
+        userId: context.user.id
       },
       include: {
         tenant: {
@@ -98,7 +91,7 @@ export async function GET(req: NextRequest) {
         slug: access.tenant.slug,
         role: access.role,
         isDefault: access.isDefault,
-        isActive: session.tenantId === access.tenant.id,
+        isActive: context.user.tenantId === access.tenant.id,
         branding: {
           logo: access.tenant.brandLogo || access.tenant.logoUrl,
           color: access.tenant.brandColor || access.tenant.primaryColor
@@ -106,10 +99,6 @@ export async function GET(req: NextRequest) {
       }))
     });
   } catch (error) {
-    console.error('Error fetching tenant access:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch tenants' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

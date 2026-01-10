@@ -1,38 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@server/prisma";
-import { getSession } from "@app/api/_utils/session";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 
 // Initialize Stripe
-const stripe = process.env.STRIPE_SECRET_KEY 
+const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-04-10" as any })
   : null;
 
 export async function POST(req: NextRequest) {
+  if (!stripe) {
+    return NextResponse.json(
+      { error: "Stripe is not configured" },
+      { status: 503 }
+    );
+  }
+
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
+
+  const roleCheck = requireRole(context, ["Owner", "Admin"]);
+  if (roleCheck instanceof NextResponse) {
+    return NextResponse.json({ error: "Only admins can access billing portal" }, { status: 403 });
+  }
+
   try {
-    if (!stripe) {
-      return NextResponse.json(
-        { error: "Stripe is not configured" },
-        { status: 503 }
-      );
-    }
-
-    const session = await getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Check user has admin permissions
+    // Get user with tenant and subscription
     const user = await prisma.user.findUnique({
-      where: { id: session.userId },
+      where: { id: context.user.id },
       include: { tenant: { include: { subscription: true } } },
     });
 
-    if (!user || !["Owner", "Admin"].includes(user.role)) {
-      return NextResponse.json(
-        { error: "Only admins can access billing portal" },
-        { status: 403 }
-      );
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const customerId = user.tenant.subscription?.stripeCustomerId;
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     // Create billing portal session
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
-    
+
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: `${baseUrl}/settings/billing`,
@@ -56,10 +56,6 @@ export async function POST(req: NextRequest) {
       url: portalSession.url,
     });
   } catch (error) {
-    console.error("Error creating billing portal session:", error);
-    return NextResponse.json(
-      { error: "Failed to create billing portal session" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

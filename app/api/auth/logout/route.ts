@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { audit } from "@server/audit";
-import { clearSessionCookie, getSessionUserWithRecord } from "@app/api/_utils/session";
+import { clearSessionCookie } from "@app/api/_utils/session";
+import { requireAuth } from "@app/api/_utils/middleware";
 
 // Handle CORS preflight requests
 export async function OPTIONS() {
@@ -16,14 +17,12 @@ export async function OPTIONS() {
 }
 
 export async function POST() {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   await audit(
-    session.user.tenantId,
-    session.user.id,
+    context.user.tenantId,
+    context.user.id,
     "LOGOUT",
     "Session",
     null,

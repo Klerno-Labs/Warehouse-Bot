@@ -1,17 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@app/api/_utils/session";
+import { NextResponse } from "next/server";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import { getUsageSummary } from "@app/api/_utils/usage";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  try {
-    const session = await getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function GET() {
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
-    const usage = await getUsageSummary(session.tenantId);
+  try {
+    const usage = await getUsageSummary(context.user.tenantId);
 
     // Calculate percentages for progress bars
     const calculatePercentage = (current: number, limit: number | null) => {
@@ -43,17 +41,13 @@ export async function GET(req: NextRequest) {
       storage: {
         currentGb: usage.storage.currentGb,
         limitGb: usage.storage.limitGb,
-        percentage: usage.storage.limitGb 
+        percentage: usage.storage.limitGb
           ? calculatePercentage(usage.storage.currentGb, usage.storage.limitGb)
           : 0,
         unlimited: usage.storage.limitGb === null,
       },
     });
   } catch (error) {
-    console.error("Error fetching usage:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch usage data" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

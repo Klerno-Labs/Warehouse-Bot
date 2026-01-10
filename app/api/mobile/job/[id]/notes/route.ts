@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -10,12 +10,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     const body = await req.json();
     const { content, type } = body;
 
@@ -32,7 +30,7 @@ export async function POST(
           { id: jobId },
           { orderNumber: jobId },
         ],
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -46,7 +44,7 @@ export async function POST(
         productionOrderId: productionOrder.id,
         content,
         noteType: type || 'info',
-        createdById: user.id,
+        createdById: context.user.id,
       },
       include: {
         createdBy: {
@@ -66,10 +64,6 @@ export async function POST(
       type: note.noteType,
     });
   } catch (error) {
-    console.error('Error adding note:', error);
-    return NextResponse.json(
-      { error: 'Failed to add note' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

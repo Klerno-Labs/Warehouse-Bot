@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 
 /**
@@ -10,12 +10,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const user = await getSessionUser(req);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     const jobId = params.id;
 
     // Find the production order
@@ -25,7 +23,7 @@ export async function POST(
           { id: jobId },
           { orderNumber: jobId },
         ],
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -42,7 +40,7 @@ export async function POST(
         status: 'COMPLETED',
         qtyCompleted: productionOrder.qtyOrdered,
         completedAt: new Date(),
-        completedById: user.id,
+        completedById: context.user.id,
       },
     });
 
@@ -52,10 +50,6 @@ export async function POST(
       completedAt: updated.completedAt,
     });
   } catch (error) {
-    console.error('Error completing job:', error);
-    return NextResponse.json(
-      { error: 'Failed to complete job' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

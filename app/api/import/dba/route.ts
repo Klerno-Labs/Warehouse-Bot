@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@server/prisma";
 import { storage } from "@server/storage";
-import { requireAuth, handleApiError, validateBody } from "@app/api/_utils/middleware";
+import { requireAuth, requireRole, handleApiError, validateBody } from "@app/api/_utils/middleware";
 
 /**
  * DBA Manufacturing Data Import API
@@ -44,13 +44,8 @@ export async function POST(req: Request) {
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    // Only admins can import data
-    if (context.user.role !== "Admin" && context.user.role !== "Supervisor") {
-      return NextResponse.json(
-        { error: "Unauthorized - Admin access required" },
-        { status: 403 }
-      );
-    }
+    const roleCheck = requireRole(context, ["Admin", "Supervisor"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const validatedData = await validateBody(req, dbaImportSchema);
     if (validatedData instanceof NextResponse) return validatedData;

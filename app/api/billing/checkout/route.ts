@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import Stripe from "stripe";
 import { prisma } from "@server/prisma";
-import { getSession } from "@app/api/_utils/session";
+import { requireAuth, requireRole, validateBody, handleApiError } from "@app/api/_utils/middleware";
 
 // Initialize Stripe (will need STRIPE_SECRET_KEY env variable)
-const stripe = process.env.STRIPE_SECRET_KEY 
+const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-04-10" as any })
   : null;
 
@@ -17,43 +17,36 @@ const CheckoutSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  if (!stripe) {
+    return NextResponse.json(
+      { error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to environment variables." },
+      { status: 503 }
+    );
+  }
+
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
+
+  const roleCheck = requireRole(context, ["Owner", "Admin"]);
+  if (roleCheck instanceof NextResponse) {
+    return NextResponse.json({ error: "Only admins can manage billing" }, { status: 403 });
+  }
+
   try {
-    if (!stripe) {
-      return NextResponse.json(
-        { error: "Stripe is not configured. Please add STRIPE_SECRET_KEY to environment variables." },
-        { status: 503 }
-      );
-    }
+    const parsed = await validateBody(req, CheckoutSchema);
+    if (parsed instanceof NextResponse) return parsed;
 
-    const session = await getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { planId, billingInterval, successUrl, cancelUrl } = parsed;
 
-    // Check user has admin permissions
+    // Get the user with tenant and subscription
     const user = await prisma.user.findUnique({
-      where: { id: session.userId },
+      where: { id: context.user.id },
       include: { tenant: { include: { subscription: true } } },
     });
 
-    if (!user || !["Owner", "Admin"].includes(user.role)) {
-      return NextResponse.json(
-        { error: "Only admins can manage billing" },
-        { status: 403 }
-      );
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-
-    const body = await req.json();
-    const parsed = CheckoutSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid input", details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const { planId, billingInterval, successUrl, cancelUrl } = parsed.data;
 
     // Get the plan
     const plan = await prisma.plan.findUnique({
@@ -65,8 +58,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Get the appropriate Stripe price ID
-    const priceId = billingInterval === "YEARLY" 
-      ? plan.stripeYearlyPriceId 
+    const priceId = billingInterval === "YEARLY"
+      ? plan.stripeYearlyPriceId
       : plan.stripeMonthlyPriceId;
 
     if (!priceId) {
@@ -84,7 +77,7 @@ export async function POST(req: NextRequest) {
         email: user.email,
         name: user.tenant.name,
         metadata: {
-          tenantId: session.tenantId,
+          tenantId: context.user.tenantId,
         },
       });
       customerId = customer.id;
@@ -100,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     // Create checkout session
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
-    
+
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
@@ -115,12 +108,12 @@ export async function POST(req: NextRequest) {
       cancel_url: cancelUrl || `${baseUrl}/settings/billing?canceled=true`,
       subscription_data: {
         metadata: {
-          tenantId: session.tenantId,
+          tenantId: context.user.tenantId,
           planId: plan.id,
         },
       },
       metadata: {
-        tenantId: session.tenantId,
+        tenantId: context.user.tenantId,
         planId: plan.id,
       },
     });
@@ -130,10 +123,6 @@ export async function POST(req: NextRequest) {
       sessionId: checkoutSession.id,
     });
   } catch (error) {
-    console.error("Error creating checkout session:", error);
-    return NextResponse.json(
-      { error: "Failed to create checkout session" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

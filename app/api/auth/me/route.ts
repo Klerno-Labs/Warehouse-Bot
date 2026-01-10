@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
-import { getSessionUser } from "@app/api/_utils/session";
+import { requireAuth } from "@app/api/_utils/middleware";
 
 export async function GET() {
-  const sessionUser = await getSessionUser();
-  if (!sessionUser) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
-  const sites = await storage.getSitesForUser(sessionUser.id);
-  return NextResponse.json({ user: sessionUser, sites });
+  const sites = await storage.getSitesForUser(context.user.id);
+  return NextResponse.json({ user: context.user, sites });
 }
