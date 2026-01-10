@@ -9,6 +9,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/toaster";
 import { InstallPWA } from "@/components/pwa/InstallPWA";
 import { registerServiceWorker } from "@/lib/pwa/registerServiceWorker";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -20,10 +21,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <AuthProvider>
-            {children}
-            <InstallPWA />
-          </AuthProvider>
+          <ErrorBoundary>
+            <AuthProvider>
+              {children}
+              <InstallPWA />
+            </AuthProvider>
+          </ErrorBoundary>
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>
