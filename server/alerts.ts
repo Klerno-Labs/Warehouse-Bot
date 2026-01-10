@@ -498,15 +498,45 @@ export class AlertService {
    */
   private static async sendEmailNotification(alert: Alert): Promise<void> {
     try {
-      // Get admin users for the tenant
+      // Get admin users for the tenant with their email preferences
       const users = await prisma.user.findMany({
         where: {
           tenantId: alert.tenantId,
           role: { in: ["Admin", "Supervisor"] },
         },
+        select: {
+          email: true,
+          preferences: true,
+        },
       });
 
-      const recipients = users.map((u) => u.email);
+      // Filter users based on their email notification preferences
+      const recipients = users
+        .filter((u) => {
+          const prefs = (u.preferences as Record<string, any>) || {};
+          const emailPrefs = prefs.emailNotifications || {};
+
+          // Check if email notifications are enabled (default: true)
+          if (emailPrefs.emailNotifications === false) return false;
+
+          // Check specific alert type preferences
+          switch (alert.type) {
+            case "LOW_STOCK":
+            case "REORDER_POINT_REACHED":
+            case "SAFETY_STOCK_BREACH":
+              return emailPrefs.lowStockAlerts !== false;
+            case "OUT_OF_STOCK":
+              return emailPrefs.outOfStockAlerts !== false;
+            case "QUALITY_ISSUE":
+            case "HIGH_SCRAP_RATE":
+              return emailPrefs.qualityIssueNotifications !== false;
+            case "CYCLE_COUNT_VARIANCE":
+              return emailPrefs.cycleCountNotifications !== false;
+            default:
+              return true; // Allow by default for other alert types
+          }
+        })
+        .map((u) => u.email);
 
       if (recipients.length === 0) return;
 
