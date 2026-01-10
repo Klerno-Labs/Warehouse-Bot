@@ -5,6 +5,9 @@
  * Supports webhooks, REST APIs, and file-based integrations
  */
 
+import { logger } from "./logger";
+import * as crypto from "crypto";
+
 export type IntegrationType =
   | "QUICKBOOKS"
   | "XERO"
@@ -236,7 +239,7 @@ export class IntegrationManager {
 
       return response.ok;
     } catch (error) {
-      console.error("Webhook failed:", error);
+      logger.error("Webhook failed", error as Error);
       return false;
     }
   }
@@ -333,7 +336,7 @@ export class IntegrationManager {
 
       return response.ok;
     } catch (error) {
-      console.error("External API sync failed:", error);
+      logger.error("External API sync failed", error as Error);
       return false;
     }
   }
@@ -470,18 +473,55 @@ export class WebhookHandler {
 
   private static verifySignature(
     type: IntegrationType,
-    payload: any,
+    payload: unknown,
     signature: string
   ): boolean {
-    // In production, verify HMAC signature
-    return true;
+    const payloadString = typeof payload === "string" ? payload : JSON.stringify(payload);
+
+    // Get the appropriate secret based on integration type
+    let secret: string | undefined;
+    switch (type) {
+      case "SHOPIFY":
+        secret = process.env.SHOPIFY_WEBHOOK_SECRET;
+        break;
+      case "STRIPE":
+        secret = process.env.STRIPE_WEBHOOK_SECRET;
+        break;
+      case "SHIPSTATION":
+        secret = process.env.SHIPSTATION_WEBHOOK_SECRET;
+        break;
+      default:
+        secret = process.env.WEBHOOK_SECRET;
+    }
+
+    if (!secret) {
+      logger.warn("Webhook secret not configured", { type });
+      return false;
+    }
+
+    // Calculate HMAC-SHA256 signature
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(payloadString)
+      .digest("hex");
+
+    // Constant-time comparison to prevent timing attacks
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature)
+      );
+    } catch {
+      // Buffers have different lengths
+      return false;
+    }
   }
 
   private static async handleShopifyWebhook(
     event: string,
     payload: any
   ): Promise<{ success: boolean }> {
-    console.log("Shopify webhook:", event, payload);
+    logger.info("Shopify webhook received", { event, payload });
     // Handle Shopify events (orders/create, products/update, etc.)
     return { success: true };
   }
@@ -490,7 +530,7 @@ export class WebhookHandler {
     event: string,
     payload: any
   ): Promise<{ success: boolean }> {
-    console.log("Stripe webhook:", event, payload);
+    logger.info("Stripe webhook received", { event, payload });
     // Handle Stripe events (payment_intent.succeeded, etc.)
     return { success: true };
   }
@@ -499,7 +539,7 @@ export class WebhookHandler {
     event: string,
     payload: any
   ): Promise<{ success: boolean }> {
-    console.log("ShipStation webhook:", event, payload);
+    logger.info("ShipStation webhook received", { event, payload });
     // Handle ShipStation events (shipment tracking updates, etc.)
     return { success: true };
   }
@@ -508,7 +548,7 @@ export class WebhookHandler {
     event: string,
     payload: any
   ): Promise<{ success: boolean }> {
-    console.log("Custom webhook:", event, payload);
+    logger.info("Custom webhook received", { event, payload });
     // Handle custom webhook events
     return { success: true };
   }

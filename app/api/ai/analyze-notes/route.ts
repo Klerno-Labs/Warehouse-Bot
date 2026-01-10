@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
 import storage from '@/server/storage';
 import Anthropic from '@anthropic-ai/sdk';
+import { logger } from '@server/logger';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '',
@@ -167,7 +168,7 @@ Provide your analysis in JSON format with this structure:
         };
       }
     } catch (parseError) {
-      console.error('Failed to parse AI response as JSON:', parseError);
+      logger.warn('Failed to parse AI response as JSON', { error: String(parseError) });
       insights = {
         summary: responseText,
         patterns: [],

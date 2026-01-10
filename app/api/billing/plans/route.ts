@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@server/prisma";
+import { logger } from "@server/logger";
 
 // GET all available plans
 export async function GET(req: NextRequest) {
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(formattedPlans);
   } catch (error) {
-    console.error("Error fetching plans:", error);
+    logger.error("Error fetching plans", error as Error);
     return NextResponse.json(
       { error: "Failed to fetch plans" },
       { status: 500 }

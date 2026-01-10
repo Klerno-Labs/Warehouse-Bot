@@ -122,8 +122,8 @@ export class CurrencyService {
           this.rateCache.set(cacheKey, { rate, timestamp: Date.now() });
           return rate;
         }
-      } catch (error) {
-        console.warn("Failed to fetch live exchange rates:", error);
+      } catch {
+        // Failed to fetch live exchange rates, will use fallback
       }
     }
 

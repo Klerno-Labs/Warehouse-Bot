@@ -4,6 +4,7 @@ import { loginSchema } from "@shared/validation";
 import { storage } from "@server/storage";
 import { audit } from "@server/audit";
 import { setSessionCookie } from "@app/api/_utils/session";
+import { logger } from "@server/logger";
 import { z } from "zod";
 
 // Handle CORS preflight requests
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ user: sessionUser, sites });
   } catch (error) {
-    console.error("Login error:", error);
+    logger.error("Login error", error as Error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Invalid request", details: error.errors }, { status: 400 });
     }

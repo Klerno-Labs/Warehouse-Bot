@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAuth } from "@app/api/_utils/middleware";
 import { prisma } from "@server/prisma";
+import { logger } from "@server/logger";
 
 /**
  * Server-Sent Events endpoint for real-time notifications
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("SSE error:", error);
+    logger.error("SSE error", error as Error);
     return new Response(
       JSON.stringify({ error: "Failed to establish stream" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import storage from '@/server/storage';
 import { compareSync } from 'bcryptjs';
 import { sign } from 'jsonwebtoken';
+import { logger } from '@server/logger';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Mobile login error:', error);
+    logger.error('Mobile login error', error as Error);
     return NextResponse.json(
       { error: 'Login failed' },
       { status: 500 }

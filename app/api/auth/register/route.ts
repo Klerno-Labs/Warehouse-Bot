@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@server/prisma";
 import { setSessionCookie } from "@app/api/_utils/session";
 import { audit } from "@server/audit";
+import { logger } from "@server/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -213,7 +214,7 @@ export async function POST(req: Request) {
     }, { status: 201 });
 
   } catch (error) {
-    console.error("Registration error:", error);
+    logger.error("Registration error", error as Error);
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(

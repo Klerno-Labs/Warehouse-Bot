@@ -7,6 +7,7 @@
 
 import { prisma } from "./prisma";
 import { EmailService } from "./email";
+import { logger } from "./logger";
 
 export type TriggerType =
   | "ITEM_CREATED"
@@ -113,7 +114,7 @@ export class WorkflowEngine {
         const execution = await this.executeWorkflow(workflow, context);
         executions.push(execution);
       } catch (error) {
-        console.error(`Failed to execute workflow ${workflow.id}:`, error);
+        logger.error(`Failed to execute workflow ${workflow.id}`, error as Error);
       }
     }
 
@@ -347,7 +348,7 @@ export class WorkflowEngine {
       // In production, create actual PO
       const poNumber = `AUTO-PO-${Date.now()}`;
 
-      console.log("Creating auto-generated PO:", {
+      logger.info("Creating auto-generated PO", {
         poNumber,
         supplierId,
         items,
@@ -381,7 +382,7 @@ export class WorkflowEngine {
       const { itemId, locationId, adjustment, reason } = config;
 
       // In production, create inventory adjustment event
-      console.log("Auto-adjusting inventory:", {
+      logger.info("Auto-adjusting inventory", {
         itemId,
         locationId,
         adjustment,
@@ -445,7 +446,7 @@ export class WorkflowEngine {
       const { title, message, severity } = config;
 
       // In production, create alert record
-      console.log("Creating workflow alert:", {
+      logger.info("Creating workflow alert", {
         title: this.replaceVariables(title, context),
         message: this.replaceVariables(message, context),
         severity,
@@ -515,7 +516,7 @@ export class WorkflowEngine {
       const { entityType, entityId, newStatus } = config;
 
       // In production, update status based on entity type
-      console.log("Updating status:", {
+      logger.info("Updating status", {
         entityType,
         entityId,
         newStatus,
@@ -558,8 +559,13 @@ export class WorkflowEngine {
   /**
    * Helper: Get nested value from object
    */
-  private static getNestedValue(obj: any, path: string): any {
-    return path.split(".").reduce((current, key) => current?.[key], obj);
+  private static getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+    return path.split(".").reduce((current: unknown, key) => {
+      if (current && typeof current === "object" && key in current) {
+        return (current as Record<string, unknown>)[key];
+      }
+      return undefined;
+    }, obj);
   }
 
   /**
@@ -624,6 +630,6 @@ export class WorkflowEngine {
    */
   private static async updateWorkflowStats(workflowId: string): Promise<void> {
     // In production, update execution count and last executed timestamp
-    console.log(`Updated stats for workflow ${workflowId}`);
+    logger.debug("Updated workflow stats", { workflowId });
   }
 }

@@ -1,20 +1,22 @@
 /**
  * Thermal Label Printing Service
- * 
+ *
  * Generates TSPL (TSC Printer Language) commands for TSC TDP-244 and compatible printers.
  * Also supports ZPL for Zebra printers and raw text for generic thermal printers.
- * 
+ *
  * TSC TDP-244 Specs:
  * - 203 DPI resolution
  * - Max print width: 4.25" (108mm)
  * - Supports direct thermal and thermal transfer
  * - USB, Serial, Ethernet connectivity
- * 
+ *
  * Usage:
  * 1. Generate label commands using the service
  * 2. Send raw commands to printer via USB/network
  * 3. Or use browser-based printing with WebUSB/WebSerial API
  */
+
+import { logger } from "./logger";
 
 // Printer configurations
 export interface PrinterConfig {
@@ -481,7 +483,7 @@ export async function sendToPrinter(
   //   client.end();
   // });
   
-  console.log(`Would send ${commands.length} bytes to ${printerAddress}:${port}`);
+  logger.debug("Print job prepared", { bytesCount: commands.length, printerAddress, port });
   return true;
 }
 

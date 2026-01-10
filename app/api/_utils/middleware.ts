@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserWithRecord } from "./session";
 import { storage } from "@server/storage";
+import { logger } from "@server/logger";
 import { z } from "zod";
 
 // ============================================================================
@@ -219,7 +220,7 @@ export async function requireTenantResource<T extends { tenantId: string }>(
  * Replaces 31+ identical try-catch error handling blocks
  */
 export function handleApiError(error: unknown): NextResponse {
-  console.error("API Error:", error);
+  logger.error("API Error", error instanceof Error ? error : new Error(String(error)));
 
   // Zod validation errors
   if (error instanceof z.ZodError) {
