@@ -19,7 +19,7 @@ export async function GET(
     const jobId = params.id;
 
     // Fetch production order with all related data
-    const productionOrder = await storage.productionOrder.findFirst({
+    const productionOrder = await storage.prisma.productionOrder.findFirst({
       where: {
         OR: [
           { id: jobId },
@@ -74,7 +74,7 @@ export async function GET(
 
     // Get job notes from a notes table (if exists) or use placeholder
     // For now, we'll fetch from productionOrder metadata or create a new notes system
-    const notes = await storage.productionOrderNote.findMany({
+    const notes = await storage.prisma.productionOrderNote.findMany({
       where: {
         productionOrderId: productionOrder.id,
       },

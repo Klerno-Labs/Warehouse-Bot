@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch all production orders with their current step information
-    const productionOrders = await storage.productionOrder.findMany({
+    const productionOrders = await storage.prisma.productionOrder.findMany({
       where: {
         tenantId: user.tenantId,
         status: {

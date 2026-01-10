@@ -157,7 +157,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for pending production orders
-  const pendingProduction = await storage.productionOrder.findMany({
+  const pendingProduction = await storage.prisma.productionOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['PLANNED', 'RELEASED'] },

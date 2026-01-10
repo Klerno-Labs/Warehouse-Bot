@@ -19,7 +19,7 @@ export async function POST(
     const jobId = params.id;
 
     // Find the production order
-    const productionOrder = await storage.productionOrder.findFirst({
+    const productionOrder = await storage.prisma.productionOrder.findFirst({
       where: {
         OR: [
           { id: jobId },
@@ -34,7 +34,7 @@ export async function POST(
     }
 
     // Update status to completed
-    const updated = await storage.productionOrder.update({
+    const updated = await storage.prisma.productionOrder.update({
       where: {
         id: productionOrder.id,
       },
@@ -42,7 +42,7 @@ export async function POST(
         status: 'COMPLETED',
         qtyCompleted: productionOrder.qtyOrdered,
         completedAt: new Date(),
-        completedById: user.id,
+        completedBy: user.id,
       },
     });
 

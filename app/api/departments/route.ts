@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const departments = await storage.customDepartment.findMany({
+    const departments = await storage.prisma.customDepartment.findMany({
       where: {
         tenantId: user.tenantId,
       },
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if code already exists
-    const existing = await storage.customDepartment.findUnique({
+    const existing = await storage.prisma.customDepartment.findUnique({
       where: {
         tenantId_code: {
           tenantId: user.tenantId,
@@ -87,14 +87,14 @@ export async function POST(req: NextRequest) {
     // Get max order if not provided
     let departmentOrder = order;
     if (departmentOrder === undefined) {
-      const maxOrderDept = await storage.customDepartment.findFirst({
+      const maxOrderDept = await storage.prisma.customDepartment.findFirst({
         where: { tenantId: user.tenantId },
         orderBy: { order: 'desc' },
       });
       departmentOrder = (maxOrderDept?.order || 0) + 1;
     }
 
-    const department = await storage.customDepartment.create({
+    const department = await storage.prisma.customDepartment.create({
       data: {
         tenantId: user.tenantId,
         name,

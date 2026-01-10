@@ -71,6 +71,7 @@ export async function POST(req: Request) {
       tenantId: session.user.tenantId,
       siteId: payload.siteId,
       workcellId: null,
+      routingId: null,
       jobNumber,
       type: payload.type || null,
       status: "PENDING",

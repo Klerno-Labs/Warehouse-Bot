@@ -38,7 +38,8 @@
       "Bash(tasklist:*)",
       "Bash(ping:*)",
       "Bash(wc:*)",
-      "Bash(Select-String -Pattern \"Type error|Failed to compile|Compiled successfully\" -Context 2,3)"
+      "Bash(Select-String -Pattern \"Type error|Failed to compile|Compiled successfully\" -Context 2,3)",
+      "Bash(taskkill:*)"
     ]
   }
 }
