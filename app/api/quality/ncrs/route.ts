@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { storage } from '@server/storage';
 
 /**
  * GET /api/quality/ncrs
@@ -8,7 +8,7 @@ import storage from '@/server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
+    const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
+    const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

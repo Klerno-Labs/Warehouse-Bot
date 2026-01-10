@@ -47,6 +47,9 @@ import ProductionDashboard from "@/pages/dashboards/ProductionDashboard";
 import InventoryDashboard from "@/pages/dashboards/InventoryDashboard";
 import QualityDashboard from "@/pages/dashboards/QualityDashboard";
 import SalesDashboard from "@/pages/dashboards/SalesDashboard";
+import ExecutiveDashboard from "@/pages/dashboards/ExecutiveDashboard";
+import OperatorDashboard from "@/pages/dashboards/OperatorDashboard";
+import ManagerDashboard from "@/pages/dashboards/ManagerDashboard";
 
 // Metric tooltips content
 const METRIC_TOOLTIPS = {
@@ -225,23 +228,33 @@ export default function DashboardPage() {
     );
   }
 
-  // Route to role-specific dashboards
+  // Route to role-specific dashboards based on 5-tier system
   switch (user.role) {
+    case "Executive":
+    case "Admin":
+    case "SuperAdmin":
+      // Executive tier - Analytics-heavy dashboard
+      return <ExecutiveDashboard />;
+    case "Supervisor":
+    case "Manager":
+      // Manager tier - Team oversight dashboard
+      return <ManagerDashboard />;
+    case "Operator":
+      // Operator tier - Single-job focus dashboard
+      return <OperatorDashboard />;
+    case "Inventory":
+      // Inventory tier - Bin lookup and stock management
+      return <InventoryDashboard />;
+    case "Sales":
+      // Sales tier - Quote pipeline and customer management
+      return <SalesDashboard />;
     case "Purchasing":
       return <PurchasingDashboard />;
-    case "Operator":
-      return <ProductionDashboard />;
-    case "Inventory":
-      return <InventoryDashboard />;
     case "QC":
       return <QualityDashboard />;
-    case "Sales":
-      return <SalesDashboard />;
-    case "Admin":
-    case "Supervisor":
     default:
-      // Admin and Supervisor get the full dashboard
-      return <DefaultDashboardContent />;
+      // Fallback to executive dashboard for unknown roles
+      return <ExecutiveDashboard />;
   }
 }
 

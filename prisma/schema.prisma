@@ -129,7 +129,9 @@ enum BOMStatus {
 enum ProductionOrderStatus {
   PLANNED
   RELEASED
+  PENDING
   IN_PROGRESS
+  PAUSED
   COMPLETED
   CLOSED
   CANCELLED
@@ -356,8 +358,11 @@ model Tenant {
   locale          String   @default("en-US") // Locale for formatting
 
   // Onboarding
-  onboardingCompleted Boolean  @default(false)
-  onboardingStep      Int      @default(0)
+  onboardingCompleted    Boolean   @default(false)
+  onboardingCompletedAt  DateTime?
+  onboardingStep         Int       @default(0)
+  industry               String?
+  companySize            String?
 
   // Contact
   contactEmail    String?
@@ -1257,6 +1262,22 @@ model ProductionOrder {
 
   // Where
   workcellId        String?
+  departmentId      String?
+  stationId         String?
+
+  // Assignment
+  assignedTo        String?
+  itemName          String?
+  customerId        String?
+
+  // Tracking
+  startedAt         DateTime?
+  completedAt       DateTime?
+  completedBy       String?
+  pausedAt          DateTime?
+  pausedBy          String?
+  resumedAt         DateTime?
+  estimatedDuration Int?                  // minutes
 
   // Lot/Batch tracking
   lotNumber         String?
@@ -1264,7 +1285,7 @@ model ProductionOrder {
 
   // Metadata
   priority          Int                   @default(5)
-  notes             String?
+  notes             String?               @db.Text
   createdByUserId   String?
   releasedByUserId  String?
   releasedAt        DateTime?

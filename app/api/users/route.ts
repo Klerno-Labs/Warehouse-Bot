@@ -1,21 +1,42 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { storage } from "@server/storage";
 import { audit } from "@server/audit";
 import { getSessionUserWithRecord } from "@app/api/_utils/session";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSessionUserWithRecord();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!["Admin", "Supervisor"].includes(session.user.role)) {
+  if (!["Admin", "Supervisor", "Executive", "SuperAdmin"].includes(session.user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const users = await storage.getUsersByTenant(session.user.tenantId);
+  const { searchParams } = new URL(req.url);
+  const withoutBadge = searchParams.get('withoutBadge') === 'true';
+
+  let users;
+  if (withoutBadge) {
+    // Get users without active badges (for badge assignment UI)
+    const allUsers = await storage.getUsersByTenant(session.user.tenantId);
+    const usersWithBadges = await storage.prisma.badge.findMany({
+      where: {
+        tenantId: session.user.tenantId,
+        isActive: true,
+      },
+      select: {
+        userId: true,
+      },
+    });
+    const userIdsWithBadges = new Set(usersWithBadges.map(b => b.userId));
+    users = allUsers.filter(u => !userIdsWithBadges.has(u.id));
+  } else {
+    users = await storage.getUsersByTenant(session.user.tenantId);
+  }
+
   const sanitized = users.map(({ password, ...u }) => u);
-  return NextResponse.json(sanitized);
+  return NextResponse.json({ users: sanitized });
 }
 
 export async function POST(req: Request) {

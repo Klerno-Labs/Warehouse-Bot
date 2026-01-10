@@ -76,10 +76,17 @@
   "categories": ["business", "productivity", "utilities"],
   "shortcuts": [
     {
-      "name": "Scan Item",
-      "short_name": "Scan",
-      "description": "Quick barcode scanning",
-      "url": "/stations/receiving?action=scan",
+      "name": "Mobile Operator",
+      "short_name": "Operator",
+      "description": "Scan job cards and manage tasks",
+      "url": "/mobile/login",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Scan Job Card",
+      "short_name": "Scan Job",
+      "description": "Quick job card scanning",
+      "url": "/mobile/operator",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
@@ -94,13 +101,6 @@
       "short_name": "Production",
       "description": "View production status",
       "url": "/manufacturing/production-board",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Alerts",
-      "short_name": "Alerts",
-      "description": "View active alerts",
-      "url": "/alerts",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ],

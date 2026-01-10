@@ -251,7 +251,7 @@ export default function WorkflowDesignerPage() {
                                     Skippable
                                   </Badge>
                                 )}
-                                {step.department.requireQC && (
+                                {(step.department as any).requireQC && (
                                   <Badge
                                     variant="default"
                                     className="h-5 text-xs bg-blue-600"
@@ -270,7 +270,7 @@ export default function WorkflowDesignerPage() {
                             </div>
 
                             {/* Warnings */}
-                            {!step.department.allowConcurrent && (
+                            {!(step.department as any).allowConcurrent && (
                               <div className="mt-2 pt-2 border-t">
                                 <div className="flex items-center gap-1 text-xs text-orange-600">
                                   <AlertCircle className="h-3 w-3" />
@@ -345,7 +345,7 @@ export default function WorkflowDesignerPage() {
                       </CardHeader>
                       <CardContent>
                         <div className="text-2xl font-bold">
-                          {routing.steps.filter((s) => s.department.requireQC).length}
+                          {routing.steps.filter((s) => (s.department as any).requireQC).length}
                         </div>
                       </CardContent>
                     </Card>

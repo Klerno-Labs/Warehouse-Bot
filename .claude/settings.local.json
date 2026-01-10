@@ -36,7 +36,9 @@
       "Bash(timeout /t 5)",
       "Bash(netstat:*)",
       "Bash(tasklist:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(wc:*)",
+      "Bash(Select-String -Pattern \"Type error|Failed to compile|Compiled successfully\" -Context 2,3)"
     ]
   }
 }

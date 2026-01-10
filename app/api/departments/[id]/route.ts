@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { storage } from '@server/storage';
 
 /**
  * PATCH /api/departments/[id]
@@ -11,7 +11,7 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
+    const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -33,7 +33,7 @@ export async function PATCH(
     } = body;
 
     // Verify department exists and belongs to tenant
-    const existing = await storage.customDepartment.findFirst({
+    const existing = await storage.prisma.customDepartment.findFirst({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -44,7 +44,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Department not found' }, { status: 404 });
     }
 
-    const department = await storage.customDepartment.update({
+    const department = await storage.prisma.customDepartment.update({
       where: { id: params.id },
       data: {
         name: name !== undefined ? name : undefined,
@@ -77,7 +77,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser(req);
+    const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -87,7 +87,7 @@ export async function DELETE(
     }
 
     // Verify department exists and belongs to tenant
-    const existing = await storage.customDepartment.findFirst({
+    const existing = await storage.prisma.customDepartment.findFirst({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -112,7 +112,7 @@ export async function DELETE(
       );
     }
 
-    await storage.customDepartment.delete({
+    await storage.prisma.customDepartment.delete({
       where: { id: params.id },
     });
 

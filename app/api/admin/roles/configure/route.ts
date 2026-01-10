@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { storage } from '@server/storage';
 import { Role } from '@prisma/client';
 
 /**
@@ -46,22 +46,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Create or update role configuration
-    const config = await storage.tenantRoleConfig.upsert({
+    const config = await storage.prisma.tenantRoleConfig.upsert({
       where: {
-        tenantId_role: {
+        tenantId_customName: {
           tenantId: user.tenantId,
-          role: role,
+          customName: customName || `${role} Role`,
         },
       },
       create: {
         tenantId: user.tenantId,
-        role: role,
-        customName: customName || null,
+        baseRole: role,
+        customName: customName || `${role} Role`,
         description: description || null,
         permissions: permissions,
       },
       update: {
-        customName: customName || null,
         description: description || null,
         permissions: permissions,
       },
@@ -71,7 +70,7 @@ export async function POST(req: NextRequest) {
       success: true,
       config: {
         id: config.id,
-        role: config.role,
+        baseRole: config.baseRole,
         customName: config.customName,
         description: config.description,
         permissions: config.permissions,
@@ -98,19 +97,19 @@ export async function GET(req: NextRequest) {
     }
 
     // Get all role configurations for this tenant
-    const configs = await storage.tenantRoleConfig.findMany({
+    const configs = await storage.prisma.tenantRoleConfig.findMany({
       where: {
         tenantId: user.tenantId,
       },
       orderBy: {
-        role: 'asc',
+        baseRole: 'asc',
       },
     });
 
     return NextResponse.json({
       configs: configs.map((config) => ({
         id: config.id,
-        role: config.role,
+        baseRole: config.baseRole,
         customName: config.customName,
         description: config.description,
         permissions: config.permissions,

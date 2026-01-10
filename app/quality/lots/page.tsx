@@ -39,7 +39,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  BarcodeScan,
+  ScanBarcode,
   Calendar,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -341,7 +341,7 @@ export default function LotsPage() {
                           href={`/quality/lots/${lot.id}`}
                           className="hover:underline flex items-center gap-2"
                         >
-                          <BarcodeScan className="h-4 w-4 text-muted-foreground" />
+                          <ScanBarcode className="h-4 w-4 text-muted-foreground" />
                           {lot.lotNumber}
                         </Link>
                         {lot.batchNumber && (

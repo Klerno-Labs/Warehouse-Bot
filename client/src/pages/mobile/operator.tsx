@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { QRScanner } from "@/components/qr-scanner";
 
 interface JobData {
   id: string;
@@ -77,8 +78,14 @@ export default function MobileOperatorApp() {
     }
   }, []);
 
-  // Simulate QR scanner (in real app, use device camera)
+  // Manual job number input
   const [manualJobNumber, setManualJobNumber] = useState("");
+
+  // Handle QR scan
+  const handleQRScan = (data: string) => {
+    setScannedJobId(data);
+    setIsScanning(false);
+  };
 
   // Fetch job data
   const { data: jobData, isLoading } = useQuery<JobData>({
@@ -132,15 +139,13 @@ export default function MobileOperatorApp() {
   });
 
   const handleScanJob = () => {
-    // In a real app, this would trigger the camera
-    // For now, we'll use manual input
+    // Open QR scanner with camera
     setIsScanning(true);
   };
 
   const handleManualScan = () => {
     if (manualJobNumber) {
       setScannedJobId(manualJobNumber);
-      setIsScanning(false);
       setManualJobNumber("");
     }
   };
@@ -202,43 +207,13 @@ export default function MobileOperatorApp() {
               </Button>
             </>
           ) : (
-            <Card className="w-full max-w-md">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ScanLine className="h-5 w-5" />
-                  Scan Job Card
-                </CardTitle>
-                <CardDescription>
-                  Point your camera at the QR code on the job card
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* In production, this would be a camera view */}
-                <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                  <div className="text-center space-y-2">
-                    <Camera className="h-12 w-12 mx-auto text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">Camera view would appear here</p>
-                  </div>
-                </div>
-
-                {/* Manual entry for testing */}
-                <div className="space-y-2">
-                  <Label>Or enter job number manually</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="JOB-001"
-                      value={manualJobNumber}
-                      onChange={(e) => setManualJobNumber(e.target.value)}
-                    />
-                    <Button onClick={handleManualScan}>Go</Button>
-                  </div>
-                </div>
-
-                <Button variant="outline" className="w-full" onClick={() => setIsScanning(false)}>
-                  Cancel
-                </Button>
-              </CardContent>
-            </Card>
+            <>
+              {/* QR Scanner Component */}
+              <QRScanner
+                onScan={handleQRScan}
+                onClose={() => setIsScanning(false)}
+              />
+            </>
           )}
         </div>
       </div>

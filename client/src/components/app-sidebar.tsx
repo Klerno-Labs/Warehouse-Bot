@@ -29,6 +29,7 @@ import {
   CalendarClock,
   ShoppingBag,
   UserCircle,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -54,6 +55,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
 import type { ModuleId } from "@shared/schema";
+import { getRoleTier, Role as RoleEnum } from "@shared/permissions";
+import { Crown, DollarSign } from "lucide-react";
 
 // Operations - Day-to-day tasks that floor workers and warehouse staff use frequently
 const operationsItems = [
@@ -90,7 +93,7 @@ const planningItems = [
   { title: "Component Tracking", url: "/manufacturing/component-tracking", icon: ScanLine },
 ];
 
-// Admin - Settings and configuration
+// Admin - Settings and configuration (Tier 5: Executive/Admin)
 const adminItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Facilities", url: "/admin/facilities", icon: Building2 },
@@ -98,6 +101,19 @@ const adminItems = [
   { title: "DBA Import", url: "/admin/dba-import", icon: Database },
   { title: "Audit Log", url: "/admin/audit", icon: ClipboardList },
   { title: "Settings", url: "/admin/settings", icon: Settings },
+];
+
+// Executive Management (Tier 5: Executive/Admin)
+const executiveItems = [
+  { title: "Custom Roles", url: "/admin/custom-roles", icon: Shield },
+  { title: "Departments", url: "/admin/departments", icon: Building2 },
+  { title: "Department Users", url: "/admin/department-users", icon: Users },
+  { title: "Badge Management", url: "/admin/badges", icon: UserCircle },
+];
+
+// Super Admin - Platform Management (Tier 6: SuperAdmin only)
+const superAdminItems = [
+  { title: "Super Admin", url: "/super-admin", icon: Crown },
 ];
 
 interface AppSidebarProps {
@@ -114,7 +130,14 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
     ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
     : "??";
 
-  const isAdmin = user?.role === "Admin" || user?.role === "Supervisor";
+  // Get user's role tier (1-6)
+  const roleTier = user?.role ? getRoleTier(user.role as any) : 0;
+
+  // Tier checks for navigation visibility
+  const isSales = roleTier >= 3; // Sales, Engineering, Executive, SuperAdmin
+  const isEngineering = roleTier >= 4; // Engineering, Executive, SuperAdmin
+  const isExecutive = roleTier >= 5; // Executive, Admin, SuperAdmin
+  const isSuperAdmin = user?.role === 'SuperAdmin';
 
   return (
     <Sidebar>
@@ -216,8 +239,55 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
 
         <SidebarSeparator />
 
-        {/* Sales - Collapsed by default (less commonly used) */}
-        <SidebarGroup>
+        {/* Sales Pit - Only for Sales tier and above (Tier 3+) */}
+        {isSales && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Sales Pit
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/sales-pit"}>
+                    <Link href="/sales-pit" data-testid="link-sales-pit">
+                      <DollarSign className="h-4 w-4" />
+                      <span>Sales Pit Dashboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {isSales && <SidebarSeparator />}
+
+        {/* Engineering - Only for Engineering tier and above (Tier 4+) */}
+        {isEngineering && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Engineering
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/engineering"}>
+                    <Link href="/engineering" data-testid="link-engineering">
+                      <Wrench className="h-4 w-4" />
+                      <span>Engineering Dashboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {isEngineering && <SidebarSeparator />}
+
+        {/* Sales - Expanded sections for full access (kept for detailed access) */}
+        {isSales && (
+          <SidebarGroup>
           <button
             onClick={() => setSalesExpanded(!salesExpanded)}
             className="flex w-full items-center justify-between px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
@@ -249,9 +319,10 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
             </SidebarGroupContent>
           )}
         </SidebarGroup>
+        )}
 
-        <SidebarSeparator />
-        
+        {isSales && <SidebarSeparator />}
+
         {/* Planning - Analytics and production planning */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -276,9 +347,35 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && (
+        {/* Executive Management - Only for Tier 5+ */}
+        {isExecutive && (
           <>
             <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Executive
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {executiveItems.map((item) => {
+                    const isActive = pathname === item.url || pathname.startsWith(item.url + "/");
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={isActive}>
+                          <Link href={item.url} data-testid={`link-executive-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                            <item.icon className="h-4 w-4" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarSeparator />
+
             <SidebarGroup>
               <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Administration
@@ -293,6 +390,35 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
                           <Link href={item.url} data-testid={`link-admin-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
                             <item.icon className="h-4 w-4" />
                             <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
+        {/* Super Admin - Platform Management (Tier 6 only) */}
+        {isSuperAdmin && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-purple-600">
+                Platform Owner
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {superAdminItems.map((item) => {
+                    const isActive = pathname === item.url || pathname.startsWith(item.url + "/");
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton asChild isActive={isActive} className="bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100">
+                          <Link href={item.url} data-testid="link-super-admin">
+                            <item.icon className="h-4 w-4 text-purple-600" />
+                            <span className="font-semibold text-purple-900">{item.title}</span>
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

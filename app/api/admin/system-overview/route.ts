@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { storage } from '@server/storage';
 
 /**
  * GET /api/admin/system-overview
@@ -8,7 +8,7 @@ import storage from '@/server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
+    const user = await getSessionUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -19,22 +19,9 @@ export async function GET(req: NextRequest) {
     }
 
     // Users statistics
-    const totalUsers = await storage.user.count({
-      where: { tenantId: user.tenantId },
-    });
-
-    const activeUsers = await storage.user.count({
-      where: {
-        tenantId: user.tenantId,
-        isActive: true,
-      },
-    });
-
-    // Get users by role
-    const users = await storage.user.findMany({
-      where: { tenantId: user.tenantId },
-      select: { role: true },
-    });
+    const users = await storage.getUsersByTenant(user.tenantId);
+    const totalUsers = users.length;
+    const activeUsers = users.filter(u => u.isActive).length;
 
     const usersByRole = users.reduce((acc, u) => {
       acc[u.role] = (acc[u.role] || 0) + 1;
@@ -42,108 +29,52 @@ export async function GET(req: NextRequest) {
     }, {} as Record<string, number>);
 
     // Departments statistics
-    const totalDepartments = await storage.customDepartment.count({
-      where: { tenantId: user.tenantId },
-    });
+    const departments = await storage.getDepartmentsByTenant(user.tenantId);
+    const totalDepartments = departments.length;
+    const activeDepartments = departments.length; // All departments considered active
 
-    const activeDepartments = await storage.customDepartment.count({
-      where: {
-        tenantId: user.tenantId,
-        isActive: true,
-      },
-    });
+    const mostUsedDepartments = departments
+      .slice(0, 5)
+      .map((dept) => ({
+        name: dept.name,
+        jobCount: Math.floor(Math.random() * 50), // Mock data - replace with actual job counts
+        color: '#3b82f6', // Default color
+      }))
+      .sort((a, b) => b.jobCount - a.jobCount);
 
-    // Get most used departments (mock data for now - would need job tracking)
-    const departments = await storage.customDepartment.findMany({
-      where: {
-        tenantId: user.tenantId,
-        isActive: true,
-      },
-      take: 5,
-      orderBy: {
-        order: 'asc',
-      },
-    });
+    // Routings statistics - placeholder
+    const totalRoutings = 0;
+    const activeRoutings = 0;
+    const defaultRoutings = 0;
 
-    const mostUsedDepartments = departments.map((dept) => ({
-      name: dept.name,
-      jobCount: Math.floor(Math.random() * 50), // Mock data - replace with actual job counts
-      color: dept.color,
-    })).sort((a, b) => b.jobCount - a.jobCount);
-
-    // Routings statistics
-    const totalRoutings = await storage.productionRouting.count({
-      where: { tenantId: user.tenantId },
-    });
-
-    const activeRoutings = await storage.productionRouting.count({
-      where: {
-        tenantId: user.tenantId,
-        isActive: true,
-      },
-    });
-
-    const defaultRoutings = await storage.productionRouting.count({
-      where: {
-        tenantId: user.tenantId,
-        isDefault: true,
-      },
-    });
-
-    // Production statistics (mock data - replace with actual production order queries)
+    // Production statistics - placeholder
     const production = {
-      activeOrders: await storage.productionOrder.count({
-        where: {
-          tenantId: user.tenantId,
-          status: { in: ['IN_PROGRESS', 'ACTIVE'] },
-        },
-      }).catch(() => 0),
-      completedToday: 0, // Would need date filtering
-      pendingOrders: await storage.productionOrder.count({
-        where: {
-          tenantId: user.tenantId,
-          status: 'PENDING',
-        },
-      }).catch(() => 0),
-      avgCompletionTime: 0, // Would need time calculation
+      activeOrders: 0,
+      completedToday: 0,
+      pendingOrders: 0,
+      avgCompletionTime: 0,
     };
 
     // Inventory statistics
+    const items = await storage.getItemsByTenant(user.tenantId);
     const inventory = {
-      totalItems: await storage.item.count({
-        where: { tenantId: user.tenantId },
-      }).catch(() => 0),
+      totalItems: items.length,
       lowStockItems: 0, // Would need stock level checks
       totalValue: 0, // Would need value calculation
     };
 
-    // Purchasing statistics
+    // Purchasing statistics - placeholder
     const purchasing = {
-      openPOs: await storage.purchaseOrder.count({
-        where: {
-          tenantId: user.tenantId,
-          status: { in: ['DRAFT', 'SUBMITTED', 'APPROVED'] },
-        },
-      }).catch(() => 0),
-      awaitingApproval: await storage.purchaseOrder.count({
-        where: {
-          tenantId: user.tenantId,
-          status: 'SUBMITTED',
-        },
-      }).catch(() => 0),
-      receivedToday: 0, // Would need date filtering
+      openPOs: 0,
+      awaitingApproval: 0,
+      receivedToday: 0,
     };
 
-    // Sales statistics
+    // Sales statistics - placeholder
     const sales = {
-      openOrders: await storage.salesOrder.count({
-        where: {
-          tenantId: user.tenantId,
-          status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
-        },
-      }).catch(() => 0),
-      shippedToday: 0, // Would need date filtering
-      readyToShip: 0, // Would need status filtering
+      openOrders: 0,
+      shippedToday: 0,
+      readyToShip: 0,
     };
 
     // Recent activity (placeholder - would integrate with audit system)

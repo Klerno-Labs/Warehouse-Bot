@@ -87,7 +87,7 @@ export async function GET(req: Request) {
         description: job.description || "No description",
         status: job.status,
         progress: Math.round(progress),
-        dueDate: job.scheduledDate || new Date(),
+        scheduledEnd: job.scheduledDate || new Date(),
       };
     });
 

@@ -673,4 +673,69 @@ export class EmailService {
       html,
     });
   }
+
+  /**
+   * Send team invitation email
+   */
+  async sendTeamInvitation(data: {
+    recipientName: string;
+    recipientEmail: string;
+    inviterName: string;
+    companyName: string;
+    role: string;
+    invitationLink: string;
+  }) {
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #2563eb; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 28px;">You're Invited! 🎉</h1>
+        </div>
+
+        <div style="background-color: #ffffff; padding: 40px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
+          <p style="font-size: 16px; line-height: 24px; color: #374151; margin: 0 0 16px 0;">
+            Hi <strong>${data.recipientName}</strong>,
+          </p>
+
+          <p style="font-size: 16px; line-height: 24px; color: #374151; margin: 0 0 16px 0;">
+            <strong>${data.inviterName}</strong> has invited you to join <strong>${data.companyName}</strong> as a <strong>${data.role}</strong>.
+          </p>
+
+          <p style="font-size: 16px; line-height: 24px; color: #374151; margin: 0 0 24px 0;">
+            Click the button below to accept your invitation and set up your account.
+          </p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${data.invitationLink}" style="display: inline-block; padding: 14px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
+              Accept Invitation
+            </a>
+          </div>
+
+          <p style="font-size: 14px; line-height: 20px; color: #6b7280; margin: 0 0 8px 0;">
+            Or copy and paste this link into your browser:
+          </p>
+
+          <p style="font-size: 14px; line-height: 20px; color: #2563eb; word-break: break-all; margin: 0 0 24px 0;">
+            ${data.invitationLink}
+          </p>
+
+          <p style="font-size: 14px; line-height: 20px; color: #6b7280; margin: 0;">
+            This invitation will expire in 7 days.
+          </p>
+        </div>
+
+        <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
+          This invitation was sent by ${data.companyName}. If you weren't expecting this, you can safely ignore this email.
+        </div>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to: data.recipientEmail,
+      subject: `You've been invited to join ${data.companyName}`,
+      html,
+    });
+  }
 }
+
+// Export singleton instance
+export const emailService = EmailService;

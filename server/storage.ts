@@ -1003,6 +1003,265 @@ class Storage {
       },
     });
   }
+
+  // ==================== NEW METHODS FOR UX REDESIGN ====================
+
+  // TENANT METHODS
+  async getTenantById(tenantId: string) {
+    return prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+  }
+
+  // DEPARTMENT METHODS
+  async getDepartmentsByTenant(tenantId: string) {
+    return prisma.department.findMany({
+      where: { tenantId },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  async getDepartmentById(departmentId: string) {
+    return prisma.department.findUnique({
+      where: { id: departmentId },
+    });
+  }
+
+  async createDepartment(data: any) {
+    return prisma.department.create({
+      data,
+    });
+  }
+
+  // STATION/DEVICE METHODS
+  async createStation(data: any) {
+    return prisma.device.create({
+      data,
+    });
+  }
+
+  async getStationById(stationId: string) {
+    return prisma.device.findUnique({
+      where: { id: stationId },
+    });
+  }
+
+  // PRODUCTION ORDER METHODS
+  async getProductionOrdersByTenant(tenantId: string) {
+    return prisma.productionOrder.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getProductionOrdersByDepartment(tenantId: string, departmentId: string) {
+    return prisma.productionOrder.findMany({
+      where: {
+        tenantId,
+        departmentId,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getProductionOrdersByAssignee(tenantId: string, userId: string) {
+    return prisma.productionOrder.findMany({
+      where: {
+        tenantId,
+        assignedTo: userId,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async getProductionOrderById(orderId: string) {
+    return prisma.productionOrder.findUnique({
+      where: { id: orderId },
+    });
+  }
+
+  async createProductionOrder(data: any) {
+    return prisma.productionOrder.create({
+      data,
+    });
+  }
+
+  async updateProductionOrder(orderId: string, data: any) {
+    return prisma.productionOrder.update({
+      where: { id: orderId },
+      data,
+    });
+  }
+
+  // JOB STEPS/CHECKLIST METHODS
+  async getJobSteps(jobId: string) {
+    // Assuming job operations represent steps/checklist
+    return prisma.jobOperation.findMany({
+      where: { jobId },
+      orderBy: { operationNumber: "asc" },
+    });
+  }
+
+  async updateJobStep(stepId: string, data: any) {
+    return prisma.jobOperation.update({
+      where: { id: stepId },
+      data,
+    });
+  }
+
+  // CUSTOMER METHODS
+  async getCustomersByTenant(tenantId: string) {
+    return prisma.customer.findMany({
+      where: { tenantId },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  async getCustomerById(customerId: string) {
+    return prisma.customer.findUnique({
+      where: { id: customerId },
+    });
+  }
+
+  async createCustomer(data: any) {
+    return prisma.customer.create({
+      data,
+    });
+  }
+
+  // SALES METHODS
+  async getSalesByTenant(tenantId: string) {
+    return prisma.salesOrder.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  // EXPENSE/FINANCIAL METHODS
+  async getExpensesByTenant(tenantId: string) {
+    // Using production consumption as proxy for expenses
+    return prisma.productionConsumption.findMany({
+      where: {
+        productionOrder: {
+          tenantId,
+        },
+      },
+      include: {
+        item: true,
+      },
+    });
+  }
+
+  // INVENTORY METHODS
+  async getInventoryByTenant(tenantId: string) {
+    return prisma.item.findMany({
+      where: { tenantId },
+      include: {
+        balances: true,
+      },
+    });
+  }
+
+  async createInventoryBalance(data: any) {
+    return prisma.inventoryBalance.create({
+      data,
+    });
+  }
+
+  // QUALITY METHODS
+  async getQualityRecordsByTenant(tenantId: string) {
+    return prisma.qualityInspection.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async createQualityRecord(data: any) {
+    return prisma.qualityInspection.create({
+      data,
+    });
+  }
+
+  // USER METHODS (Additional)
+  async getUserById(userId: string) {
+    return prisma.user.findUnique({
+      where: { id: userId },
+    });
+  }
+
+  async getActiveUsersByTenant(tenantId: string) {
+    return prisma.user.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+    });
+  }
+
+  // ROLE METHODS
+  async getRolesByTenant(tenantId: string) {
+    return prisma.tenantRoleConfig.findMany({
+      where: { tenantId },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  async getRoleById(roleId: string) {
+    return prisma.tenantRoleConfig.findUnique({
+      where: { id: roleId },
+    });
+  }
+
+  async createRole(data: any) {
+    return prisma.tenantRoleConfig.create({
+      data,
+    });
+  }
+
+  async updateRole(roleId: string, data: any) {
+    return prisma.tenantRoleConfig.update({
+      where: { id: roleId },
+      data,
+    });
+  }
+
+  async deleteRole(roleId: string) {
+    return prisma.tenantRoleConfig.delete({
+      where: { id: roleId },
+    });
+  }
+
+  // INVITATION METHODS
+  async createUserInvitation(data: any) {
+    // Store invitation in user table with pending status or create separate invitation table
+    return prisma.user.create({
+      data: {
+        ...data,
+        password: "", // Empty password until they accept
+        isActive: false, // Inactive until accepted
+      },
+    });
+  }
+
+  // CONTACT METHODS
+  async createContact(data: any) {
+    // Using customer model for contacts
+    return prisma.customer.create({
+      data,
+    });
+  }
+
+  // TENANT ROLE SETTINGS
+  async updateTenantRoleSettings(tenantId: string, data: any) {
+    return prisma.tenantSettings.upsert({
+      where: { tenantId },
+      create: {
+        tenantId,
+        ...data,
+      },
+      update: data,
+    });
+  }
 }
 
 export const storage = new Storage();

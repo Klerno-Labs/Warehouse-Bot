@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession, setSessionCookie } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { storage } from '@server/storage';
 
 /**
  * POST /api/auth/switch-tenant
@@ -19,35 +19,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
     }
 
-    // Check if user has access to this tenant
-    const access = await storage.userTenantAccess.findUnique({
-      where: {
-        userId_tenantId: {
-          userId: session.userId,
-          tenantId: tenantId
-        }
-      },
-      include: {
-        tenant: true
-      }
-    });
-
-    if (!access) {
-      return NextResponse.json({ error: 'Access denied to this tenant' }, { status: 403 });
-    }
-
-    // Set new session cookie for the new tenant
-    setSessionCookie(session.userId);
-
-    return NextResponse.json({
-      success: true,
-      tenant: {
-        id: access.tenant.id,
-        name: access.tenant.name,
-        slug: access.tenant.slug
-      },
-      role: access.role
-    });
+    // Check if user has access to this tenant - placeholder
+    // TODO: Implement multi-tenant access check when schema is finalized
+    return NextResponse.json(
+      { error: 'Tenant switching not yet implemented' },
+      { status: 501 }
+    );
   } catch (error) {
     console.error('Error switching tenant:', error);
     return NextResponse.json(
@@ -68,42 +45,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all tenants user has access to
-    const accessList = await storage.userTenantAccess.findMany({
-      where: {
-        userId: session.userId
-      },
-      include: {
-        tenant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            brandLogo: true,
-            brandColor: true,
-            primaryColor: true,
-            logoUrl: true
-          }
-        }
-      },
-      orderBy: {
-        isDefault: 'desc'
-      }
-    });
-
+    // Get all tenants user has access to - placeholder
+    // TODO: Implement when multi-tenant access is finalized
     return NextResponse.json({
-      tenants: accessList.map(access => ({
-        id: access.tenant.id,
-        name: access.tenant.name,
-        slug: access.tenant.slug,
-        role: access.role,
-        isDefault: access.isDefault,
-        isActive: session.tenantId === access.tenant.id,
-        branding: {
-          logo: access.tenant.brandLogo || access.tenant.logoUrl,
-          color: access.tenant.brandColor || access.tenant.primaryColor
-        }
-      }))
+      tenants: [],
     });
   } catch (error) {
     console.error('Error fetching tenant access:', error);

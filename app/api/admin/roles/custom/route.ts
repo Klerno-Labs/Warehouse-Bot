@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@app/api/_utils/session';
-import storage from '@/server/storage';
+import { storage } from '@server/storage';
 import { Role } from '@prisma/client';
 
 /**
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if custom name already exists for this tenant
-    const existing = await storage.tenantRoleConfig.findUnique({
+    const existing = await storage.prisma.tenantRoleConfig.findUnique({
       where: {
         tenantId_customName: {
           tenantId: user.tenantId,
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create custom role
-    const customRole = await storage.tenantRoleConfig.create({
+    const customRole = await storage.prisma.tenantRoleConfig.create({
       data: {
         tenantId: user.tenantId,
         baseRole: baseRole,
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const customRoles = await storage.tenantRoleConfig.findMany({
+    const customRoles = await storage.prisma.tenantRoleConfig.findMany({
       where: {
         tenantId: user.tenantId,
       },
