@@ -54,7 +54,7 @@ export function setSessionCookie(userId: string) {
   const token = sign(payload, getSecret());
   cookies().set(COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: "strict", // Upgraded from "lax" to "strict" for CSRF protection
+    sameSite: "lax", // Allows cookie on top-level navigation while protecting against CSRF
     secure: process.env.NODE_ENV === "production",
     maxAge: SESSION_TTL_MS / 1000,
     path: "/",
