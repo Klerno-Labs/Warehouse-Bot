@@ -99,7 +99,7 @@ export async function DELETE(
     }
 
     // Check if department is used in any routings
-    const routingSteps = await storage.routingStep.findFirst({
+    const routingSteps = await storage.prisma.routingStep.findFirst({
       where: {
         departmentId: params.id,
       },
