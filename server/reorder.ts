@@ -182,15 +182,19 @@ export class ReorderService {
       throw new Error("No valid suggestions selected");
     }
 
-    // Get next PO number - using lastReceiptNumber as surrogate
-    const lastPO = await prisma.purchaseOrder.findFirst({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
+    // Get next PO number by counting existing POs for the current year
+    const currentYear = new Date().getFullYear();
+    const yearStart = new Date(currentYear, 0, 1);
+
+    const poCount = await prisma.purchaseOrder.count({
+      where: {
+        tenantId,
+        createdAt: { gte: yearStart },
+      },
     });
 
-    const nextNumber = lastPO ? Math.floor(Math.random() * 100000) : 1;
-    const poNumber = `PO-${new Date().getFullYear()}-${String(nextNumber).padStart(5, "0")}`;
+    const nextNumber = poCount + 1;
+    const poNumber = `PO-${currentYear}-${String(nextNumber).padStart(5, "0")}`;
 
     // Create PO (simplified - would need full PurchaseOrder schema)
     const po = await prisma.purchaseOrder.create({
