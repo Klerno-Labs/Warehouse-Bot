@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 import storage from "@/server/storage";
+import { prisma } from "@server/prisma";
+import { startOfDay, subDays } from "date-fns";
 
 /**
  * GET /api/admin/system-overview
@@ -52,23 +54,42 @@ export async function GET() {
       },
     });
 
-    // Get most used departments (mock data for now - would need job tracking)
+    // Get most used departments with actual job operation counts
     const departments = await storage.customDepartment.findMany({
       where: {
         tenantId,
         isActive: true,
       },
-      take: 5,
+      take: 10,
       orderBy: {
         order: 'asc',
       },
     });
 
+    // Get job operation counts grouped by department for this tenant
+    const jobOperationCounts = await prisma.jobOperation.groupBy({
+      by: ['department'],
+      where: {
+        productionOrder: {
+          tenantId,
+        },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    // Create a map of department name to job count
+    const deptJobCounts = new Map<string, number>();
+    jobOperationCounts.forEach(op => {
+      deptJobCounts.set(op.department.toLowerCase(), op._count.id);
+    });
+
     const mostUsedDepartments = departments.map((dept) => ({
       name: dept.name,
-      jobCount: Math.floor(Math.random() * 50), // Mock data - replace with actual job counts
+      jobCount: deptJobCounts.get(dept.name.toLowerCase()) || 0,
       color: dept.color,
-    })).sort((a, b) => b.jobCount - a.jobCount);
+    })).sort((a, b) => b.jobCount - a.jobCount).slice(0, 5);
 
     // Routings statistics
     const totalRoutings = await storage.productionRouting.count({
@@ -89,70 +110,145 @@ export async function GET() {
       },
     });
 
-    // Production statistics (mock data - replace with actual production order queries)
+    // Calculate today boundaries for date-based queries
+    const today = startOfDay(new Date());
+
+    // Production statistics with real data
+    const [activeOrders, completedToday, pendingOrders] = await Promise.all([
+      prisma.productionOrder.count({
+        where: {
+          tenantId,
+          status: { in: ['IN_PROGRESS', 'RELEASED'] },
+        },
+      }).catch(() => 0),
+      prisma.productionOrder.count({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          actualEnd: { gte: today },
+        },
+      }).catch(() => 0),
+      prisma.productionOrder.count({
+        where: {
+          tenantId,
+          status: { in: ['PLANNED', 'PENDING'] },
+        },
+      }).catch(() => 0),
+    ]);
+
     const production = {
-      activeOrders: await storage.productionOrder.count({
-        where: {
-          tenantId,
-          status: { in: ['IN_PROGRESS', 'ACTIVE'] },
-        },
-      }).catch(() => 0),
-      completedToday: 0, // Would need date filtering
-      pendingOrders: await storage.productionOrder.count({
-        where: {
-          tenantId,
-          status: 'PENDING',
-        },
-      }).catch(() => 0),
-      avgCompletionTime: 0, // Would need time calculation
+      activeOrders,
+      completedToday,
+      pendingOrders,
+      avgCompletionTime: 0, // Complex calculation - left as 0 for now
     };
 
-    // Inventory statistics
-    const inventory = {
-      totalItems: await storage.item.count({
+    // Inventory statistics with real data
+    const [totalItems, inventoryBalancesWithItems] = await Promise.all([
+      prisma.item.count({
         where: { tenantId },
       }).catch(() => 0),
-      lowStockItems: 0, // Would need stock level checks
-      totalValue: 0, // Would need value calculation
+      prisma.inventoryBalance.findMany({
+        where: { tenantId },
+        include: {
+          item: {
+            select: { reorderPointBase: true, costBase: true },
+          },
+        },
+      }).catch(() => []),
+    ]);
+
+    // Calculate low stock and total value from the balances
+    const lowStockItemsCount = inventoryBalancesWithItems.filter(
+      b => b.item.reorderPointBase !== null && b.qtyBase <= (b.item.reorderPointBase || 0)
+    ).length;
+
+    const inventoryTotalValue = inventoryBalancesWithItems.reduce(
+      (sum, b) => sum + (b.qtyBase * (b.item.costBase || 0)), 0
+    );
+
+    const inventory = {
+      totalItems,
+      lowStockItems: lowStockItemsCount,
+      totalValue: Math.round(inventoryTotalValue * 100) / 100,
     };
 
-    // Purchasing statistics
-    const purchasing = {
-      openPOs: await storage.purchaseOrder.count({
+    // Purchasing statistics with real data
+    const [openPOs, awaitingApproval, receivedToday] = await Promise.all([
+      prisma.purchaseOrder.count({
         where: {
           tenantId,
-          status: { in: ['DRAFT', 'SUBMITTED', 'APPROVED'] },
+          status: { in: ['DRAFT', 'SUBMITTED', 'APPROVED', 'ORDERED'] },
         },
       }).catch(() => 0),
-      awaitingApproval: await storage.purchaseOrder.count({
+      prisma.purchaseOrder.count({
         where: {
           tenantId,
           status: 'SUBMITTED',
         },
       }).catch(() => 0),
-      receivedToday: 0, // Would need date filtering
-    };
-
-    // Sales statistics
-    const sales = {
-      openOrders: await storage.salesOrder.count({
+      prisma.purchaseOrderReceipt.count({
         where: {
-          tenantId,
-          status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] },
+          purchaseOrder: { tenantId },
+          receivedAt: { gte: today },
         },
       }).catch(() => 0),
-      shippedToday: 0, // Would need date filtering
-      readyToShip: 0, // Would need status filtering
+    ]);
+
+    const purchasing = {
+      openPOs,
+      awaitingApproval,
+      receivedToday,
     };
 
-    // Recent activity (placeholder - would integrate with audit system)
-    const recentActivity: Array<{
-      id: string;
-      user: string;
-      action: string;
-      entity: string;
-      timestamp: string;
-    }> = [];
+    // Sales statistics with real data
+    const [openSalesOrders, shippedToday, readyToShip] = await Promise.all([
+      prisma.salesOrder.count({
+        where: {
+          tenantId,
+          status: { in: ['PENDING', 'CONFIRMED', 'ALLOCATED', 'PICKING'] },
+        },
+      }).catch(() => 0),
+      prisma.shipment.count({
+        where: {
+          tenantId,
+          status: 'SHIPPED',
+          shipDate: { gte: today },
+        },
+      }).catch(() => 0),
+      prisma.salesOrder.count({
+        where: {
+          tenantId,
+          status: 'PACKED',
+        },
+      }).catch(() => 0),
+    ]);
+
+    const sales = {
+      openOrders: openSalesOrders,
+      shippedToday,
+      readyToShip,
+    };
+
+    // Recent activity from audit events
+    const recentAuditEvents = await prisma.auditEvent.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        user: {
+          select: { name: true, email: true },
+        },
+      },
+    }).catch(() => []);
+
+    const recentActivity = recentAuditEvents.map(event => ({
+      id: event.id,
+      user: event.user?.name || event.user?.email || 'System',
+      action: event.action,
+      entity: `${event.entityType}${event.entityId ? ` (${event.entityId.slice(0, 8)})` : ''}`,
+      timestamp: event.createdAt.toISOString(),
+    }));
 
     return NextResponse.json({
       users: {
