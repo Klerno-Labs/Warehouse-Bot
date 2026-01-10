@@ -39,7 +39,7 @@ export async function GET(
           include: {
             components: {
               include: {
-                componentItem: {
+                item: {
                   select: {
                     sku: true,
                     name: true,
@@ -102,19 +102,19 @@ export async function GET(
 
     // Format components with availability
     const components = productionOrder.bom?.components.map((bomComponent) => {
-      const totalAvailable = bomComponent.componentItem.balances.reduce(
+      const totalAvailable = bomComponent.item.balances.reduce(
         (sum, balance) => sum + balance.qtyBase,
         0
       );
-      const primaryLocation = bomComponent.componentItem.balances[0]?.location?.label || 'Unknown';
-      const qtyNeeded = bomComponent.qtyBase * productionOrder.qtyOrdered;
-      const qtyConsumed = consumptionsByItem[bomComponent.componentItemId] || 0;
+      const primaryLocation = bomComponent.item.balances[0]?.location?.label || 'Unknown';
+      const qtyNeeded = bomComponent.qtyPer * productionOrder.qtyOrdered;
+      const qtyConsumed = consumptionsByItem[bomComponent.itemId] || 0;
       const qtyRemaining = qtyNeeded - qtyConsumed;
 
       return {
         id: bomComponent.id,
-        sku: bomComponent.componentItem.sku,
-        name: bomComponent.componentItem.name,
+        sku: bomComponent.item.sku,
+        name: bomComponent.item.name,
         qtyNeeded: qtyRemaining > 0 ? qtyRemaining : qtyNeeded,
         qtyAvailable: totalAvailable,
         uom: bomComponent.uom,
