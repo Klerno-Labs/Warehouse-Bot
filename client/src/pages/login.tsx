@@ -42,10 +42,8 @@ export default function LoginPage() {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      // Wait briefly for auth state to propagate before redirecting
-      setTimeout(() => {
-        router.push("/modules/inventory");
-      }, 100);
+      // Use hard redirect to ensure auth state is fresh
+      window.location.href = "/modules/inventory";
     } catch (error) {
       toast({
         title: "Login failed",
