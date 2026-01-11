@@ -13,13 +13,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    let settings = await storage.tenantSettings.findUnique({
+    let settings = await storage.prisma.tenantSettings.findUnique({
       where: { tenantId: user.tenantId }
     });
 
     // Create default settings if they don't exist
     if (!settings) {
-      settings = await storage.tenantSettings.create({
+      settings = await storage.prisma.tenantSettings.create({
         data: {
           tenantId: user.tenantId
         }
@@ -87,7 +87,7 @@ export async function PATCH(req: NextRequest) {
     if (allowNegativeInventory !== undefined) updateData.allowNegativeInventory = allowNegativeInventory;
 
     // Upsert settings
-    const settings = await storage.tenantSettings.upsert({
+    const settings = await storage.prisma.tenantSettings.upsert({
       where: { tenantId: user.tenantId },
       update: updateData,
       create: {

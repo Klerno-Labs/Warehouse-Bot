@@ -88,7 +88,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for low stock items
-  const lowStockItems = await storage.inventoryBalance.findMany({
+  const lowStockItems = await storage.prisma.inventoryBalance.findMany({
     where: {
       tenantId: user.tenantId,
       item: {
@@ -129,7 +129,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for pending receipts (old purchase orders)
-  const oldPendingPOs = await storage.purchaseOrder.findMany({
+  const oldPendingPOs = await storage.prisma.purchaseOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['APPROVED', 'SENT'] },
@@ -202,7 +202,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for pending sales orders
-  const pendingSalesOrders = await storage.salesOrder.findMany({
+  const pendingSalesOrders = await storage.prisma.salesOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['CONFIRMED', 'PICKING'] },
@@ -250,7 +250,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const itemsNeedingCount = await storage.item.findMany({
+  const itemsNeedingCount = await storage.prisma.item.findMany({
     where: {
       tenantId: user.tenantId,
       isActive: true,
@@ -305,7 +305,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for open NCRs
-  const openNCRs = await storage.nonConformanceReport.findMany({
+  const openNCRs = await storage.prisma.nonConformanceReport.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['OPEN', 'IN_REVIEW'] },
@@ -332,7 +332,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-  const deadStockCount = await storage.inventoryBalance.count({
+  const deadStockCount = await storage.prisma.inventoryBalance.count({
     where: {
       tenantId: user.tenantId,
       qtyBase: { gt: 0 },
@@ -367,7 +367,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   // Role-specific suggestions
   if (user.role === 'Purchasing' || user.role === 'Admin') {
     // Check vendor performance
-    const recentReceipts = await storage.receipt.findMany({
+    const recentReceipts = await storage.prisma.receipt.findMany({
       where: {
         tenantId: user.tenantId,
         createdAt: {

@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const serialNumber = await storage.serialNumber.findUnique({
+    const serialNumber = await storage.prisma.serialNumber.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -31,11 +31,7 @@ export async function GET(
         location: true,
         customer: true,
         salesOrder: true,
-        shipment: {
-          include: {
-            carrier: true,
-          },
-        },
+        shipment: true, // TODO: Add carrier relation when schema is updated
         history: {
           orderBy: {
             createdAt: 'desc',
@@ -77,7 +73,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const existingSerial = await storage.serialNumber.findUnique({
+    const existingSerial = await storage.prisma.serialNumber.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -111,7 +107,7 @@ export async function PATCH(
     if (shippedDate !== undefined) updateData.shippedDate = shippedDate ? new Date(shippedDate) : null;
     if (notes !== undefined) updateData.notes = notes;
 
-    const serialNumber = await storage.serialNumber.update({
+    const serialNumber = await storage.prisma.serialNumber.update({
       where: {
         id: params.id,
       },
@@ -169,7 +165,7 @@ export async function PATCH(
 
     if (historyEntries.length > 0) {
       await Promise.all(
-        historyEntries.map((entry) => storage.serialNumberHistory.create({ data: entry }))
+        historyEntries.map((entry) => storage.prisma.serialNumberHistory.create({ data: entry }))
       );
     }
 

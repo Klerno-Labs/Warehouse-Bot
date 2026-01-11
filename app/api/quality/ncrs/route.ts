@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       where.ncrNumber = { contains: search, mode: 'insensitive' };
     }
 
-    const ncrs = await storage.nonConformanceReport.findMany({
+    const ncrs = await storage.prisma.nonConformanceReport.findMany({
       where,
       include: {
         item: {
@@ -118,12 +118,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate NCR number
-    const count = await storage.nonConformanceReport.count({
+    const count = await storage.prisma.nonConformanceReport.count({
       where: { tenantId: user.tenantId },
     });
     const ncrNumber = `NCR-${String(count + 1).padStart(6, '0')}`;
 
-    const ncr = await storage.nonConformanceReport.create({
+    const ncr = await storage.prisma.nonConformanceReport.create({
       data: {
         tenantId: user.tenantId,
         ncrNumber,

@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tenant = await storage.tenant.findUnique({
+    const tenant = await storage.prisma.tenant.findUnique({
       where: { id: user.tenantId },
       select: {
         id: true,
@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { brandLogo, brandColor, brandColorSecondary, favicon, customCSS } = body;
 
-    const updatedTenant = await storage.tenant.update({
+    const updatedTenant = await storage.prisma.tenant.update({
       where: { id: user.tenantId },
       data: {
         brandLogo: brandLogo !== undefined ? brandLogo : undefined,

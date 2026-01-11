@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    const lots = await storage.lot.findMany({
+    const lots = await storage.prisma.lot.findMany({
       where,
       include: {
         item: {
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if lot number already exists for this item
-    const existingLot = await storage.lot.findUnique({
+    const existingLot = await storage.prisma.lot.findUnique({
       where: {
         tenantId_itemId_lotNumber: {
           tenantId: user.tenantId,
@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create the lot
-    const lot = await storage.lot.create({
+    const lot = await storage.prisma.lot.create({
       data: {
         tenantId: user.tenantId,
         itemId,
@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Create lot history entry
-    await storage.lotHistory.create({
+    await storage.prisma.lotHistory.create({
       data: {
         lotId: lot.id,
         eventType: 'CREATED',

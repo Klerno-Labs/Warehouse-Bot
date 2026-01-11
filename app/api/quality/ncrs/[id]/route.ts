@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const ncr = await storage.nonConformanceReport.findUnique({
+    const ncr = await storage.prisma.nonConformanceReport.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -70,7 +70,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const existingNCR = await storage.nonConformanceReport.findUnique({
+    const existingNCR = await storage.prisma.nonConformanceReport.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -108,7 +108,7 @@ export async function PATCH(
     if (approvedBy !== undefined) updateData.approvedBy = approvedBy;
     if (closedAt !== undefined) updateData.closedAt = closedAt ? new Date(closedAt) : null;
 
-    const ncr = await storage.nonConformanceReport.update({
+    const ncr = await storage.prisma.nonConformanceReport.update({
       where: {
         id: params.id,
       },

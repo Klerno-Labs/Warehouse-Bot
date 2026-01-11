@@ -25,7 +25,7 @@ export async function PATCH(
     const { name, description, itemId, isDefault, steps } = body;
 
     // Verify routing belongs to tenant
-    const existingRouting = await storage.productionRouting.findUnique({
+    const existingRouting = await storage.prisma.productionRouting.findUnique({
       where: { id },
       include: { steps: true },
     });
@@ -40,7 +40,7 @@ export async function PATCH(
 
     // If setting as default, unset other defaults
     if (isDefault && !existingRouting.isDefault) {
-      await storage.productionRouting.updateMany({
+      await storage.prisma.productionRouting.updateMany({
         where: {
           tenantId: user.tenantId,
           isDefault: true,
@@ -53,7 +53,7 @@ export async function PATCH(
     }
 
     // Update routing with steps
-    const routing = await storage.productionRouting.update({
+    const routing = await storage.prisma.productionRouting.update({
       where: { id },
       data: {
         name: name || existingRouting.name,
@@ -116,7 +116,7 @@ export async function DELETE(
     const { id } = params;
 
     // Verify routing belongs to tenant
-    const routing = await storage.productionRouting.findUnique({
+    const routing = await storage.prisma.productionRouting.findUnique({
       where: { id },
       include: {
         _count: {
@@ -144,7 +144,7 @@ export async function DELETE(
     }
 
     // Delete routing (steps will cascade delete due to schema)
-    await storage.productionRouting.delete({
+    await storage.prisma.productionRouting.delete({
       where: { id },
     });
 

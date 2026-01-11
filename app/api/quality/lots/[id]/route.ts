@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const lot = await storage.lot.findUnique({
+    const lot = await storage.prisma.lot.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -89,7 +89,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const existingLot = await storage.lot.findUnique({
+    const existingLot = await storage.prisma.lot.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -123,7 +123,7 @@ export async function PATCH(
     if (notes !== undefined) updateData.notes = notes;
     if (qtyAvailable !== undefined) updateData.qtyAvailable = qtyAvailable;
 
-    const lot = await storage.lot.update({
+    const lot = await storage.prisma.lot.update({
       where: {
         id: params.id,
       },
@@ -137,7 +137,7 @@ export async function PATCH(
 
     // Create history entry for significant changes
     if (status !== undefined && status !== existingLot.status) {
-      await storage.lotHistory.create({
+      await storage.prisma.lotHistory.create({
         data: {
           lotId: lot.id,
           eventType: status === 'HOLD' ? 'HOLD' : status === 'AVAILABLE' ? 'RELEASE' : 'STATUS_CHANGED',
@@ -150,7 +150,7 @@ export async function PATCH(
     }
 
     if (qcStatus !== undefined && qcStatus !== existingLot.qcStatus) {
-      await storage.lotHistory.create({
+      await storage.prisma.lotHistory.create({
         data: {
           lotId: lot.id,
           eventType: qcStatus === 'PASSED' ? 'QC_PASSED' : qcStatus === 'FAILED' ? 'QC_FAILED' : 'QC_UPDATED',
@@ -163,7 +163,7 @@ export async function PATCH(
     }
 
     if (qtyAvailable !== undefined && qtyAvailable !== existingLot.qtyAvailable) {
-      await storage.lotHistory.create({
+      await storage.prisma.lotHistory.create({
         data: {
           lotId: lot.id,
           eventType: 'CONSUMED',
@@ -204,7 +204,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const lot = await storage.lot.findUnique({
+    const lot = await storage.prisma.lot.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -239,12 +239,12 @@ export async function DELETE(
     }
 
     // Delete lot history first
-    await storage.lotHistory.deleteMany({
+    await storage.prisma.lotHistory.deleteMany({
       where: { lotId: params.id },
     });
 
     // Delete the lot
-    await storage.lot.delete({
+    await storage.prisma.lot.delete({
       where: { id: params.id },
     });
 

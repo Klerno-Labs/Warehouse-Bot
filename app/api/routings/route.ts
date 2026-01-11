@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get('itemId');
 
-    const routings = await storage.productionRouting.findMany({
+    const routings = await storage.prisma.productionRouting.findMany({
       where: {
         tenantId: user.tenantId,
         ...(itemId && { itemId }),
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     // If setting as default, unset other defaults
     if (isDefault) {
-      await storage.productionRouting.updateMany({
+      await storage.prisma.productionRouting.updateMany({
         where: {
           tenantId: user.tenantId,
           isDefault: true,
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create routing with steps
-    const routing = await storage.productionRouting.create({
+    const routing = await storage.prisma.productionRouting.create({
       data: {
         tenantId: user.tenantId,
         name,
