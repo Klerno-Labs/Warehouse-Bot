@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Shield, Edit, Save, X, Info } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Role, Permission, ROLE_PERMISSIONS, getRoleDisplayName, getRoleTier } from "@shared/permissions";
 
 /**
@@ -24,10 +25,12 @@ import { Role, Permission, ROLE_PERMISSIONS, getRoleDisplayName, getRoleTier } f
  * Allows executives to customize role names and permissions within their tenant
  */
 export default function RoleManagement() {
+  const { toast } = useToast();
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [customName, setCustomName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Get all roles except SuperAdmin (that's platform-only)
   const editableRoles = Object.values(Role).filter(
@@ -44,6 +47,7 @@ export default function RoleManagement() {
   const handleSaveRole = async () => {
     if (!editingRole) return;
 
+    setIsSaving(true);
     try {
       const response = await fetch("/api/admin/roles/configure", {
         method: "POST",
@@ -58,12 +62,21 @@ export default function RoleManagement() {
 
       if (!response.ok) throw new Error("Failed to save role configuration");
 
-      // Success - close dialog
+      // Success - close dialog and show toast
       setEditingRole(null);
-      // TODO: Show success toast
+      toast({
+        title: "Role Updated",
+        description: `${customName} has been configured successfully.`,
+      });
     } catch (error) {
       console.error("Error saving role:", error);
-      // TODO: Show error toast
+      toast({
+        title: "Error",
+        description: "Failed to save role configuration. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -228,13 +241,13 @@ export default function RoleManagement() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingRole(null)}>
+            <Button variant="outline" onClick={() => setEditingRole(null)} disabled={isSaving}>
               <X className="mr-2 h-4 w-4" />
               Cancel
             </Button>
-            <Button onClick={handleSaveRole}>
+            <Button onClick={handleSaveRole} disabled={isSaving}>
               <Save className="mr-2 h-4 w-4" />
-              Save Changes
+              {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>

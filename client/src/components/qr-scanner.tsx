@@ -131,17 +131,37 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     onClose();
   };
 
+  // Handle escape key to close
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [stream]);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+      onClick={(e) => {
+        // Close when clicking outside the scanner
+        if (e.target === e.currentTarget) {
+          handleClose();
+        }
+      }}
+    >
       <div className="relative w-full max-w-lg">
-        {/* Close button */}
+        {/* Close button - positioned inside for better mobile visibility */}
         <Button
-          variant="ghost"
-          size="icon"
-          className="absolute -top-12 right-0 text-white hover:bg-white/20"
+          variant="secondary"
+          size="lg"
+          className="absolute top-4 right-4 z-10 bg-white/90 hover:bg-white text-black shadow-lg"
           onClick={handleClose}
         >
-          <X className="h-6 w-6" />
+          <X className="h-5 w-5 mr-2" />
+          Close
         </Button>
 
         {/* Camera view */}
@@ -178,6 +198,16 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           <p className="text-sm">Position the QR code within the frame</p>
           <p className="text-xs opacity-70 mt-1">Scanning will happen automatically</p>
         </div>
+
+        {/* Additional close button at bottom for mobile accessibility */}
+        <Button
+          variant="outline"
+          className="w-full mt-4 bg-white/10 border-white/30 text-white hover:bg-white/20"
+          onClick={handleClose}
+        >
+          <X className="h-4 w-4 mr-2" />
+          Cancel Scanning
+        </Button>
 
         {/* Browser compatibility note */}
         {!("BarcodeDetector" in window) && (

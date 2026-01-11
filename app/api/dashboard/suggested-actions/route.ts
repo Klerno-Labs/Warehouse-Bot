@@ -43,33 +43,30 @@ interface SuggestedAction {
 }
 
 async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
-  // TODO: Implement AI-powered suggested actions
   const suggestions: SuggestedAction[] = [];
-  return suggestions;
-
-  /* Placeholder for future implementation
   const now = new Date();
 
-  // Check for out of stock items - would need proper inventory query
-  const outOfStockItems: any[] = [];
-    where: {
-      tenantId: user.tenantId,
-      qtyBase: 0,
-      item: {
-        isActive: true,
-      },
-    },
-    include: {
-      item: {
-        select: {
-          sku: true,
-          name: true,
-          reorderPoint: true,
+  try {
+    // Check for out of stock items
+    const outOfStockItems = await storage.prisma.inventoryBalance.findMany({
+      where: {
+        tenantId: user.tenantId,
+        qtyBase: { lte: 0 },
+        item: {
+          isActive: true,
         },
       },
-    },
-    take: 5,
-  });
+      include: {
+        item: {
+          select: {
+            sku: true,
+            name: true,
+            reorderPoint: true,
+          },
+        },
+      },
+      take: 5,
+    });
 
   if (outOfStockItems.length > 0) {
     suggestions.push({
@@ -399,5 +396,10 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
     }
   }
 
-  // END placeholder comment */
+  } catch (error) {
+    console.error('Error generating suggestions:', error);
+    // Return empty suggestions on error rather than failing completely
+  }
+
+  return suggestions;
 }
