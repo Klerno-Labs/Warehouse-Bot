@@ -42,8 +42,8 @@ export default function LoginPage() {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      // Redirect to dashboard after successful login
-      router.push("/");
+      // Redirect to modules dashboard after successful login
+      router.push("/modules");
     } catch (error) {
       toast({
         title: "Login failed",
