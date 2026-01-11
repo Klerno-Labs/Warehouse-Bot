@@ -1,5 +1,5 @@
 // Service Worker for Warehouse Builder PWA
-const CACHE_NAME = 'warehouse-builder-v1';
+const CACHE_NAME = 'warehouse-builder-v2'; // Updated for new manifest.json and PWA icons
 const OFFLINE_URL = '/offline.html';
 
 // Assets to cache immediately
