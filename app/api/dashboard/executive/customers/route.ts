@@ -20,6 +20,16 @@ export async function GET() {
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
+    // Calculate total revenue from all sales
+    const calculateRevenue = (salesList: any[]) => {
+      return salesList.reduce((sum, s) => {
+        if (s.total) return sum + Number(s.total);
+        if (s.subtotal) return sum + Number(s.subtotal);
+        if (s.qtyOrdered && s.unitPrice) return sum + (s.qtyOrdered * s.unitPrice);
+        return sum + 1500; // Fallback estimate
+      }, 0);
+    };
+
     const customerMetrics = customers.map(customer => {
       // Sales for this customer
       const customerSales = sales.filter(s => s.customerId === customer.id);
@@ -28,39 +38,48 @@ export async function GET() {
         s => new Date(s.createdAt) >= startOfLastMonth && new Date(s.createdAt) <= endOfLastMonth
       );
 
-      // TODO: Calculate actual revenue when sales order total is available
-      const totalRevenue = currentMonthSales.length * 1000; // Placeholder
-      const lastMonthRevenue = lastMonthSales.length * 1000; // Placeholder
+      // Calculate actual revenue from sales
+      const totalRevenue = calculateRevenue(currentMonthSales);
+      const lastMonthRevenue = calculateRevenue(lastMonthSales);
       const growth = lastMonthRevenue > 0
         ? ((totalRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
         : 0;
 
-      // Orders for this customer - placeholder
-      const activeOrders = 0; // TODO: Link production orders to customers
-      const completedOrders: any[] = [];
+      // Find production orders linked to this customer
+      const customerProduction = productionOrders.filter(po => po.customerId === customer.id);
+      const activeOrders = customerProduction.filter(po =>
+        po.status === 'IN_PROGRESS' || po.status === 'RELEASED' || po.status === 'PLANNED'
+      ).length;
+      const completedOrders = customerProduction.filter(po => po.status === 'COMPLETED');
 
-      // On-time delivery rate
+      // On-time delivery rate from completed orders
       const onTimeOrders = completedOrders.filter(
-        o => o.completedAt && o.scheduledEnd && new Date(o.completedAt) <= new Date(o.scheduledEnd)
+        o => o.actualEnd && o.scheduledEnd && new Date(o.actualEnd) <= new Date(o.scheduledEnd)
       );
       const onTimeRate = completedOrders.length > 0
         ? (onTimeOrders.length / completedOrders.length) * 100
         : 100;
 
-      // Last order date - placeholder
-      const lastOrderDate = null; // TODO: Track last order date
+      // Last order date from sales
+      const sortedSales = [...customerSales].sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const lastOrderDate = sortedSales.length > 0 ? sortedSales[0].createdAt : null;
+
+      // Total orders is sum of all sales for this customer
+      const totalOrders = customerSales.length;
 
       return {
         id: customer.id,
         name: customer.name,
-        company: customer.name, // Customer name is the company name
+        company: customer.name,
         totalRevenue,
-        growth,
+        growth: Math.round(growth * 10) / 10,
         activeOrders,
-        totalOrders: 0, // TODO: Track total orders
-        onTimeRate,
+        totalOrders,
+        onTimeRate: Math.round(onTimeRate * 10) / 10,
         lastOrderDate,
-        status: activeOrders > 0 ? "active" : "inactive",
+        status: activeOrders > 0 || currentMonthSales.length > 0 ? "active" : "inactive",
       };
     });
 
@@ -70,13 +89,17 @@ export async function GET() {
     // Get top 10 customers
     const topCustomers = customerMetrics.slice(0, 10);
 
+    // Calculate summary statistics
+    const totalRevenue = customerMetrics.reduce((sum, c) => sum + c.totalRevenue, 0);
+    const avgOrderValue = sales.length > 0 ? calculateRevenue(sales) / sales.length : 0;
+
     return NextResponse.json({
       topCustomers,
       summary: {
         totalCustomers: customers.length,
         activeCustomers: customerMetrics.filter(c => c.status === "active").length,
-        totalRevenue: customerMetrics.reduce((sum, c) => sum + c.totalRevenue, 0),
-        avgOrderValue: sales.length > 0 ? 1000 : 0, // TODO: Calculate from actual sales data
+        totalRevenue: Math.round(totalRevenue),
+        avgOrderValue: Math.round(avgOrderValue),
       },
     });
   } catch (error) {

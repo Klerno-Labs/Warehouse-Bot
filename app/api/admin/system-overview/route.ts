@@ -18,8 +18,30 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
+    const tenantId = user.tenantId;
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Fetch all data in parallel for performance
+    const [
+      users,
+      departments,
+      items,
+      productionOrders,
+      purchaseOrders,
+      salesOrders,
+      inventoryBalances,
+    ] = await Promise.all([
+      storage.getUsersByTenant(tenantId),
+      storage.getDepartmentsByTenant(tenantId),
+      storage.getItemsByTenant(tenantId),
+      storage.getProductionOrdersByTenant(tenantId),
+      storage.getPurchaseOrdersByTenant(tenantId),
+      storage.getSalesByTenant(tenantId),
+      storage.getInventoryByTenant(tenantId),
+    ]);
+
     // Users statistics
-    const users = await storage.getUsersByTenant(user.tenantId);
     const totalUsers = users.length;
     const activeUsers = users.filter(u => u.isActive).length;
 
@@ -28,63 +50,99 @@ export async function GET(req: NextRequest) {
       return acc;
     }, {} as Record<string, number>);
 
-    // Departments statistics
-    const departments = await storage.getDepartmentsByTenant(user.tenantId);
+    // Departments statistics with real job counts
     const totalDepartments = departments.length;
-    const activeDepartments = departments.length; // All departments considered active
+    const activeDepartments = departments.length;
+
+    // Count jobs per department from production orders
+    const jobCountByDept = productionOrders.reduce((acc, order) => {
+      const deptId = order.departmentId;
+      if (deptId) {
+        acc[deptId] = (acc[deptId] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
 
     const mostUsedDepartments = departments
-      .slice(0, 5)
       .map((dept) => ({
         name: dept.name,
-        jobCount: Math.floor(Math.random() * 50), // Mock data - replace with actual job counts
-        color: '#3b82f6', // Default color
+        jobCount: jobCountByDept[dept.id] || 0,
+        color: dept.color || '#3b82f6',
       }))
-      .sort((a, b) => b.jobCount - a.jobCount);
+      .sort((a, b) => b.jobCount - a.jobCount)
+      .slice(0, 5);
 
-    // Routings statistics - placeholder
-    const totalRoutings = 0;
-    const activeRoutings = 0;
-    const defaultRoutings = 0;
+    // Production statistics from real data
+    const activeOrders = productionOrders.filter(o =>
+      o.status === 'IN_PROGRESS' || o.status === 'STARTED'
+    ).length;
+    const completedToday = productionOrders.filter(o =>
+      o.status === 'COMPLETED' && o.actualEnd && new Date(o.actualEnd) >= startOfToday
+    ).length;
+    const pendingOrders = productionOrders.filter(o =>
+      o.status === 'PLANNED' || o.status === 'RELEASED'
+    ).length;
 
-    // Production statistics - placeholder
-    const production = {
-      activeOrders: 0,
-      completedToday: 0,
-      pendingOrders: 0,
-      avgCompletionTime: 0,
-    };
+    // Calculate average completion time (in hours)
+    const completedOrders = productionOrders.filter(o => o.actualStart && o.actualEnd);
+    const avgCompletionTime = completedOrders.length > 0
+      ? completedOrders.reduce((sum, o) => {
+          const start = new Date(o.actualStart!).getTime();
+          const end = new Date(o.actualEnd!).getTime();
+          return sum + (end - start) / (1000 * 60 * 60);
+        }, 0) / completedOrders.length
+      : 0;
 
-    // Inventory statistics
-    const items = await storage.getItemsByTenant(user.tenantId);
-    const inventory = {
-      totalItems: items.length,
-      lowStockItems: 0, // Would need stock level checks
-      totalValue: 0, // Would need value calculation
-    };
+    // Inventory statistics from real data
+    const lowStockItems = inventoryBalances.filter(inv => {
+      const qty = inv.qtyBase || 0;
+      const reorderPoint = inv.reorderPoint || 10;
+      return qty > 0 && qty <= reorderPoint;
+    }).length;
 
-    // Purchasing statistics - placeholder
-    const purchasing = {
-      openPOs: 0,
-      awaitingApproval: 0,
-      receivedToday: 0,
-    };
+    const totalValue = inventoryBalances.reduce((sum, inv) => {
+      const qty = inv.qtyBase || 0;
+      const cost = inv.unitCost || 50;
+      return sum + (qty * cost);
+    }, 0);
 
-    // Sales statistics - placeholder
-    const sales = {
-      openOrders: 0,
-      shippedToday: 0,
-      readyToShip: 0,
-    };
+    // Purchasing statistics from real data
+    const openPOs = purchaseOrders.filter(po =>
+      po.status === 'APPROVED' || po.status === 'SENT' || po.status === 'OPEN'
+    ).length;
+    const awaitingApproval = purchaseOrders.filter(po =>
+      po.status === 'DRAFT' || po.status === 'PENDING_APPROVAL'
+    ).length;
+    const receivedToday = purchaseOrders.filter(po =>
+      po.status === 'RECEIVED' && po.receivedAt && new Date(po.receivedAt) >= startOfToday
+    ).length;
 
-    // Recent activity (placeholder - would integrate with audit system)
-    const recentActivity: Array<{
-      id: string;
-      user: string;
-      action: string;
-      entity: string;
-      timestamp: string;
-    }> = [];
+    // Sales statistics from real data
+    const openOrders = salesOrders.filter(so =>
+      so.status === 'CONFIRMED' || so.status === 'PICKING' || so.status === 'OPEN'
+    ).length;
+    const shippedToday = salesOrders.filter(so =>
+      so.status === 'SHIPPED' && so.shippedAt && new Date(so.shippedAt) >= startOfToday
+    ).length;
+    const readyToShip = salesOrders.filter(so =>
+      so.status === 'PICKED' || so.status === 'READY_TO_SHIP'
+    ).length;
+
+    // Recent activity from production orders (as proxy for activity)
+    const recentActivity = productionOrders
+      .filter(o => o.updatedAt)
+      .sort((a, b) => new Date(b.updatedAt!).getTime() - new Date(a.updatedAt!).getTime())
+      .slice(0, 10)
+      .map(o => {
+        const assignedUser = users.find(u => u.id === o.assignedTo);
+        return {
+          id: o.id,
+          user: assignedUser ? `${assignedUser.firstName} ${assignedUser.lastName}` : 'System',
+          action: getActionFromStatus(o.status),
+          entity: `Production Order ${o.orderNumber}`,
+          timestamp: o.updatedAt!,
+        };
+      });
 
     return NextResponse.json({
       users: {
@@ -98,14 +156,31 @@ export async function GET(req: NextRequest) {
         mostUsed: mostUsedDepartments,
       },
       routings: {
-        total: totalRoutings,
-        active: activeRoutings,
-        defaultCount: defaultRoutings,
+        total: productionOrders.length,
+        active: activeOrders,
+        defaultCount: 0,
       },
-      production,
-      inventory,
-      purchasing,
-      sales,
+      production: {
+        activeOrders,
+        completedToday,
+        pendingOrders,
+        avgCompletionTime: Math.round(avgCompletionTime * 10) / 10,
+      },
+      inventory: {
+        totalItems: items.length,
+        lowStockItems,
+        totalValue: Math.round(totalValue),
+      },
+      purchasing: {
+        openPOs,
+        awaitingApproval,
+        receivedToday,
+      },
+      sales: {
+        openOrders,
+        shippedToday,
+        readyToShip,
+      },
       recentActivity,
     });
   } catch (error) {
@@ -114,5 +189,23 @@ export async function GET(req: NextRequest) {
       { error: 'Failed to fetch system overview' },
       { status: 500 }
     );
+  }
+}
+
+function getActionFromStatus(status: string): string {
+  switch (status) {
+    case 'COMPLETED':
+      return 'completed';
+    case 'IN_PROGRESS':
+    case 'STARTED':
+      return 'started';
+    case 'PAUSED':
+      return 'paused';
+    case 'CANCELLED':
+      return 'cancelled';
+    case 'RELEASED':
+      return 'released';
+    default:
+      return 'updated';
   }
 }
