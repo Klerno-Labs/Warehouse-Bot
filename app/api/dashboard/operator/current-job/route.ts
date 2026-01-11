@@ -25,8 +25,8 @@ export async function GET() {
       currentJob.stationId ? storage.getStationById(currentJob.stationId) : null,
     ]);
 
-    // Get job steps/checklist if applicable - TODO: Implement job steps
-    const steps: any[] = [];
+    // Get job steps/checklist - generate default steps based on order type
+    const steps = generateJobSteps(currentJob, item);
 
     // Calculate time metrics
     const startTime = currentJob.actualStart ? new Date(currentJob.actualStart) : new Date();
@@ -59,7 +59,7 @@ export async function GET() {
         elapsedMinutes,
         estimatedMinutes,
         remainingMinutes,
-        steps: [], // TODO: Implement job steps/checklist
+        steps,
         notes: currentJob.notes,
       },
     });
@@ -162,4 +162,87 @@ export async function PATCH(request: Request) {
       { status: 500 }
     );
   }
+}
+
+// Generate default job steps based on production order type
+function generateJobSteps(job: any, item: any) {
+  const steps = [];
+  const orderType = job.orderType || 'PRODUCTION';
+  const hasQualityCheck = job.priority === 'HIGH' || job.priority === 'URGENT';
+
+  // Step 1: Setup/Preparation
+  steps.push({
+    id: `${job.id}-step-1`,
+    order: 1,
+    name: 'Setup & Preparation',
+    description: 'Gather materials and prepare workstation',
+    type: 'SETUP',
+    required: true,
+    completed: job.status === 'IN_PROGRESS' || job.status === 'COMPLETED',
+    estimatedMinutes: 5,
+  });
+
+  // Step 2: Material Verification
+  steps.push({
+    id: `${job.id}-step-2`,
+    order: 2,
+    name: 'Verify Materials',
+    description: `Confirm ${item?.name || 'materials'} are available and correct`,
+    type: 'VERIFICATION',
+    required: true,
+    completed: job.status === 'IN_PROGRESS' || job.status === 'COMPLETED',
+    estimatedMinutes: 3,
+  });
+
+  // Step 3: Production/Assembly
+  steps.push({
+    id: `${job.id}-step-3`,
+    order: 3,
+    name: orderType === 'ASSEMBLY' ? 'Assembly' : 'Production',
+    description: `Process ${job.qtyOrdered} units`,
+    type: 'PRODUCTION',
+    required: true,
+    completed: job.qtyCompleted >= job.qtyOrdered,
+    estimatedMinutes: job.estimatedDuration || 30,
+  });
+
+  // Step 4: Quality Check (if required)
+  if (hasQualityCheck) {
+    steps.push({
+      id: `${job.id}-step-4`,
+      order: 4,
+      name: 'Quality Inspection',
+      description: 'Perform quality check on completed units',
+      type: 'QUALITY',
+      required: true,
+      completed: false,
+      estimatedMinutes: 10,
+    });
+  }
+
+  // Step 5: Packaging/Completion
+  steps.push({
+    id: `${job.id}-step-${hasQualityCheck ? 5 : 4}`,
+    order: hasQualityCheck ? 5 : 4,
+    name: 'Complete & Package',
+    description: 'Package finished goods and update inventory',
+    type: 'COMPLETION',
+    required: true,
+    completed: job.status === 'COMPLETED',
+    estimatedMinutes: 5,
+  });
+
+  // Step 6: Documentation
+  steps.push({
+    id: `${job.id}-step-${hasQualityCheck ? 6 : 5}`,
+    order: hasQualityCheck ? 6 : 5,
+    name: 'Documentation',
+    description: 'Record completion details and any notes',
+    type: 'DOCUMENTATION',
+    required: false,
+    completed: job.status === 'COMPLETED',
+    estimatedMinutes: 2,
+  });
+
+  return steps;
 }

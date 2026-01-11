@@ -24,29 +24,32 @@ export async function POST(req: NextRequest) {
     }
 
     const discrepancy = expectedQty - actualQty;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Get item details - placeholder
-    // TODO: Implement proper inventory query when schema is finalized
-
-    return NextResponse.json({
-      discrepancy,
-      analysis: [],
-      suggestions: [],
-      confidence: 0,
+    // Get item details
+    const item = await storage.prisma.item.findFirst({
+      where: {
+        id: itemId,
+        tenantId: user.tenantId,
+      },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        baseUom: true,
+      },
     });
 
-  } catch (error) {
-    console.error('Error in inventory assistant:', error);
-    return NextResponse.json(
-      { error: 'Failed to analyze inventory discrepancy' },
-      { status: 500 }
-    );
-  }
-}
+    if (!item) {
+      return NextResponse.json(
+        { error: 'Item not found' },
+        { status: 404 }
+      );
+    }
 
-// Rest of file disabled - helper functions not needed for placeholder
-/*
-    const recentEvents: any = {
+    // Get recent inventory events
+    const recentEvents = await storage.prisma.inventoryEvent.findMany({
       where: {
         tenantId: user.tenantId,
         itemId,
@@ -315,7 +318,6 @@ function analyzeDiscrepancy(params: AnalysisParams) {
 
   // Analysis 3: Check recent shipments
   if (isMissing && recentShipments.length > 0) {
-    const totalShipped = recentShipments.reduce((sum, s) => sum + s.qtyShipped, 0);
     const evidence = recentShipments.slice(0, 3).map(s =>
       `${s.qtyShipped} shipped in ${s.shipment.shipmentNumber}`
     );
@@ -343,12 +345,11 @@ function analyzeDiscrepancy(params: AnalysisParams) {
 
   // Analysis 5: Check for receiving errors
   if (isExtra && recentReceipts.length > 0) {
-    const totalReceived = recentReceipts.reduce((sum, r) => sum + r.qtyReceived, 0);
     possibleCauses.push({
       cause: 'Double Receipt or Over-Receipt',
       likelihood: 'medium',
       evidence: recentReceipts.slice(0, 3).map(r =>
-        `${r.qtyReceived} received in ${r.receipt.receiptNumber} from PO ${r.receipt.purchaseOrder.poNumber}`
+        `${r.qtyReceived} received in ${r.receipt.receiptNumber} from PO ${r.receipt.purchaseOrder?.poNumber || 'N/A'}`
       ),
       suggestedAction: 'Verify receipt quantities against packing slips. Check if material was received twice or if wrong quantity was entered.',
     });
@@ -372,7 +373,6 @@ function analyzeDiscrepancy(params: AnalysisParams) {
   // Analysis 7: Check for scrap/hold events
   const scrapEvents = recentEvents.filter(e => e.eventType === 'SCRAP');
   if (scrapEvents.length > 0 && isMissing) {
-    const totalScrap = scrapEvents.reduce((sum, e) => sum + e.qtyBase, 0);
     possibleCauses.push({
       cause: 'Material Scrapped',
       likelihood: 'medium',
@@ -422,7 +422,7 @@ function findDuplicateEvents(events: any[]) {
     eventMap.set(key, existing);
   });
 
-  eventMap.forEach((group, key) => {
+  eventMap.forEach((group) => {
     if (group.length > 1) {
       const timeDiff = new Date(group[0].createdAt).getTime() - new Date(group[group.length - 1].createdAt).getTime();
       if (Math.abs(timeDiff) < 3600000) { // Within 1 hour
@@ -491,4 +491,3 @@ function generateNextSteps(causes: any[], isMissing: boolean, variance: number) 
 
   return steps;
 }
-*/
