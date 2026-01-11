@@ -236,8 +236,7 @@ export default function DashboardPage() {
       // Executive tier - Analytics-heavy dashboard
       return <ExecutiveDashboard />;
     case "Supervisor":
-    case "Manager":
-      // Manager tier - Team oversight dashboard
+      // Supervisor tier - Team oversight dashboard
       return <ManagerDashboard />;
     case "Operator":
       // Operator tier - Single-job focus dashboard

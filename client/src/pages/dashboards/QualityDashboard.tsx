@@ -8,8 +8,16 @@ import { ClipboardCheck, XCircle, AlertTriangle, TrendingDown } from "lucide-rea
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 
+interface QualityMetrics {
+  awaitingInspection: number;
+  failedInspections: number;
+  defectRate: number;
+  ncrs: number;
+  batchesOnHold: number;
+}
+
 export default function QualityDashboard() {
-  const { data: metrics, isLoading } = useQuery({
+  const { data: metrics, isLoading } = useQuery<QualityMetrics>({
     queryKey: ["/api/dashboard/quality/metrics"],
   });
 

@@ -30,7 +30,7 @@ interface Tenant {
 }
 
 export function CompanySwitcher() {
-  const { user, refetch } = useAuth();
+  const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
@@ -55,7 +55,7 @@ export function CompanySwitcher() {
     },
     onSuccess: async () => {
       // Refetch user data and invalidate all queries
-      await refetch();
+      await refreshUser();
       queryClient.invalidateQueries();
       setOpen(false);
 

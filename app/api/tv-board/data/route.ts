@@ -106,13 +106,15 @@ export async function GET(request: Request) {
         o => o.assignedTo === member.id && o.status === "IN_PROGRESS"
       );
 
-      let status: "ACTIVE" | "IDLE" | "OFFLINE" = "OFFLINE";
-      if (member.lastActive && new Date(member.lastActive) >= startOfToday) {
-        status = currentJob ? "ACTIVE" : "IDLE";
+      // Determine status based on whether they have an active job
+      // TODO: Add lastActive field to User schema for better status tracking
+      let status: "ACTIVE" | "IDLE" | "OFFLINE" = "IDLE";
+      if (currentJob) {
+        status = "ACTIVE";
       }
 
       return {
-        name: member.name,
+        name: `${member.firstName} ${member.lastName}`,
         status,
         currentJob: currentJob?.orderNumber || null,
       };

@@ -677,7 +677,7 @@ export class EmailService {
   /**
    * Send team invitation email
    */
-  async sendTeamInvitation(data: {
+  static async sendTeamInvitation(data: {
     recipientName: string;
     recipientEmail: string;
     inviterName: string;
@@ -729,7 +729,7 @@ export class EmailService {
       </div>
     `;
 
-    return this.sendEmail({
+    return EmailService.sendEmail({
       to: data.recipientEmail,
       subject: `You've been invited to join ${data.companyName}`,
       html,

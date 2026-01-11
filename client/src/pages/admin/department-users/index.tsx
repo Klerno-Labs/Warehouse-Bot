@@ -34,6 +34,17 @@ import {
 import { Users, Plus, Trash2, Edit, UserPlus, Shield } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
+type DepartmentUser = {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  badgeNumber?: string;
+  role: string;
+  department: string;
+  isActive: boolean;
+};
+
 /**
  * Department User Management - For Supervisors/Managers
  * Add, edit, and remove users within their department
@@ -44,7 +55,7 @@ export default function DepartmentUserManagement() {
   const queryClient = useQueryClient();
 
   const [isAddingUser, setIsAddingUser] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<DepartmentUser | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState("");
 
   // Form state
@@ -66,7 +77,7 @@ export default function DepartmentUserManagement() {
   ];
 
   // Fetch users in department
-  const { data: usersData, isLoading: usersLoading } = useQuery({
+  const { data: usersData, isLoading: usersLoading } = useQuery<{ users: DepartmentUser[] }>({
     queryKey: ["/api/admin/department-users", selectedDepartment],
     queryFn: async () => {
       const url = selectedDepartment
@@ -78,7 +89,7 @@ export default function DepartmentUserManagement() {
     },
   });
 
-  const departmentUsers = usersData?.users || [];
+  const departmentUsers: DepartmentUser[] = usersData?.users || [];
 
   // Fetch available custom roles
   const { data: rolesData } = useQuery({

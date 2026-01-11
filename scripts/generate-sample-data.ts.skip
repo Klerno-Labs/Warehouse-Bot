@@ -171,7 +171,7 @@ async function generateSampleData(tenantId: string) {
         createdBy: "system",
       });
       createdRoles.push(role);
-      console.log(`  ✓ Created role: ${role.name}`);
+      console.log(`  ✓ Created role: ${role.customName}`);
     }
 
     // 2. Create departments
@@ -232,16 +232,25 @@ async function generateSampleData(tenantId: string) {
         departmentIds = [randomDept.id];
       }
 
+      const [firstName, ...lastNameParts] = (userData as any).name.split(' ');
+      const lastName = lastNameParts.join(' ');
+
       const user = await storage.createUser({
         tenantId,
-        ...userData,
+        email: userData.email,
+        firstName,
+        lastName,
+        role: userData.role as any,
+        siteIds: [],
         password: "password123", // Demo password
-        departmentIds,
+        assignedDepartments: departmentIds,
+        assignedWorkcells: [],
+        customRoleId: null,
+        isSuperAdmin: false,
         isActive: true,
-        lastActive: Math.random() > 0.3 ? new Date() : new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
       });
       createdUsers.push(user);
-      console.log(`  ✓ Created user: ${user.name} (${user.role})`);
+      console.log(`  ✓ Created user: ${user.firstName} ${user.lastName} (${user.role})`);
     }
 
     // 5. Create items

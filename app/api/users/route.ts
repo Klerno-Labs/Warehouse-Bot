@@ -63,6 +63,10 @@ export async function POST(req: Request) {
     lastName,
     role: role || "Viewer",
     siteIds: siteIds || [],
+    assignedDepartments: [],
+    assignedWorkcells: [],
+    customRoleId: null,
+    isSuperAdmin: false,
     isActive: true,
   });
 

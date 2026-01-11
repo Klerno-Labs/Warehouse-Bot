@@ -47,7 +47,10 @@
       "Bash(for file in \"app/api/quality/inspections/[id]/route.ts\" \"app/api/quality/inspections/route.ts\" \"app/api/dashboard/suggested-actions/route.ts\")",
       "Bash(do sed -i 's/storage\\\\.qualityInspection/storage.prisma.qualityInspection/g' \"c:/Users/Somli/OneDrive/Desktop/My Apps/Warehouse Builder/$file\")",
       "Bash(vercel deploy:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(command -v:*)",
+      "Bash(convert:*)",
+      "Bash(node scripts/generate-icons.js:*)"
     ]
   }
 }

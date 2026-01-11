@@ -10,7 +10,8 @@
   "exclude": [
     "node_modules",
     "build",
-    "dist"
+    "dist",
+    "scripts"
   ],
   "compilerOptions": {
     "incremental": true,

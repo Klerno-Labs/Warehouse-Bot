@@ -1047,12 +1047,7 @@ class Storage {
   }
 
   // PRODUCTION ORDER METHODS
-  async getProductionOrdersByTenant(tenantId: string) {
-    return prisma.productionOrder.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-    });
-  }
+  // NOTE: getProductionOrdersByTenant is defined earlier with full includes
 
   async getProductionOrdersByDepartment(tenantId: string, departmentId: string) {
     return prisma.productionOrder.findMany({
@@ -1074,31 +1069,14 @@ class Storage {
     });
   }
 
-  async getProductionOrderById(orderId: string) {
-    return prisma.productionOrder.findUnique({
-      where: { id: orderId },
-    });
-  }
-
-  async createProductionOrder(data: any) {
-    return prisma.productionOrder.create({
-      data,
-    });
-  }
-
-  async updateProductionOrder(orderId: string, data: any) {
-    return prisma.productionOrder.update({
-      where: { id: orderId },
-      data,
-    });
-  }
+  // NOTE: getProductionOrderById, createProductionOrder, and updateProductionOrder are defined earlier with full includes
 
   // JOB STEPS/CHECKLIST METHODS
-  async getJobSteps(jobId: string) {
+  async getJobSteps(productionOrderId: string) {
     // Assuming job operations represent steps/checklist
     return prisma.jobOperation.findMany({
-      where: { jobId },
-      orderBy: { operationNumber: "asc" },
+      where: { productionOrderId },
+      orderBy: { sequence: "asc" },
     });
   }
 
@@ -1202,7 +1180,7 @@ class Storage {
   async getRolesByTenant(tenantId: string) {
     return prisma.tenantRoleConfig.findMany({
       where: { tenantId },
-      orderBy: { name: "asc" },
+      orderBy: { customName: "asc" },
     });
   }
 

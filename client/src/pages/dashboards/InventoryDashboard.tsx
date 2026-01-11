@@ -67,7 +67,7 @@ export default function InventoryDashboard() {
     refetchInterval: 30000,
   });
 
-  const { data: lowStock } = useQuery({
+  const { data: lowStock } = useQuery<any[]>({
     queryKey: ["/api/dashboard/low-stock"],
   });
 
