@@ -38,12 +38,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (site) setCurrentSite(site);
           }
         }
+      } else if (response.status === 401) {
+        // Expected when not logged in - silently set user to null
+        setUser(null);
+        setAvailableSites([]);
+        setCurrentSite(null);
       } else {
+        // Unexpected error status
+        console.error("Auth check failed with status:", response.status);
         setUser(null);
         setAvailableSites([]);
         setCurrentSite(null);
       }
-    } catch {
+    } catch (error) {
+      // Network or parsing error
+      console.error("Auth check error:", error);
       setUser(null);
     } finally {
       setIsLoading(false);
