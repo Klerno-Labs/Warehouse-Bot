@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const inspection = await storage.qualityInspection.findUnique({
+    const inspection = await storage.prisma.qualityInspection.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -75,7 +75,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const existingInspection = await storage.qualityInspection.findUnique({
+    const existingInspection = await storage.prisma.qualityInspection.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -115,7 +115,7 @@ export async function PATCH(
       await Promise.all(
         checkpoints.map(async (checkpoint: any) => {
           if (checkpoint.id) {
-            await storage.qualityCheckpoint.update({
+            await storage.prisma.qualityCheckpoint.update({
               where: { id: checkpoint.id },
               data: {
                 result: checkpoint.result,
@@ -130,7 +130,7 @@ export async function PATCH(
       );
     }
 
-    const inspection = await storage.qualityInspection.update({
+    const inspection = await storage.prisma.qualityInspection.update({
       where: {
         id: params.id,
       },
@@ -146,7 +146,7 @@ export async function PATCH(
 
     // Auto-update lot QC status if this is a lot inspection
     if (inspection.lotId && overallResult) {
-      await storage.lot.update({
+      await storage.prisma.lot.update({
         where: { id: inspection.lotId },
         data: {
           qcStatus: overallResult === 'ACCEPT' ? 'PASSED' : overallResult === 'REJECT' ? 'FAILED' : 'CONDITIONAL',

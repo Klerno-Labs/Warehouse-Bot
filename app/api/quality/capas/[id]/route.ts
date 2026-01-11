@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const capa = await storage.cAPA.findUnique({
+    const capa = await storage.prisma.cAPA.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -64,7 +64,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const existingCAPA = await storage.cAPA.findUnique({
+    const existingCAPA = await storage.prisma.cAPA.findUnique({
       where: {
         id: params.id,
         tenantId: user.tenantId,
@@ -108,7 +108,7 @@ export async function PATCH(
     if (effectivenessCheck !== undefined) updateData.effectivenessCheck = effectivenessCheck;
     if (effectivenessDate !== undefined) updateData.effectivenessDate = effectivenessDate ? new Date(effectivenessDate) : null;
 
-    const capa = await storage.cAPA.update({
+    const capa = await storage.prisma.cAPA.update({
       where: {
         id: params.id,
       },

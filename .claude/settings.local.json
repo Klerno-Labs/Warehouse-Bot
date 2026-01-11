@@ -39,7 +39,13 @@
       "Bash(ping:*)",
       "Bash(wc:*)",
       "Bash(Select-String -Pattern \"Type error|Failed to compile|Compiled successfully\" -Context 2,3)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(gh api:*)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel logs:*)",
+      "Bash(vercel inspect:*)",
+      "Bash(for file in \"app/api/quality/inspections/[id]/route.ts\" \"app/api/quality/inspections/route.ts\" \"app/api/dashboard/suggested-actions/route.ts\")",
+      "Bash(do sed -i 's/storage\\\\.qualityInspection/storage.prisma.qualityInspection/g' \"c:/Users/Somli/OneDrive/Desktop/My Apps/Warehouse Builder/$file\")"
     ]
   }
 }

@@ -125,12 +125,12 @@ export async function GET(
     // Calculate completed quantity
     const qtyCompleted = productionOrder.qtyCompleted || 0;
 
-    // Determine priority based on due date
-    const dueDate = productionOrder.dueDate ? new Date(productionOrder.dueDate) : null;
+    // Determine priority based on scheduled end date
+    const scheduledEnd = productionOrder.scheduledEnd ? new Date(productionOrder.scheduledEnd) : null;
     const now = new Date();
     let priority = 'low';
-    if (dueDate) {
-      const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (scheduledEnd) {
+      const daysUntilDue = Math.ceil((scheduledEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       if (daysUntilDue < 0) priority = 'overdue';
       else if (daysUntilDue <= 1) priority = 'high';
       else if (daysUntilDue <= 3) priority = 'medium';
@@ -145,12 +145,12 @@ export async function GET(
       qtyOrdered: productionOrder.qtyOrdered,
       qtyCompleted,
       status: productionOrder.status,
-      dueDate: productionOrder.dueDate?.toISOString() || null,
+      dueDate: productionOrder.scheduledEnd?.toISOString() || null,
       priority,
       components,
       instructions: productionOrder.notes || 'Follow standard operating procedures for this item.',
-      workstation: productionOrder.workstation || 'General Production',
-      estimatedTime: productionOrder.estimatedHours || 0,
+      workstation: 'General Production', // TODO: Add workstation field to schema
+      estimatedTime: 0, // TODO: Add estimatedHours field to schema
       notes: notes.map((note) => ({
         id: note.id,
         timestamp: note.createdAt.toISOString(),

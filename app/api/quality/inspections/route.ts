@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       where.inspectionNumber = { contains: search, mode: 'insensitive' };
     }
 
-    const inspections = await storage.qualityInspection.findMany({
+    const inspections = await storage.prisma.qualityInspection.findMany({
       where,
       include: {
         item: {
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate inspection number
-    const count = await storage.qualityInspection.count({
+    const count = await storage.prisma.qualityInspection.count({
       where: { tenantId: user.tenantId },
     });
     const inspectionNumber = `INS-${String(count + 1).padStart(6, '0')}`;
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
     // If plan is specified, load checkpoint templates
     let checkpointData = checkpoints || [];
     if (planId && (!checkpoints || checkpoints.length === 0)) {
-      const plan = await storage.qualityInspectionPlan.findUnique({
+      const plan = await storage.prisma.qualityInspectionPlan.findUnique({
         where: { id: planId },
         include: {
           checkpointTemplates: {
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create inspection with checkpoints
-    const inspection = await storage.qualityInspection.create({
+    const inspection = await storage.prisma.qualityInspection.create({
       data: {
         tenantId: user.tenantId,
         inspectionNumber,

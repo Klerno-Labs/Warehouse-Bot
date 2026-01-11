@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       where.capaNumber = { contains: search, mode: 'insensitive' };
     }
 
-    const capas = await storage.cAPA.findMany({
+    const capas = await storage.prisma.cAPA.findMany({
       where,
       include: {
         ncr: {
@@ -100,12 +100,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate CAPA number
-    const count = await storage.cAPA.count({
+    const count = await storage.prisma.cAPA.count({
       where: { tenantId: user.tenantId },
     });
     const capaNumber = `CAPA-${String(count + 1).padStart(6, '0')}`;
 
-    const capa = await storage.cAPA.create({
+    const capa = await storage.prisma.cAPA.create({
       data: {
         tenantId: user.tenantId,
         capaNumber,

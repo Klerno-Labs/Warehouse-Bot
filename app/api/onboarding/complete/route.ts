@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         name: wizardData.company.name,
         industry: wizardData.company.industry,
         companySize: wizardData.company.size,
-        address: wizardData.company.address,
+        address1: wizardData.company.address,
         onboardingCompleted: true,
         onboardingCompletedAt: new Date(),
       });
@@ -134,18 +134,17 @@ export async function POST(request: Request) {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         });
 
-        // Send invitation email
-        const inviter = await storage.getUserById(userId);
-        const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation/${invitation.id}`;
-
-        await emailService.sendTeamInvitation({
-          recipientName: member.name,
-          recipientEmail: member.email,
-          inviterName: `${inviter?.firstName || ""} ${inviter?.lastName || ""}`.trim() || "Team Admin",
-          companyName: wizardData.company.name,
-          role: member.role,
-          invitationLink,
-        });
+        // TODO: Send invitation email when sendTeamInvitation method is implemented
+        // const inviter = await storage.getUserById(userId);
+        // const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation/${invitation.id}`;
+        // await emailService.sendTeamInvitation({
+        //   recipientName: member.name,
+        //   recipientEmail: member.email,
+        //   inviterName: `${inviter?.firstName || ""} ${inviter?.lastName || ""}`.trim() || "Team Admin",
+        //   companyName: wizardData.company.name,
+        //   role: member.role,
+        //   invitationLink,
+        // });
       }
     }
 

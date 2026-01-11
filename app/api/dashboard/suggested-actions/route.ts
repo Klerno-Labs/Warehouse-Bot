@@ -281,7 +281,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for quality inspections pending
-  const pendingInspections = await storage.qualityInspection.findMany({
+  const pendingInspections = await storage.prisma.qualityInspection.findMany({
     where: {
       tenantId: user.tenantId,
       status: 'PENDING',
