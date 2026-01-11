@@ -42,15 +42,16 @@ export default function LoginPage() {
         title: "Welcome back!",
         description: "You have successfully logged in.",
       });
-      // Redirect to modules dashboard after successful login
-      router.push("/modules");
+      // Wait briefly for auth state to propagate before redirecting
+      setTimeout(() => {
+        router.push("/modules");
+      }, 100);
     } catch (error) {
       toast({
         title: "Login failed",
         description: error instanceof Error ? error.message : "Invalid email or password",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };
