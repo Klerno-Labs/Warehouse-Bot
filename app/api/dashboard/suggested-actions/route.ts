@@ -169,7 +169,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   });
 
   const overdueProduction = pendingProduction.filter(
-    (po) => po.dueDate && po.dueDate < now
+    (po) => po.scheduledEnd && po.scheduledEnd < now
   );
 
   if (overdueProduction.length > 0) {

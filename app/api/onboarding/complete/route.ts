@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     if (wizardData.team && wizardData.team.length > 0) {
       for (const member of wizardData.team) {
         // Map temporary department IDs to real ones
-        const realDepartmentIds = member.departmentIds
+        const realDepartmentIds = member.assignedDepartments
           .map(id => departmentMap.get(id))
           .filter(Boolean) as string[];
 

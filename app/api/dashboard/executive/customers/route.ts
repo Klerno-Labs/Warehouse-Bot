@@ -41,7 +41,7 @@ export async function GET() {
 
       // On-time delivery rate
       const onTimeOrders = completedOrders.filter(
-        o => o.completedAt && o.dueDate && new Date(o.completedAt) <= new Date(o.dueDate)
+        o => o.completedAt && o.scheduledEnd && new Date(o.completedAt) <= new Date(o.scheduledEnd)
       );
       const onTimeRate = completedOrders.length > 0
         ? (onTimeOrders.length / completedOrders.length) * 100

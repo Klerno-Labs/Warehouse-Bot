@@ -49,7 +49,7 @@ export async function GET(request: Request) {
           itemName: job.itemName,
           qtyOrdered: job.qtyOrdered,
           qtyCompleted: job.qtyCompleted,
-          assignedTo: assignee?.name || "Unassigned",
+          assignedTo: assignee ? `${assignee.firstName} ${assignee.lastName}` : "Unassigned",
           station: station?.name || "N/A",
           priority: job.priority,
           status: job.status as "IN_PROGRESS" | "PAUSED" | "PENDING",
@@ -66,15 +66,15 @@ export async function GET(request: Request) {
 
     const overdueJobs = productionOrders.filter(
       o => o.status !== "COMPLETED" &&
-      o.dueDate &&
-      new Date(o.dueDate) < now
+      o.scheduledEnd &&
+      new Date(o.scheduledEnd) < now
     );
 
     // Calculate efficiency
     const plannedToday = productionOrders.filter(
-      o => o.dueDate &&
-      new Date(o.dueDate) >= startOfToday &&
-      new Date(o.dueDate) < new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000)
+      o => o.scheduledEnd &&
+      new Date(o.scheduledEnd) >= startOfToday &&
+      new Date(o.scheduledEnd) < new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000)
     );
 
     const efficiency = plannedToday.length > 0
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
 
     // Team Status
     const teamMembers = departmentId
-      ? users.filter(u => u.departmentIds?.includes(departmentId))
+      ? users.filter(u => u.assignedDepartments?.includes(departmentId))
       : users;
 
     const teamStatus = teamMembers.map(member => {
