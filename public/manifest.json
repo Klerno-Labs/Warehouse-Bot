@@ -34,13 +34,13 @@
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-152.svg",
+      "src": "/icons/icon-152x152.svg",
       "sizes": "152x152",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-192.svg",
+      "src": "/icons/icon-192x192.svg",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -52,25 +52,10 @@
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512.svg",
+      "src": "/icons/icon-512x512.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Dashboard Overview"
-    },
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "label": "Mobile Scanning Interface"
     }
   ],
   "categories": ["business", "productivity", "utilities"],
@@ -80,28 +65,28 @@
       "short_name": "Operator",
       "description": "Scan job cards and manage tasks",
       "url": "/mobile/login",
-      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192x192.svg", "sizes": "192x192" }]
     },
     {
       "name": "Scan Job Card",
       "short_name": "Scan Job",
       "description": "Quick job card scanning",
       "url": "/mobile/operator",
-      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192x192.svg", "sizes": "192x192" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "View inventory dashboard",
       "url": "/",
-      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192x192.svg", "sizes": "192x192" }]
     },
     {
       "name": "Production Board",
       "short_name": "Production",
       "description": "View production status",
       "url": "/manufacturing/production-board",
-      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192x192.svg", "sizes": "192x192" }]
     }
   ],
   "related_applications": [],
