@@ -44,7 +44,7 @@ export default function LoginPage() {
       });
       // Wait briefly for auth state to propagate before redirecting
       setTimeout(() => {
-        router.push("/modules");
+        router.push("/modules/inventory");
       }, 100);
     } catch (error) {
       toast({
