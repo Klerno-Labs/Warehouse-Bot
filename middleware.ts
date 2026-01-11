@@ -2,46 +2,53 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 /**
- * Middleware to handle authentication and public routes
+ * Middleware to handle public routes
  * Ensures manifest.json, icons, and other static assets are publicly accessible
+ * Note: Authentication is handled in individual API routes, not here
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public access to these paths without authentication
+  // Explicitly allow these paths without any processing
   const publicPaths = [
     '/manifest.json',
-    '/icons/',
+    '/icons',
     '/offline.html',
     '/service-worker.js',
-    '/api/auth/login',
-    '/api/auth/logout',
-    '/api/auth/register',
+    '/favicon.ico',
+    '/_next',
+    '/api/auth',
     '/login',
     '/register',
-    '/_next/',
-    '/favicon.ico',
+    '/signup',
   ];
 
-  // Check if the current path is public
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+  // Check if path matches any public path
+  const isPublic = publicPaths.some(path => pathname === path || pathname.startsWith(path + '/'));
 
-  if (isPublicPath) {
-    return NextResponse.next();
+  // Add explicit header for static assets to prevent authentication challenges
+  if (pathname === '/manifest.json' || pathname.startsWith('/icons/')) {
+    const response = NextResponse.next();
+    response.headers.set('Cache-Control', 'public, max-age=3600');
+    return response;
   }
 
-  // For all other routes, continue (authentication is handled in API routes)
+  // Allow all other requests through - auth is handled per-route
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
+     * Match all request paths except for:
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * - favicon.ico
+     * - manifest.json (PWA manifest)
+     * - icons/ (PWA icons)
+     * - service-worker.js (service worker)
+     * - offline.html (offline page)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|icons/|service-worker.js|offline.html).*)',
   ],
 };
