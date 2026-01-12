@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSessionUser } from '@app/api/_utils/session';
 import { storage } from '@server/storage';
 import { hashSync } from 'bcryptjs';
-import { Role } from '@prisma/client';
+import { Role } from '@shared/prisma-enums';
 
 /**
  * POST /api/admin/department-users

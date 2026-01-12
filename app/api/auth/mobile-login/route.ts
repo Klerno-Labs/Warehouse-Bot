@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@server/prisma';
 import bcrypt from 'bcryptjs';
-import { createSession } from '@app/api/_utils/session';
+import { setSessionCookie } from '@app/api/_utils/session';
 
 /**
  * POST /api/auth/mobile-login
@@ -85,20 +85,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create session
-    const sessionUser = {
-      id: user.id,
-      tenantId: user.tenantId,
-      tenantName: user.tenant.name,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: user.role,
-      siteIds: user.siteIds,
-      isActive: user.isActive,
-    };
+    // Set session cookie
+    setSessionCookie(user.id);
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -111,11 +101,6 @@ export async function POST(req: NextRequest) {
       },
       message: 'Login successful',
     });
-
-    // Set session cookie
-    await createSession(sessionUser, response);
-
-    return response;
   } catch (error) {
     console.error('Mobile login error:', error);
     return NextResponse.json(
