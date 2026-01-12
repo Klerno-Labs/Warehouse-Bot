@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Plus, Trash2, FileText, Check, Send, Package } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type POStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "SENT" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CANCELLED";
 type UOM = "EA" | "FT" | "YD" | "ROLL";
@@ -498,9 +500,12 @@ export default function PurchaseOrdersPage() {
                 </div>
 
                 {lines.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border rounded-md">
-                    No line items. Click "Add Line" to start.
-                  </div>
+                  <EmptyState
+                    icon={Package}
+                    title="No line items"
+                    description="Click 'Add Line' to add items to this order."
+                    compact
+                  />
                 ) : (
                   <div className="border rounded-md">
                     <Table>
@@ -658,11 +663,15 @@ export default function PurchaseOrdersPage() {
         </CardHeader>
         <CardContent>
           {poLoading ? (
-            <div className="text-center py-8">Loading purchase orders...</div>
+            <InlineLoading message="Loading purchase orders..." />
           ) : purchaseOrders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No purchase orders found. Create your first purchase order to get started.
-            </div>
+            <EmptyState
+              icon={ShoppingCart}
+              title="No purchase orders"
+              description="Create a purchase order to start procuring inventory."
+              actions={[{ label: "Create PO", onClick: () => setIsCreateDialogOpen(true), icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

@@ -56,6 +56,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface SalesOrderLine {
   id: string;
@@ -419,11 +421,15 @@ export default function SalesOrdersPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            <InlineLoading message="Loading orders..." />
           ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No orders found
-            </div>
+            <EmptyState
+              icon={ShoppingCart}
+              title="No orders found"
+              description="Create your first order to get started."
+              actions={[{ label: "Create Order", onClick: () => setShowCreateDialog(true), icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

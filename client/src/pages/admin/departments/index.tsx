@@ -26,6 +26,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Building2, Plus, Edit, Trash2, Users } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 /**
  * Department Management - For Executives
@@ -199,11 +201,15 @@ export default function DepartmentManagement() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading departments...</div>
+            <InlineLoading message="Loading departments..." />
           ) : departments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No departments created yet. Create your first department to get started.
-            </div>
+            <EmptyState
+              icon={Building2}
+              title="No departments yet"
+              description="Create departments to organize your team."
+              actions={[{ label: "Create Department", onClick: () => setIsCreating(true), icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

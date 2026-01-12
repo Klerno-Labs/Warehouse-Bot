@@ -25,6 +25,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreditCard, Plus, Trash2, Edit, RefreshCw, Shield } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 /**
  * Badge Management - For Executives
@@ -188,11 +190,15 @@ export default function BadgeManagement() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading badges...</div>
+            <InlineLoading message="Loading badges..." />
           ) : badges.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No badges created yet. Create your first badge to enable mobile access for operators.
-            </div>
+            <EmptyState
+              icon={CreditCard}
+              title="No badges created"
+              description="Create badges to enable mobile access for operators."
+              actions={[{ label: "Create Badge", onClick: () => setIsCreating(true), icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

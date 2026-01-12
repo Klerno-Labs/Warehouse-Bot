@@ -53,6 +53,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface ShipmentLine {
   id: string;
@@ -339,11 +341,14 @@ export default function ShipmentsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            <InlineLoading message="Loading shipments..." />
           ) : filteredShipments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No shipments found
-            </div>
+            <EmptyState
+              icon={Truck}
+              title="No shipments yet"
+              description="Ship orders to see shipments here."
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

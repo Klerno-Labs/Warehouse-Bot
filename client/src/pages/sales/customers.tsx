@@ -45,6 +45,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Tabs,
   TabsContent,
@@ -305,11 +307,15 @@ export default function CustomersPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            <InlineLoading message="Loading customers..." />
           ) : filteredCustomers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No customers found
-            </div>
+            <EmptyState
+              icon={Users}
+              title="No customers yet"
+              description="Add your first customer to start selling."
+              actions={[{ label: "Add Customer", onClick: () => setShowCreateDialog(true), icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>
