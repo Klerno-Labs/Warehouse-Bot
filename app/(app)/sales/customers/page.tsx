@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/ui/form-dialog";
 
 interface Customer {
   id: string;
@@ -42,6 +43,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -324,15 +326,7 @@ export default function CustomersPage() {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="text-destructive"
-                        onClick={() => {
-                          if (
-                            confirm(
-                              "Are you sure you want to delete this customer?"
-                            )
-                          ) {
-                            deleteMutation.mutate(customer.id);
-                          }
-                        }}
+                        onClick={() => setCustomerToDelete(customer)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
@@ -375,6 +369,22 @@ export default function CustomersPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!customerToDelete}
+        onOpenChange={(open) => !open && setCustomerToDelete(null)}
+        title="Delete Customer"
+        description={`Are you sure you want to delete "${customerToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={() => {
+          if (customerToDelete) {
+            deleteMutation.mutate(customerToDelete.id);
+            setCustomerToDelete(null);
+          }
+        }}
+        confirmLabel="Delete"
+        isLoading={deleteMutation.isPending}
+        variant="destructive"
+      />
     </div>
   );
 }
