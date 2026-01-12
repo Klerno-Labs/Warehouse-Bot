@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Factory, Plus, Send, Play, CheckCircle, Package, BarChart3 } from "lucide-react";
+import { FormDialog } from "@/components/ui/form-dialog";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type ProductionOrderStatus =
   | "PLANNED"
@@ -436,170 +439,10 @@ export default function ProductionOrdersPage() {
             Manage manufacturing execution and production tracking
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Production Order
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create Production Order</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Site *</Label>
-                  <Select
-                    value={formData.siteId}
-                    onValueChange={(value) => setFormData({ ...formData, siteId: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select site" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sites.map((site) => (
-                        <SelectItem key={site.id} value={site.id}>
-                          {site.code} - {site.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>BOM *</Label>
-                  <Select value={formData.bomId} onValueChange={handleBOMChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select BOM" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {boms.map((bom) => (
-                        <SelectItem key={bom.id} value={bom.id}>
-                          {bom.bomNumber} v{bom.version} - {bom.item.code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Order Number *</Label>
-                <Input
-                  value={formData.orderNumber}
-                  onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
-                  placeholder="PO-001"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Quantity Ordered *</Label>
-                  <Input
-                    type="number"
-                    value={formData.qtyOrdered}
-                    onChange={(e) =>
-                      setFormData({ ...formData, qtyOrdered: parseFloat(e.target.value) })
-                    }
-                    min={0.01}
-                    step={0.01}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Priority (1-10)</Label>
-                  <Input
-                    type="number"
-                    value={formData.priority}
-                    onChange={(e) =>
-                      setFormData({ ...formData, priority: parseInt(e.target.value) })
-                    }
-                    min={1}
-                    max={10}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Scheduled Start *</Label>
-                  <Input
-                    type="date"
-                    value={formData.scheduledStart}
-                    onChange={(e) =>
-                      setFormData({ ...formData, scheduledStart: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Scheduled End</Label>
-                  <Input
-                    type="date"
-                    value={formData.scheduledEnd}
-                    onChange={(e) => setFormData({ ...formData, scheduledEnd: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Workcell</Label>
-                  <Select
-                    value={formData.workcellId}
-                    onValueChange={(value) => setFormData({ ...formData, workcellId: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select workcell (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {workcells.map((wc) => (
-                        <SelectItem key={wc.id} value={wc.id}>
-                          {wc.code} - {wc.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Lot Number</Label>
-                  <Input
-                    value={formData.lotNumber}
-                    onChange={(e) => setFormData({ ...formData, lotNumber: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Batch Number</Label>
-                  <Input
-                    value={formData.batchNumber}
-                    onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Optional notes"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateOrder}>Create Order</Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Production Order
+        </Button>
       </div>
 
       {/* Filters */}
@@ -658,11 +501,19 @@ export default function ProductionOrdersPage() {
         </CardHeader>
         <CardContent>
           {isLoadingOrders ? (
-            <div className="text-center py-8">Loading...</div>
+            <InlineLoading message="Loading production orders..." />
           ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No production orders found
-            </div>
+            <EmptyState
+              icon={Factory}
+              title="No production orders found"
+              description={statusFilter !== "ALL" || siteFilter !== "ALL"
+                ? "Try adjusting your filters"
+                : "Create your first production order to start manufacturing"}
+              actions={statusFilter === "ALL" && siteFilter === "ALL"
+                ? [{ label: "New Production Order", onClick: () => setIsCreateDialogOpen(true), icon: Plus }]
+                : undefined}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -994,6 +845,163 @@ export default function ProductionOrdersPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Create Production Order Dialog */}
+      <FormDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        title="Create Production Order"
+        description="Schedule a new manufacturing production order"
+        onSubmit={handleCreateOrder}
+        submitLabel="Create Order"
+        submitDisabled={!formData.siteId || !formData.bomId || !formData.orderNumber}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Site *</Label>
+              <Select
+                value={formData.siteId}
+                onValueChange={(value) => setFormData({ ...formData, siteId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select site" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sites.map((site) => (
+                    <SelectItem key={site.id} value={site.id}>
+                      {site.code} - {site.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>BOM *</Label>
+              <Select value={formData.bomId} onValueChange={handleBOMChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select BOM" />
+                </SelectTrigger>
+                <SelectContent>
+                  {boms.map((bom) => (
+                    <SelectItem key={bom.id} value={bom.id}>
+                      {bom.bomNumber} v{bom.version} - {bom.item.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Order Number *</Label>
+            <Input
+              value={formData.orderNumber}
+              onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
+              placeholder="PO-001"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Quantity Ordered *</Label>
+              <Input
+                type="number"
+                value={formData.qtyOrdered}
+                onChange={(e) =>
+                  setFormData({ ...formData, qtyOrdered: parseFloat(e.target.value) })
+                }
+                min={0.01}
+                step={0.01}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Priority (1-10)</Label>
+              <Input
+                type="number"
+                value={formData.priority}
+                onChange={(e) =>
+                  setFormData({ ...formData, priority: parseInt(e.target.value) })
+                }
+                min={1}
+                max={10}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Scheduled Start *</Label>
+              <Input
+                type="date"
+                value={formData.scheduledStart}
+                onChange={(e) =>
+                  setFormData({ ...formData, scheduledStart: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Scheduled End</Label>
+              <Input
+                type="date"
+                value={formData.scheduledEnd}
+                onChange={(e) => setFormData({ ...formData, scheduledEnd: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Workcell</Label>
+              <Select
+                value={formData.workcellId}
+                onValueChange={(value) => setFormData({ ...formData, workcellId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select workcell (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {workcells.map((wc) => (
+                    <SelectItem key={wc.id} value={wc.id}>
+                      {wc.code} - {wc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Lot Number</Label>
+              <Input
+                value={formData.lotNumber}
+                onChange={(e) => setFormData({ ...formData, lotNumber: e.target.value })}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Batch Number</Label>
+              <Input
+                value={formData.batchNumber}
+                onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Notes</Label>
+            <Textarea
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Optional notes"
+            />
+          </div>
+        </div>
+      </FormDialog>
     </div>
   );
 }

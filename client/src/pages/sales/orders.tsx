@@ -58,6 +58,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { InlineLoading } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MetricCard, MetricGrid } from "@/components/dashboard/metric-card";
 
 interface SalesOrderLine {
   id: string;
@@ -337,48 +338,44 @@ export default function SalesOrdersPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          {
-            label: "Open Orders",
-            count: orders.filter((o) =>
-              ["DRAFT", "CONFIRMED", "PICKING", "ALLOCATED"].includes(o.status)
-            ).length,
-            color: "text-blue-600",
-          },
-          {
-            label: "Ready to Ship",
-            count: orders.filter((o) => o.status === "ALLOCATED").length,
-            color: "text-purple-600",
-          },
-          {
-            label: "Shipped Today",
-            count: orders.filter(
-              (o) =>
-                o.status === "SHIPPED" &&
-                new Date(o.orderDate).toDateString() === new Date().toDateString()
-            ).length,
-            color: "text-green-600",
-          },
-          {
-            label: "Total Value",
-            count: `$${orders
-              .filter((o) => !["CANCELLED"].includes(o.status))
-              .reduce((sum, o) => sum + o.total, 0)
-              .toLocaleString()}`,
-            color: "text-gray-800",
-          },
-        ].map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="pt-6">
-              <div className="text-2xl font-bold text-center">{stat.count}</div>
-              <div className="text-sm text-muted-foreground text-center">
-                {stat.label}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <MetricGrid columns={4}>
+        <MetricCard
+          title="Open Orders"
+          value={orders.filter((o) =>
+            ["DRAFT", "CONFIRMED", "PICKING", "ALLOCATED"].includes(o.status)
+          ).length}
+          icon={Clock}
+          variant="primary"
+          animate={false}
+        />
+        <MetricCard
+          title="Ready to Ship"
+          value={orders.filter((o) => o.status === "ALLOCATED").length}
+          icon={Package}
+          variant="warning"
+          animate={false}
+        />
+        <MetricCard
+          title="Shipped Today"
+          value={orders.filter(
+            (o) =>
+              o.status === "SHIPPED" &&
+              new Date(o.orderDate).toDateString() === new Date().toDateString()
+          ).length}
+          icon={Truck}
+          variant="success"
+          animate={false}
+        />
+        <MetricCard
+          title="Total Value"
+          value={`$${orders
+            .filter((o) => !["CANCELLED"].includes(o.status))
+            .reduce((sum, o) => sum + o.total, 0)
+            .toLocaleString()}`}
+          icon={ShoppingCart}
+          animate={false}
+        />
+      </MetricGrid>
 
       {/* Filters */}
       <Card>
