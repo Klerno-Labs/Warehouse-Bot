@@ -80,6 +80,7 @@ export function EmptyState({
                   variant={action.variant || (index === 0 ? "default" : "outline")}
                   size={compact ? "sm" : "default"}
                   asChild
+                  className={index === 0 ? "btn-premium hover-glow" : "hover-scale"}
                 >
                   <Link href={action.href}>{buttonContent}</Link>
                 </Button>
@@ -92,6 +93,7 @@ export function EmptyState({
                 variant={action.variant || (index === 0 ? "default" : "outline")}
                 size={compact ? "sm" : "default"}
                 onClick={action.onClick}
+                className={index === 0 ? "btn-premium hover-glow" : "hover-scale"}
               >
                 {buttonContent}
               </Button>

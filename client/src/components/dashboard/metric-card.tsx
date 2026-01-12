@@ -120,13 +120,17 @@ export function MetricCard({
   }
 
   const content = (
-    <Card className={cn(sizes.card, "transition-shadow hover:shadow-md", className)}>
+    <Card className={cn(
+      sizes.card,
+      "card-premium shadow-premium transition-all",
+      className
+    )}>
       <div className="flex items-start justify-between">
         <div className="space-y-1 flex-1">
           <p className={cn("font-medium text-muted-foreground", sizes.title)}>
             {title}
           </p>
-          <p className={cn("font-bold tracking-tight", sizes.value, styles.value)}>
+          <p className={cn("font-bold tracking-tight tabular-nums", sizes.value, styles.value)}>
             {typeof value === "number" ? value.toLocaleString() : value}
           </p>
           {(description || trend) && (

@@ -81,21 +81,22 @@ export function FormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={sizeClasses[size]}>
+      <DialogContent className={`${sizeClasses[size]} shadow-premium-lg`}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
+          <DialogTitle className="text-balanced">{title}</DialogTitle>
+          {description && <DialogDescription className="text-balanced">{description}</DialogDescription>}
         </DialogHeader>
 
-        <div className="py-4">{children}</div>
+        <div className="py-4 scrollbar-premium max-h-[60vh] overflow-y-auto">{children}</div>
 
         {showFooter && (
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={handleCancel}
               disabled={isSubmitting}
+              className="hover-scale"
             >
               {cancelLabel}
             </Button>
@@ -104,6 +105,7 @@ export function FormDialog({
                 type="submit"
                 onClick={handleSubmit}
                 disabled={isSubmitting || submitDisabled}
+                className="btn-premium btn-primary-glow"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isSubmitting ? "Saving..." : submitLabel}
@@ -178,16 +180,17 @@ export function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md shadow-premium-lg">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          <DialogTitle className="text-balanced">{title}</DialogTitle>
+          <DialogDescription className="text-balanced">{description}</DialogDescription>
         </DialogHeader>
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
+            className="hover-scale"
           >
             {cancelLabel}
           </Button>
@@ -195,6 +198,7 @@ export function ConfirmDialog({
             variant={variant === "destructive" ? "destructive" : "default"}
             onClick={handleConfirm}
             disabled={isLoading}
+            className={variant === "destructive" ? "btn-premium shadow-destructive-glow" : "btn-premium btn-primary-glow"}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {confirmLabel}
