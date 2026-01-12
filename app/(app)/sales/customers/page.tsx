@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/ui/form-dialog";
+import { InlineLoading } from "@/components/LoadingSpinner";
 
 interface Customer {
   id: string;
@@ -279,7 +280,7 @@ export default function CustomersPage() {
 
       {/* Customers Grid */}
       {isLoading ? (
-        <div className="text-center py-12">Loading customers...</div>
+        <InlineLoading message="Loading customers..." />
       ) : customers.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">

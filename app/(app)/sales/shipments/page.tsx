@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { InlineLoading } from "@/components/LoadingSpinner";
 
 interface Shipment {
   id: string;
@@ -122,7 +123,7 @@ export default function ShipmentsPage() {
 
       {/* Shipments Table */}
       {isLoading ? (
-        <div className="text-center py-12">Loading shipments...</div>
+        <InlineLoading message="Loading shipments..." />
       ) : shipments.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">

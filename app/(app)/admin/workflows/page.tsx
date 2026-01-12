@@ -64,6 +64,7 @@ import {
   History,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { InlineLoading } from "@/components/LoadingSpinner";
 
 interface WorkflowCondition {
   field: string;
@@ -401,11 +402,7 @@ export default function WorkflowsPage() {
 
         <TabsContent value="workflows" className="space-y-4">
           {loading ? (
-            <Card className="py-12">
-              <CardContent className="text-center text-muted-foreground">
-                Loading workflows...
-              </CardContent>
-            </Card>
+            <InlineLoading message="Loading workflows..." />
           ) : workflows.length === 0 ? (
             <Card className="py-12">
               <CardContent className="text-center text-muted-foreground">
