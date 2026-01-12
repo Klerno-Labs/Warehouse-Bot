@@ -342,29 +342,54 @@ export function SortableHeader({ column, title }: SortableHeaderProps) {
   );
 }
 
-// Helper for status badges
+// Helper for status badges using centralized status colors
 interface StatusCellProps {
   status: string;
   statusColors?: Record<string, string>;
 }
 
 export function StatusCell({ status, statusColors }: StatusCellProps) {
+  // Using centralized color scheme with dark mode support
   const defaultColors: Record<string, string> = {
-    DRAFT: "bg-gray-100 text-gray-800",
-    PENDING: "bg-yellow-100 text-yellow-800",
-    APPROVED: "bg-blue-100 text-blue-800",
-    ACTIVE: "bg-green-100 text-green-800",
-    COMPLETED: "bg-green-100 text-green-800",
-    RECEIVED: "bg-green-100 text-green-800",
-    CANCELLED: "bg-red-100 text-red-800",
-    CLOSED: "bg-gray-100 text-gray-800",
-    IN_PROGRESS: "bg-indigo-100 text-indigo-800",
-    ORDERED: "bg-indigo-100 text-indigo-800",
-    SHIPPED: "bg-purple-100 text-purple-800",
+    // Draft/Initial states
+    DRAFT: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
+    NEW: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+
+    // Pending/Waiting states
+    PENDING: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+    AWAITING_APPROVAL: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+    ON_HOLD: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+
+    // Active/In Progress states
+    APPROVED: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+    CONFIRMED: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+    ACTIVE: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+    IN_PROGRESS: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+    PROCESSING: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+    PICKING: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+    ORDERED: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400",
+
+    // Shipping states
+    SHIPPED: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400",
+    IN_TRANSIT: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400",
+    DELIVERED: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+
+    // Completion states
+    COMPLETED: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+    RECEIVED: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400",
+    CLOSED: "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
+
+    // Negative states
+    CANCELLED: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+    REJECTED: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+    FAILED: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400",
+
+    // Partial states
+    PARTIAL: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
   };
 
   const colors = { ...defaultColors, ...statusColors };
-  const colorClass = colors[status] || "bg-gray-100 text-gray-800";
+  const colorClass = colors[status] || "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
 
   return (
     <span

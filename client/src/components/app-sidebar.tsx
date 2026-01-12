@@ -83,14 +83,19 @@ const salesItems = [
   { title: "Analytics", url: "/sales/analytics", icon: BarChart3 },
 ];
 
-// Planning - Analytics, forecasting, and production planning
-const planningItems = [
-  { title: "Dashboard", url: "/modules/dashboards", icon: LayoutDashboard },
-  { title: "Reports", url: "/reports", icon: FileText },
+// Manufacturing - Production planning and tracking (Tier 4+)
+const manufacturingItems = [
   { title: "Production Board", url: "/manufacturing/production-board", icon: Factory },
-  { title: "Analytics", url: "/manufacturing/analytics", icon: BarChart3 },
-  { title: "Sales ATP", url: "/modules/inventory?view=atp", icon: Target },
+  { title: "Production Orders", url: "/manufacturing/production-orders", icon: FileText },
+  { title: "BOMs", url: "/manufacturing/boms", icon: Boxes },
   { title: "Component Tracking", url: "/manufacturing/component-tracking", icon: ScanLine },
+  { title: "Analytics", url: "/manufacturing/analytics", icon: BarChart3 },
+];
+
+// Planning - Analytics, forecasting, and dashboards
+const planningItems = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Reports", url: "/reports", icon: FileText },
 ];
 
 // Admin - Settings and configuration (Tier 5: Executive/Admin)
@@ -278,6 +283,34 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {isEngineering && <SidebarSeparator />}
+
+        {/* Manufacturing - Only for Engineering tier and above (Tier 4+) */}
+        {isEngineering && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Manufacturing
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {manufacturingItems.map((item) => {
+                  const isActive = pathname === item.url || pathname.startsWith(item.url + "/");
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link href={item.url} data-testid={`link-mfg-${item.title.toLowerCase().replace(/\s+/g, '-')}`}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
