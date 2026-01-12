@@ -11,6 +11,7 @@ import { InstallPWA } from "@/components/pwa/InstallPWA";
 import { registerServiceWorker } from "@/lib/pwa/registerServiceWorker";
 import { KeyboardShortcutsProvider } from "@/components/ui/keyboard-shortcuts";
 import { UndoRedoProvider } from "@/lib/undo-redo";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -23,12 +24,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <ThemeProvider>
         <TooltipProvider>
           <AuthProvider>
-            <KeyboardShortcutsProvider>
-              <UndoRedoProvider>
-                {children}
-                <InstallPWA />
-              </UndoRedoProvider>
-            </KeyboardShortcutsProvider>
+            <OnboardingProvider>
+              <KeyboardShortcutsProvider>
+                <UndoRedoProvider>
+                  {children}
+                  <InstallPWA />
+                </UndoRedoProvider>
+              </KeyboardShortcutsProvider>
+            </OnboardingProvider>
           </AuthProvider>
           <Toaster />
         </TooltipProvider>
