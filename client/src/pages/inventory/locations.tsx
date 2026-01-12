@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth-context";
+import { InlineLoading } from "@/components/LoadingSpinner";
 import { LOCATION_TYPES, type Location } from "@shared/inventory";
 
 export default function InventoryLocationsPage() {
@@ -24,7 +25,7 @@ export default function InventoryLocationsPage() {
   const queryClient = useQueryClient();
   const { currentSite } = useAuth();
   const siteId = currentSite?.id || "";
-  const { data: locations = [] } = useQuery<Location[]>({
+  const { data: locations = [], isLoading } = useQuery<Location[]>({
     queryKey: [`/api/inventory/locations?siteId=${siteId}`],
     enabled: !!siteId,
   });
@@ -184,25 +185,28 @@ export default function InventoryLocationsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Label</TableHead>
-                    <TableHead>Zone</TableHead>
-                    <TableHead>Bin</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLocations.length === 0 ? (
+            {isLoading ? (
+              <InlineLoading message="Loading locations..." />
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                        No locations found
-                      </TableCell>
+                      <TableHead>Label</TableHead>
+                      <TableHead>Zone</TableHead>
+                      <TableHead>Bin</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ) : (
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLocations.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                          No locations found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
                     filteredLocations.map((location) => (
                       <TableRow key={location.id}>
                         <TableCell className="font-medium">{location.label}</TableCell>
@@ -217,9 +221,10 @@ export default function InventoryLocationsPage() {
                       </TableRow>
                     ))
                   )}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

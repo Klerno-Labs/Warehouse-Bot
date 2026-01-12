@@ -22,6 +22,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { BarChart3, ChevronDown, ChevronRight, Download, Package, MapPin, Tag, ArrowRightLeft } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { EVENT_TYPES } from "@shared/inventory";
 
 type ValuationReportItem = {
@@ -234,9 +236,14 @@ export default function InventoryReportsPage() {
               </CardHeader>
               <CardContent>
                 {valuationLoading ? (
-                  <p className="text-muted-foreground">Loading...</p>
+                  <InlineLoading message="Loading valuation data..." />
                 ) : !valuationData?.report.length ? (
-                  <p className="text-muted-foreground">No inventory data found.</p>
+                  <EmptyState
+                    icon={Package}
+                    title="No inventory data"
+                    description="Inventory data will appear here once items are added to locations."
+                    compact
+                  />
                 ) : (
                   <div className="space-y-1">
                     {valuationData.report.map((item) => (
@@ -393,9 +400,14 @@ export default function InventoryReportsPage() {
               </CardHeader>
               <CardContent>
                 {movementLoading ? (
-                  <p className="text-muted-foreground">Loading...</p>
+                  <InlineLoading message="Loading movement history..." />
                 ) : !movementData?.events.length ? (
-                  <p className="text-muted-foreground">No movement events found.</p>
+                  <EmptyState
+                    icon={ArrowRightLeft}
+                    title="No movement events"
+                    description="Movement events will appear here as inventory is transferred."
+                    compact
+                  />
                 ) : (
                   <Table>
                     <TableHeader>
