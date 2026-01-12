@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ purchaseOrder }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     console.error("Error creating purchase order:", error);
     return NextResponse.json(

@@ -404,7 +404,7 @@ export function validateJSON<T = any>(
     const result = schema.safeParse(parsed);
     if (!result.success) {
       throw new ValidationError("JSON validation failed", {
-        errors: result.error.errors,
+        errors: result.error.issues,
       });
     }
     return result.data;

@@ -113,7 +113,7 @@ export async function POST(
     return NextResponse.json({ output }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     console.error("Error recording output:", error);
     return NextResponse.json(

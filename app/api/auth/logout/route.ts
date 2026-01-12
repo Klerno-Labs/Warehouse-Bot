@@ -30,6 +30,6 @@ export async function POST() {
     "User logged out",
   );
 
-  clearSessionCookie();
+  await clearSessionCookie();
   return NextResponse.json({ success: true });
 }

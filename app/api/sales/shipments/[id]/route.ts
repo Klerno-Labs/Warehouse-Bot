@@ -115,7 +115,7 @@ export async function PATCH(
     return NextResponse.json({ shipment: updated });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     console.error("Error updating shipment:", error);
     return NextResponse.json(
@@ -231,7 +231,7 @@ export async function POST(
     return NextResponse.json({ shipment: updated });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     console.error("Error shipping:", error);
     return NextResponse.json(

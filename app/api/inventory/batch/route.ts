@@ -22,7 +22,7 @@ const batchOperationSchema = z.object({
     "bulk-scrap",
   ]),
   items: z.array(z.string()), // Array of item IDs
-  data: z.record(z.any()), // Operation-specific data
+  data: z.record(z.string(), z.any()), // Operation-specific data
 });
 
 export async function POST(req: Request) {

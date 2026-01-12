@@ -368,8 +368,8 @@ export default function PurchasingAnalyticsPage() {
                       <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                       <YAxis type="category" dataKey="name" width={100} />
                       <Tooltip
-                        formatter={(value: number) =>
-                          `$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                        formatter={(value: number | undefined) =>
+                          `$${(value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                         }
                       />
                       <Bar dataKey="spend" fill="#0088FE" radius={[0, 4, 4, 0]} />
@@ -411,10 +411,10 @@ export default function PurchasingAnalyticsPage() {
                     <YAxis yAxisId="left" />
                     <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `$${v}`} />
                     <Tooltip
-                      formatter={(value: number, name: string) =>
+                      formatter={(value: number | undefined, name: string | undefined) =>
                         name === "spend"
-                          ? `$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                          : value
+                          ? `$${(value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                          : value ?? 0
                       }
                     />
                     <Legend />

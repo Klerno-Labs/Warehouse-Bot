@@ -30,7 +30,7 @@ const dbaImportSchema = z.object({
     "vendors",
     "all"
   ]),
-  data: z.array(z.record(z.any())), // CSV rows as objects
+  data: z.array(z.record(z.string(), z.any())), // CSV rows as objects
   siteId: z.string().uuid(),
   options: z.object({
     skipDuplicates: z.boolean().default(true),
@@ -55,8 +55,10 @@ export async function POST(req: Request) {
     const validatedData = await validateBody(req, dbaImportSchema);
     if (validatedData instanceof NextResponse) return validatedData;
 
-    const { dataType, data, siteId, options = {} } = validatedData;
-    const { skipDuplicates = true, updateExisting = false, validateOnly = false } = options;
+    const { dataType, data, siteId, options } = validatedData;
+    const skipDuplicates = options?.skipDuplicates ?? true;
+    const updateExisting = options?.updateExisting ?? false;
+    const validateOnly = options?.validateOnly ?? false;
 
     // Verify site belongs to tenant
     const site = await prisma.site.findFirst({

@@ -188,7 +188,7 @@ export function toErrorResponse(
         code: "VALIDATION_ERROR",
         statusCode: 400,
         details: {
-          errors: zodError.errors.map((e: any) => ({
+          errors: zodError.issues.map((e: any) => ({
             path: e.path.join("."),
             message: e.message,
           })),

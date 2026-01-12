@@ -178,7 +178,7 @@ export async function POST(req: Request) {
     });
 
     // Set session cookie
-    setSessionCookie(result.user.id);
+    await setSessionCookie(result.user.id);
 
     // Audit the registration
     await audit(
@@ -217,7 +217,7 @@ export async function POST(req: Request) {
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation failed", details: error.errors },
+        { error: "Validation failed", details: error.issues },
         { status: 400 }
       );
     }

@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Account is deactivated" }, { status: 403 });
     }
 
-    setSessionCookie(user.id);
+    await setSessionCookie(user.id);
     const sessionUser = await storage.getSessionUser(user.id);
     const sites = await storage.getSitesForUser(user.id);
 
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Login error:", error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request", details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "Invalid request", details: error.issues }, { status: 400 });
     }
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: "Internal server error", details: errorMessage }, { status: 500 });
