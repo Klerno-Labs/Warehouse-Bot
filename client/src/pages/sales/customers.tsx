@@ -37,6 +37,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/form-dialog";
 import {
   Table,
   TableBody,
@@ -313,7 +314,7 @@ export default function CustomersPage() {
               icon={Users}
               title="No customers yet"
               description="Add your first customer to start selling."
-              actions={[{ label: "Add Customer", onClick: () => setShowCreateDialog(true), icon: Plus }]}
+              actions={[{ label: "Add Customer", onClick: () => { setSelectedCustomer(null); setFormData(emptyCustomer); setIsDialogOpen(true); }, icon: Plus }]}
               compact
             />
           ) : (
@@ -716,29 +717,15 @@ export default function CustomersPage() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Customer</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete {selectedCustomer?.name}? This action
-              cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => selectedCustomer && deleteMutation.mutate(selectedCustomer.id)}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        title="Delete Customer"
+        description={`Are you sure you want to delete ${selectedCustomer?.name}? This action cannot be undone.`}
+        onConfirm={() => selectedCustomer && deleteMutation.mutate(selectedCustomer.id)}
+        confirmLabel={deleteMutation.isPending ? "Deleting..." : "Delete"}
+        variant="destructive"
+      />
     </div>
   );
 }
