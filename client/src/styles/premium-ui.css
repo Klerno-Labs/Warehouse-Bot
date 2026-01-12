@@ -1,0 +1,608 @@
+/**
+ * Premium UI Enhancements - Top 0.01% Polish
+ *
+ * These styles add the micro-details that differentiate
+ * elite apps like Linear, Stripe, and Vercel from good apps.
+ */
+
+/* ============================================
+   1. ADVANCED SHADOW SYSTEM
+   ============================================ */
+
+/* Layered shadows for depth - like Stripe */
+.shadow-premium {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.03),
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 8px rgba(0, 0, 0, 0.04),
+    0 12px 24px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-premium-lg {
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.03),
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 8px 16px rgba(0, 0, 0, 0.06),
+    0 24px 48px rgba(0, 0, 0, 0.08);
+}
+
+/* Colored shadow for primary actions */
+.shadow-primary-glow {
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.2),
+    0 2px 4px hsl(var(--primary) / 0.1),
+    0 8px 16px hsl(var(--primary) / 0.15);
+}
+
+.shadow-success-glow {
+  box-shadow:
+    0 0 0 1px rgb(16 185 129 / 0.2),
+    0 2px 4px rgb(16 185 129 / 0.1),
+    0 8px 16px rgb(16 185 129 / 0.15);
+}
+
+.shadow-destructive-glow {
+  box-shadow:
+    0 0 0 1px rgb(239 68 68 / 0.2),
+    0 2px 4px rgb(239 68 68 / 0.1),
+    0 8px 16px rgb(239 68 68 / 0.15);
+}
+
+/* Dark mode shadows */
+.dark .shadow-premium {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    0 12px 24px rgba(0, 0, 0, 0.25);
+}
+
+.dark .shadow-premium-lg {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 8px 16px rgba(0, 0, 0, 0.35),
+    0 24px 48px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   2. PREMIUM BORDERS & DIVIDERS
+   ============================================ */
+
+/* Gradient border effect */
+.border-gradient {
+  position: relative;
+  border: none !important;
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--border)) 0%,
+    hsl(var(--border) / 0.5) 50%,
+    hsl(var(--border)) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Subtle inner glow border */
+.border-glow {
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--border)),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.dark .border-glow {
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--border)),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Premium divider with fade */
+.divider-fade {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--border)) 20%,
+    hsl(var(--border)) 80%,
+    transparent 100%
+  );
+}
+
+/* ============================================
+   3. MICRO-INTERACTIONS
+   ============================================ */
+
+/* Lift on hover - for cards */
+.hover-lift {
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.hover-lift:active {
+  transform: translateY(0);
+}
+
+/* Scale on hover - for buttons */
+.hover-scale {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-scale:active {
+  transform: scale(0.98);
+}
+
+/* Glow on hover - for primary actions */
+.hover-glow {
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.15s ease;
+}
+
+.hover-glow:hover {
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.3),
+    0 4px 12px hsl(var(--primary) / 0.25);
+}
+
+/* Shine effect on hover */
+.hover-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.hover-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.15),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.hover-shine:hover::after {
+  left: 100%;
+}
+
+/* ============================================
+   4. PREMIUM FOCUS STATES
+   ============================================ */
+
+/* Animated focus ring */
+.focus-ring-animated:focus-visible {
+  outline: none;
+  animation: focus-ring-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes focus-ring-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--primary));
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--primary)),
+      0 0 0 8px hsl(var(--primary) / 0.2);
+  }
+}
+
+/* Branded focus with transition */
+.focus-branded:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--primary));
+  transition: box-shadow 0.15s ease;
+}
+
+/* ============================================
+   5. LOADING ANIMATIONS
+   ============================================ */
+
+/* Premium shimmer effect */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Skeleton with gradient */
+.skeleton-premium {
+  position: relative;
+  overflow: hidden;
+  background: hsl(var(--muted));
+}
+
+.skeleton-premium::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--muted-foreground) / 0.08),
+    transparent
+  );
+  animation: skeleton-wave 1.6s linear 0.5s infinite;
+}
+
+@keyframes skeleton-wave {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Pulse dot loading */
+.loading-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.loading-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: loading-dot 1.4s infinite ease-in-out both;
+}
+
+.loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+.loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+.loading-dots span:nth-child(3) { animation-delay: 0s; }
+
+@keyframes loading-dot {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   6. PREMIUM TYPOGRAPHY
+   ============================================ */
+
+/* Text gradient for headers */
+.text-gradient-primary {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--primary) / 0.7) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-premium {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--foreground)) 0%,
+    hsl(var(--muted-foreground)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Balanced text for better line breaks */
+.text-balanced {
+  text-wrap: balance;
+}
+
+/* Better number typography */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.slashed-zero {
+  font-variant-numeric: slashed-zero;
+}
+
+/* Optical margin alignment for quotes */
+.hanging-punctuation {
+  hanging-punctuation: first last;
+}
+
+/* ============================================
+   7. GLASSMORPHISM
+   ============================================ */
+
+.glass {
+  background: hsl(var(--background) / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-subtle {
+  background: hsl(var(--background) / 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.glass-card {
+  background: hsl(var(--card) / 0.7);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid hsl(var(--border) / 0.5);
+}
+
+.dark .glass-card {
+  background: hsl(var(--card) / 0.6);
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+
+/* ============================================
+   8. PREMIUM SCROLLBAR
+   ============================================ */
+
+.scrollbar-premium::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-premium::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-premium::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.scrollbar-premium::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.4);
+  background-clip: content-box;
+}
+
+/* Hide scrollbar until hover */
+.scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-on-hover::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.scrollbar-on-hover:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.2);
+  background-clip: content-box;
+}
+
+/* ============================================
+   9. PREMIUM BADGES & PILLS
+   ============================================ */
+
+.badge-glow-success {
+  background: rgb(16 185 129 / 0.15);
+  color: rgb(16 185 129);
+  box-shadow: 0 0 12px rgb(16 185 129 / 0.3);
+}
+
+.badge-glow-warning {
+  background: rgb(245 158 11 / 0.15);
+  color: rgb(245 158 11);
+  box-shadow: 0 0 12px rgb(245 158 11 / 0.3);
+}
+
+.badge-glow-error {
+  background: rgb(239 68 68 / 0.15);
+  color: rgb(239 68 68);
+  box-shadow: 0 0 12px rgb(239 68 68 / 0.3);
+}
+
+/* Animated status indicator */
+.status-indicator {
+  position: relative;
+}
+
+.status-indicator::before {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status-indicator.online::before {
+  background: rgb(34 197 94);
+  box-shadow: 0 0 8px rgb(34 197 94 / 0.6);
+  animation: pulse-online 2s infinite;
+}
+
+@keyframes pulse-online {
+  0%, 100% {
+    box-shadow: 0 0 4px rgb(34 197 94 / 0.6);
+  }
+  50% {
+    box-shadow: 0 0 12px rgb(34 197 94 / 0.8);
+  }
+}
+
+/* ============================================
+   10. PREMIUM BUTTONS
+   ============================================ */
+
+.btn-premium {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.btn-premium:hover {
+  transform: translateY(-1px);
+}
+
+.btn-premium:active {
+  transform: translateY(0);
+}
+
+/* Primary button with glow */
+.btn-primary-glow {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--primary) / 0.9) 100%
+  );
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 0 0 1px hsl(var(--primary)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary-glow:hover {
+  box-shadow:
+    0 4px 12px hsl(var(--primary) / 0.4),
+    0 0 0 1px hsl(var(--primary)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   11. PREMIUM INPUTS
+   ============================================ */
+
+.input-premium {
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.input-premium:hover:not(:focus) {
+  border-color: hsl(var(--border) / 1.5);
+}
+
+.input-premium:focus {
+  border-color: hsl(var(--primary));
+  box-shadow:
+    0 0 0 3px hsl(var(--primary) / 0.1),
+    inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================
+   12. PREMIUM CARDS
+   ============================================ */
+
+.card-premium {
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s ease;
+}
+
+.card-premium:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px hsl(var(--border)),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 12px 24px rgba(0, 0, 0, 0.06);
+  border-color: hsl(var(--border) / 1.5);
+}
+
+.dark .card-premium:hover {
+  box-shadow:
+    0 0 0 1px hsl(var(--border)),
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 12px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* Interactive card with active state */
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-interactive:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* ============================================
+   13. MOTION PREFERENCES
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .shimmer,
+  .skeleton-premium::after,
+  .loading-dots span {
+    animation: none;
+  }
+}
