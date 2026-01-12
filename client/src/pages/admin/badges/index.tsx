@@ -1,21 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/use-toast";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -24,33 +15,52 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CreditCard, Plus, Trash2, Edit, RefreshCw, Shield } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CreditCard, Plus, Trash2, RefreshCw, Shield } from "lucide-react";
 import { InlineLoading } from "@/components/LoadingSpinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FormDialog, ConfirmDialog } from "@/components/ui/form-dialog";
+import { useCRUD } from "@/hooks/use-crud";
+
+interface BadgeItem {
+  id: string;
+  badgeNumber: string;
+  isActive: boolean;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  };
+}
+
+interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+}
 
 /**
  * Badge Management - For Executives
  * Create and manage employee badges for mobile app access
+ *
+ * Refactored to use reusable useCRUD hook and FormDialog components
  */
 export default function BadgeManagement() {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const [isCreating, setIsCreating] = useState(false);
+  // Form state
   const [badgeNumber, setBadgeNumber] = useState("");
-  const [selectedUser, setSelectedUser] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
 
-  // Fetch all badges
-  const { data: badgesData, isLoading } = useQuery({
-    queryKey: ["/api/admin/badges"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/badges");
-      if (!res.ok) throw new Error("Failed to fetch badges");
-      return res.json();
-    },
-  });
-
-  // Fetch users without badges
+  // Fetch users without badges for the dropdown
   const { data: usersData } = useQuery({
     queryKey: ["/api/admin/users?withoutBadge=true"],
     queryFn: async () => {
@@ -60,12 +70,18 @@ export default function BadgeManagement() {
     },
   });
 
-  const badges = badgesData?.badges || [];
-  const availableUsers = usersData?.users || [];
+  const availableUsers: User[] = usersData?.users || [];
 
-  // Create badge mutation
-  const createBadgeMutation = useMutation({
-    mutationFn: async (data: { badgeNumber: string; userId: string }) => {
+  // CRUD operations via hook
+  const crud = useCRUD<BadgeItem>({
+    queryKey: ["/api/admin/badges"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/badges");
+      if (!res.ok) throw new Error("Failed to fetch badges");
+      const data = await res.json();
+      return data.badges || [];
+    },
+    createFn: async (data) => {
       const res = await fetch("/api/admin/badges", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -77,50 +93,24 @@ export default function BadgeManagement() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/badges"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({
-        title: "Success",
-        description: "Badge created successfully",
-      });
-      setIsCreating(false);
-      setBadgeNumber("");
-      setSelectedUser("");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Deactivate badge mutation
-  const deactivateBadgeMutation = useMutation({
-    mutationFn: async (badgeId: string) => {
-      const res = await fetch(`/api/admin/badges/${badgeId}`, {
+    deleteFn: async (id) => {
+      const res = await fetch(`/api/admin/badges/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to deactivate badge");
-      return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/badges"] });
-      toast({
-        title: "Success",
-        description: "Badge deactivated successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    entityName: "Badge",
+    getId: (badge) => badge.id,
+    getName: (badge) => badge.badgeNumber,
   });
+
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!crud.isCreateOpen) {
+      setBadgeNumber("");
+      setSelectedUserId("");
+    }
+  }, [crud.isCreateOpen]);
 
   const generateBadgeNumber = () => {
     const prefix = "B";
@@ -128,27 +118,15 @@ export default function BadgeManagement() {
     setBadgeNumber(`${prefix}${number}`);
   };
 
-  const handleCreateBadge = () => {
-    if (!badgeNumber || !selectedUser) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    createBadgeMutation.mutate({ badgeNumber, userId: selectedUser });
+  const handleCreate = async () => {
+    await crud.create({ badgeNumber, userId: selectedUserId });
   };
 
-  const handleDeactivate = (badgeId: string) => {
-    if (confirm("Are you sure you want to deactivate this badge? The user will no longer be able to use mobile login.")) {
-      deactivateBadgeMutation.mutate(badgeId);
-    }
-  };
+  const activeBadges = crud.items.filter((b) => b.isActive);
 
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -159,20 +137,21 @@ export default function BadgeManagement() {
             Create and manage employee badges for mobile app access
           </p>
         </div>
-        <Button onClick={() => setIsCreating(true)}>
+        <Button onClick={crud.openCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Create Badge
         </Button>
       </div>
 
-      <Card className="border-blue-200 bg-blue-50/50">
+      {/* Info Card */}
+      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
         <CardHeader>
-          <CardTitle className="text-blue-900 flex items-center gap-2">
+          <CardTitle className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
             <Shield className="h-5 w-5" />
             Badge System
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-blue-800">
+        <CardContent className="text-sm text-blue-800 dark:text-blue-200">
           <p>
             Badges allow employees to log into the mobile operator app using their badge number and a 4-digit PIN.
             Each badge is unique and tied to a specific user account.
@@ -185,18 +164,18 @@ export default function BadgeManagement() {
         <CardHeader>
           <CardTitle>Active Badges</CardTitle>
           <CardDescription>
-            {badges.filter((b: any) => b.isActive).length} active badge{badges.filter((b: any) => b.isActive).length !== 1 ? 's' : ''}
+            {activeBadges.length} active badge{activeBadges.length !== 1 ? "s" : ""}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {crud.isLoading ? (
             <InlineLoading message="Loading badges..." />
-          ) : badges.length === 0 ? (
+          ) : crud.items.length === 0 ? (
             <EmptyState
               icon={CreditCard}
               title="No badges created"
               description="Create badges to enable mobile access for operators."
-              actions={[{ label: "Create Badge", onClick: () => setIsCreating(true), icon: Plus }]}
+              actions={[{ label: "Create Badge", onClick: crud.openCreate, icon: Plus }]}
               compact
             />
           ) : (
@@ -212,7 +191,7 @@ export default function BadgeManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {badges.map((badge: any) => (
+                {crud.items.map((badge) => (
                   <TableRow key={badge.id}>
                     <TableCell className="font-mono font-semibold">
                       <Badge variant="outline" className="text-base px-3 py-1">
@@ -237,7 +216,7 @@ export default function BadgeManagement() {
                           variant="ghost"
                           size="icon"
                           className="text-red-600"
-                          onClick={() => handleDeactivate(badge.id)}
+                          onClick={() => crud.openDelete(badge)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -252,70 +231,67 @@ export default function BadgeManagement() {
       </Card>
 
       {/* Create Badge Dialog */}
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              Create New Badge
-            </DialogTitle>
-            <DialogDescription>
-              Assign a badge number to an employee for mobile app access
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Badge Number *</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={badgeNumber}
-                  onChange={(e) => setBadgeNumber(e.target.value)}
-                  placeholder="B10001"
-                  className="font-mono"
-                />
-                <Button type="button" variant="outline" onClick={generateBadgeNumber}>
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                5-digit badge number starting with 'B'
-              </p>
+      <FormDialog
+        open={crud.isCreateOpen}
+        onOpenChange={(open) => !open && crud.closeCreate()}
+        title="Create New Badge"
+        description="Assign a badge number to an employee for mobile app access"
+        onSubmit={handleCreate}
+        isSubmitting={crud.isCreating}
+        submitLabel="Create Badge"
+        submitDisabled={!badgeNumber || !selectedUserId}
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Badge Number *</Label>
+            <div className="flex gap-2">
+              <Input
+                value={badgeNumber}
+                onChange={(e) => setBadgeNumber(e.target.value)}
+                placeholder="B10001"
+                className="font-mono"
+              />
+              <Button type="button" variant="outline" onClick={generateBadgeNumber}>
+                <RefreshCw className="h-4 w-4" />
+              </Button>
             </div>
-
-            <div className="space-y-2">
-              <Label>Assign to User *</Label>
-              <select
-                value={selectedUser}
-                onChange={(e) => setSelectedUser(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Select a user...</option>
-                {availableUsers.map((user: any) => (
-                  <option key={user.id} value={user.id}>
-                    {user.firstName} {user.lastName} - {user.email} ({user.role})
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground">
-                Only showing users without active badges
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              5-digit badge number starting with &apos;B&apos;
+            </p>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreating(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateBadge}
-              disabled={!badgeNumber || !selectedUser || createBadgeMutation.isPending}
-            >
-              {createBadgeMutation.isPending ? "Creating..." : "Create Badge"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <Label>Assign to User *</Label>
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a user..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availableUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.firstName} {user.lastName} - {user.email} ({user.role})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Only showing users without active badges
+            </p>
+          </div>
+        </div>
+      </FormDialog>
+
+      {/* Deactivate Confirmation Dialog */}
+      <ConfirmDialog
+        open={crud.isDeleteOpen}
+        onOpenChange={crud.closeDelete}
+        title="Deactivate Badge"
+        description={`Are you sure you want to deactivate badge "${crud.deletingItem?.badgeNumber}"? The user will no longer be able to use mobile login.`}
+        onConfirm={crud.remove}
+        confirmLabel="Deactivate"
+        isLoading={crud.isDeleting}
+        variant="destructive"
+      />
     </div>
   );
 }
