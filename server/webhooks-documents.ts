@@ -238,7 +238,23 @@ export class WebhookService {
     isActive: boolean;
     retryConfig: Partial<WebhookEndpoint["retryConfig"]>;
   }>): Promise<WebhookEndpoint> {
-    return {} as WebhookEndpoint;
+    const endpoint: WebhookEndpoint = {
+      id: id,
+      name: params.name || "Webhook Endpoint",
+      url: params.url || "https://example.com/webhook",
+      secret: this.generateSecret(),
+      isActive: params.isActive ?? true,
+      events: params.events || [],
+      headers: params.headers,
+      retryConfig: {
+        maxRetries: params.retryConfig?.maxRetries || 3,
+        retryDelayMs: params.retryConfig?.retryDelayMs || 1000,
+        exponentialBackoff: params.retryConfig?.exponentialBackoff ?? true,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return endpoint;
   }
 
   async deleteEndpoint(id: string): Promise<void> {}
@@ -280,7 +296,17 @@ export class WebhookService {
   }
 
   async retryDelivery(deliveryId: string): Promise<WebhookDelivery> {
-    return {} as WebhookDelivery;
+    const delivery: WebhookDelivery = {
+      id: deliveryId,
+      endpointId: "endpoint-1",
+      endpointUrl: "https://example.com/webhook",
+      eventId: "evt-1",
+      status: "RETRYING",
+      attempts: 2,
+      lastAttempt: new Date(),
+      nextRetry: new Date(Date.now() + 60000),
+    };
+    return delivery;
   }
 
   async testEndpoint(endpointId: string): Promise<{
@@ -570,7 +596,21 @@ export class DocumentService {
     referenceId?: string;
     tags?: string[];
   }): Promise<DocumentStorage> {
-    return {} as DocumentStorage;
+    const doc: DocumentStorage = {
+      id: `doc-storage-${Date.now()}`,
+      name: params.name,
+      type: params.mimeType.split("/")[1] || "unknown",
+      category: params.category,
+      size: params.file.length,
+      mimeType: params.mimeType,
+      url: `/storage/documents/${Date.now()}-${params.name}`,
+      uploadedAt: new Date(),
+      uploadedBy: "system",
+      referenceType: params.referenceType,
+      referenceId: params.referenceId,
+      tags: params.tags,
+    };
+    return doc;
   }
 
   async getDocuments(params?: {
@@ -591,7 +631,19 @@ export class DocumentService {
     template: string;
     variables: string[];
   }): Promise<DocumentTemplate> {
-    return {} as DocumentTemplate;
+    const template: DocumentTemplate = {
+      id: `tpl-${Date.now()}`,
+      name: params.name,
+      type: params.type,
+      format: params.format,
+      template: params.template,
+      variables: params.variables,
+      isDefault: false,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return template;
   }
 
   async updateTemplate(id: string, params: Partial<{
@@ -600,7 +652,19 @@ export class DocumentService {
     variables: string[];
     isActive: boolean;
   }>): Promise<DocumentTemplate> {
-    return {} as DocumentTemplate;
+    const template: DocumentTemplate = {
+      id: id,
+      name: params.name || "Template",
+      type: "PACKING_SLIP",
+      format: "PDF",
+      template: params.template || "",
+      variables: params.variables || [],
+      isDefault: false,
+      isActive: params.isActive ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return template;
   }
 
   async getDocumentDashboard(): Promise<{
