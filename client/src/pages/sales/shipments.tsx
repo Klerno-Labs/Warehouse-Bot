@@ -53,6 +53,9 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MetricCard, MetricGrid } from "@/components/dashboard/metric-card";
 
 interface ShipmentLine {
   id: string;
@@ -264,40 +267,36 @@ export default function ShipmentsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
-              {shipments.filter((s) => s.status === "PENDING").length}
-            </div>
-            <p className="text-sm text-muted-foreground">Pending</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold">
-              {shipments.filter((s) => s.status === "PACKED").length}
-            </div>
-            <p className="text-sm text-muted-foreground">Packed</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-blue-600">
-              {shipments.filter((s) => s.status === "SHIPPED").length}
-            </div>
-            <p className="text-sm text-muted-foreground">In Transit</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-2xl font-bold text-green-600">
-              {shipments.filter((s) => s.status === "DELIVERED").length}
-            </div>
-            <p className="text-sm text-muted-foreground">Delivered</p>
-          </CardContent>
-        </Card>
-      </div>
+      <MetricGrid columns={4}>
+        <MetricCard
+          title="Pending"
+          value={shipments.filter((s) => s.status === "PENDING").length}
+          icon={Clock}
+          variant="warning"
+          animate={false}
+        />
+        <MetricCard
+          title="Packed"
+          value={shipments.filter((s) => s.status === "PACKED").length}
+          icon={Package}
+          variant="primary"
+          animate={false}
+        />
+        <MetricCard
+          title="In Transit"
+          value={shipments.filter((s) => s.status === "SHIPPED").length}
+          icon={Truck}
+          variant="primary"
+          animate={false}
+        />
+        <MetricCard
+          title="Delivered"
+          value={shipments.filter((s) => s.status === "DELIVERED").length}
+          icon={CheckCircle2}
+          variant="success"
+          animate={false}
+        />
+      </MetricGrid>
 
       {/* Filters */}
       <Card>
@@ -339,11 +338,14 @@ export default function ShipmentsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            <InlineLoading message="Loading shipments..." />
           ) : filteredShipments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No shipments found
-            </div>
+            <EmptyState
+              icon={Truck}
+              title="No shipments yet"
+              description="Ship orders to see shipments here."
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

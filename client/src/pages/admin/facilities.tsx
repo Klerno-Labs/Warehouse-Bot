@@ -1,20 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Plus, ChevronRight, Settings, MapPin, Trash2, Edit } from "lucide-react";
+import { Building2, Plus, Settings, MapPin, Trash2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -28,6 +20,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { FormDialog, ConfirmDialog } from "@/components/ui/form-dialog";
+import { MetricCard, MetricGrid } from "@/components/dashboard/metric-card";
 
 interface Workcell {
   id: string;
@@ -85,16 +79,35 @@ const initialFacilitiesData = {
 
 export default function AdminFacilitiesPage() {
   const [facilitiesData, setFacilitiesData] = useState(initialFacilitiesData);
+
+  // Dialog states
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [addWorkcellOpen, setAddWorkcellOpen] = useState(false);
   const [editWorkcellOpen, setEditWorkcellOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  // Selection states
   const [selectedDepartment, setSelectedDepartment] = useState<string>("");
   const [selectedWorkcell, setSelectedWorkcell] = useState<Workcell | null>(null);
+  const [workcellToDelete, setWorkcellToDelete] = useState<{ deptId: string; workcell: Workcell } | null>(null);
+
+  // Form state
   const [newWorkcell, setNewWorkcell] = useState({
     name: "",
     status: "active",
     devices: 1,
   });
+
+  // Computed stats
+  const totalWorkcells = facilitiesData.departments.reduce((acc, d) => acc + d.workcells.length, 0);
+  const activeWorkcells = facilitiesData.departments.reduce(
+    (acc, d) => acc + d.workcells.filter((w) => w.status === "active").length,
+    0
+  );
+  const totalDevices = facilitiesData.departments.reduce(
+    (acc, d) => acc + d.workcells.reduce((a, w) => a + w.devices, 0),
+    0
+  );
 
   const handleAddWorkcell = () => {
     if (!selectedDepartment || !newWorkcell.name) return;
@@ -106,10 +119,7 @@ export default function AdminFacilitiesPage() {
         dept.id === selectedDepartment
           ? {
               ...dept,
-              workcells: [
-                ...dept.workcells,
-                { id: newId, ...newWorkcell },
-              ],
+              workcells: [...dept.workcells, { id: newId, ...newWorkcell }],
             }
           : dept
       ),
@@ -120,20 +130,23 @@ export default function AdminFacilitiesPage() {
     setAddWorkcellOpen(false);
   };
 
-  const handleDeleteWorkcell = (deptId: string, workcellId: string) => {
-    if (!confirm("Are you sure you want to delete this workcell?")) return;
+  const handleDeleteWorkcell = () => {
+    if (!workcellToDelete) return;
 
     setFacilitiesData((prev) => ({
       ...prev,
       departments: prev.departments.map((dept) =>
-        dept.id === deptId
+        dept.id === workcellToDelete.deptId
           ? {
               ...dept,
-              workcells: dept.workcells.filter((w) => w.id !== workcellId),
+              workcells: dept.workcells.filter((w) => w.id !== workcellToDelete.workcell.id),
             }
           : dept
       ),
     }));
+
+    setWorkcellToDelete(null);
+    setDeleteConfirmOpen(false);
   };
 
   const handleEditWorkcell = () => {
@@ -164,28 +177,33 @@ export default function AdminFacilitiesPage() {
     setEditWorkcellOpen(true);
   };
 
+  const openDeleteDialog = (deptId: string, workcell: Workcell) => {
+    setWorkcellToDelete({ deptId, workcell });
+    setDeleteConfirmOpen(true);
+  };
+
   return (
     <div className="flex flex-col gap-6 p-6">
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight" data-testid="text-facilities-title">
-              Facilities
-            </h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Facilities</h1>
             <p className="text-sm text-muted-foreground">
               Configure sites, departments, workcells, and devices
             </p>
           </div>
         </div>
-        <Button onClick={() => setAddWorkcellOpen(true)} data-testid="button-add-workcell">
+        <Button onClick={() => setAddWorkcellOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Add Workcell
         </Button>
       </div>
 
+      {/* Site Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
@@ -209,7 +227,7 @@ export default function AdminFacilitiesPage() {
           <Accordion type="multiple" className="w-full" defaultValue={["1"]}>
             {facilitiesData.departments.map((dept) => (
               <AccordionItem key={dept.id} value={dept.id}>
-                <AccordionTrigger className="hover:no-underline" data-testid={`accordion-dept-${dept.id}`}>
+                <AccordionTrigger className="hover:no-underline">
                   <div className="flex items-center gap-3">
                     <span className="font-medium">{dept.name}</span>
                     <Badge variant="secondary" className="font-normal">
@@ -222,8 +240,7 @@ export default function AdminFacilitiesPage() {
                     {dept.workcells.map((workcell) => (
                       <div
                         key={workcell.id}
-                        className="flex items-center justify-between rounded-md border p-3 hover-elevate"
-                        data-testid={`workcell-${workcell.id}`}
+                        className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-center gap-3">
                           <div
@@ -243,9 +260,7 @@ export default function AdminFacilitiesPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge
-                            variant={workcell.status === "active" ? "default" : "secondary"}
-                          >
+                          <Badge variant={workcell.status === "active" ? "default" : "secondary"}>
                             {workcell.status}
                           </Badge>
                           <Button
@@ -258,7 +273,7 @@ export default function AdminFacilitiesPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteWorkcell(dept.id, workcell.id)}
+                            onClick={() => openDeleteDialog(dept.id, workcell)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -273,186 +288,158 @@ export default function AdminFacilitiesPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Workcells
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold" data-testid="text-total-workcells">
-              {facilitiesData.departments.reduce((acc, d) => acc + d.workcells.length, 0)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active Workcells
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-green-600" data-testid="text-active-workcells">
-              {facilitiesData.departments.reduce(
-                (acc, d) => acc + d.workcells.filter((w) => w.status === "active").length,
-                0
-              )}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Devices
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold" data-testid="text-total-devices">
-              {facilitiesData.departments.reduce(
-                (acc, d) => acc + d.workcells.reduce((a, w) => a + w.devices, 0),
-                0
-              )}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Stats Grid */}
+      <MetricGrid columns={3}>
+        <MetricCard
+          title="Total Workcells"
+          value={totalWorkcells}
+          icon={Building2}
+          animate={false}
+        />
+        <MetricCard
+          title="Active Workcells"
+          value={activeWorkcells}
+          icon={Building2}
+          variant="success"
+          animate={false}
+        />
+        <MetricCard
+          title="Total Devices"
+          value={totalDevices}
+          icon={Settings}
+          animate={false}
+        />
+      </MetricGrid>
 
       {/* Settings Dialog */}
-      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Facility Settings</DialogTitle>
-            <DialogDescription>
-              Manage your warehouse configuration and workcells
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label>Facility Name</Label>
-              <Input
-                value={facilitiesData.site.name}
-                onChange={(e) =>
-                  setFacilitiesData((prev) => ({
-                    ...prev,
-                    site: { ...prev.site, name: e.target.value },
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Address</Label>
-              <Input
-                value={facilitiesData.site.address}
-                onChange={(e) =>
-                  setFacilitiesData((prev) => ({
-                    ...prev,
-                    site: { ...prev.site, address: e.target.value },
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Departments & Workcells</Label>
-                <Button size="sm" onClick={() => setAddWorkcellOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Workcell
-                </Button>
-              </div>
-              {facilitiesData.departments.map((dept) => (
-                <div key={dept.id} className="rounded-lg border p-4 space-y-3">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    {dept.name}
-                    <Badge variant="secondary">{dept.workcells.length} workcells</Badge>
-                  </h4>
-                  <div className="space-y-2 pl-4">
-                    {dept.workcells.map((workcell) => (
-                      <div
-                        key={workcell.id}
-                        className="flex items-center justify-between rounded-md border p-2 text-sm"
-                      >
-                        <span>{workcell.name}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {workcell.devices} devices
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEditDialog(dept.id, workcell)}
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleDeleteWorkcell(dept.id, workcell.id)}
-                          >
-                            <Trash2 className="h-3 w-3 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+      <FormDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        title="Facility Settings"
+        description="Manage your warehouse configuration"
+        size="lg"
+        onSubmit={() => setSettingsOpen(false)}
+        submitLabel="Save Changes"
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Facility Name</Label>
+            <Input
+              value={facilitiesData.site.name}
+              onChange={(e) =>
+                setFacilitiesData((prev) => ({
+                  ...prev,
+                  site: { ...prev.site, name: e.target.value },
+                }))
+              }
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsOpen(false)}>
-              Close
-            </Button>
-            <Button onClick={() => setSettingsOpen(false)}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <Label>Address</Label>
+            <Input
+              value={facilitiesData.site.address}
+              onChange={(e) =>
+                setFacilitiesData((prev) => ({
+                  ...prev,
+                  site: { ...prev.site, address: e.target.value },
+                }))
+              }
+            />
+          </div>
+        </div>
+      </FormDialog>
 
       {/* Add Workcell Dialog */}
-      <Dialog open={addWorkcellOpen} onOpenChange={setAddWorkcellOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Workcell</DialogTitle>
-            <DialogDescription>
-              Create a new workcell in a department
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Department</Label>
-              <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {facilitiesData.departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <FormDialog
+        open={addWorkcellOpen}
+        onOpenChange={setAddWorkcellOpen}
+        title="Add New Workcell"
+        description="Create a new workcell in a department"
+        onSubmit={handleAddWorkcell}
+        submitLabel="Add Workcell"
+        submitDisabled={!selectedDepartment || !newWorkcell.name}
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Department</Label>
+            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                {facilitiesData.departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Workcell Name</Label>
+            <Input
+              placeholder="e.g., Assembly Line 2"
+              value={newWorkcell.name}
+              onChange={(e) => setNewWorkcell((prev) => ({ ...prev, name: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select
+              value={newWorkcell.status}
+              onValueChange={(value) => setNewWorkcell((prev) => ({ ...prev, status: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="maintenance">Maintenance</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Number of Devices</Label>
+            <Input
+              type="number"
+              min="0"
+              value={newWorkcell.devices}
+              onChange={(e) =>
+                setNewWorkcell((prev) => ({ ...prev, devices: parseInt(e.target.value) || 0 }))
+              }
+            />
+          </div>
+        </div>
+      </FormDialog>
+
+      {/* Edit Workcell Dialog */}
+      <FormDialog
+        open={editWorkcellOpen}
+        onOpenChange={setEditWorkcellOpen}
+        title="Edit Workcell"
+        description="Update workcell details"
+        onSubmit={handleEditWorkcell}
+        submitLabel="Save Changes"
+        submitDisabled={!selectedWorkcell?.name}
+      >
+        {selectedWorkcell && (
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label>Workcell Name</Label>
               <Input
-                placeholder="e.g., Assembly Line 2"
-                value={newWorkcell.name}
+                value={selectedWorkcell.name}
                 onChange={(e) =>
-                  setNewWorkcell((prev) => ({ ...prev, name: e.target.value }))
+                  setSelectedWorkcell((prev) => (prev ? { ...prev, name: e.target.value } : null))
                 }
               />
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
               <Select
-                value={newWorkcell.status}
+                value={selectedWorkcell.status}
                 onValueChange={(value) =>
-                  setNewWorkcell((prev) => ({ ...prev, status: value }))
+                  setSelectedWorkcell((prev) => (prev ? { ...prev, status: value } : null))
                 }
               >
                 <SelectTrigger>
@@ -470,92 +457,28 @@ export default function AdminFacilitiesPage() {
               <Input
                 type="number"
                 min="0"
-                value={newWorkcell.devices}
+                value={selectedWorkcell.devices}
                 onChange={(e) =>
-                  setNewWorkcell((prev) => ({
-                    ...prev,
-                    devices: parseInt(e.target.value) || 0,
-                  }))
+                  setSelectedWorkcell((prev) =>
+                    prev ? { ...prev, devices: parseInt(e.target.value) || 0 } : null
+                  )
                 }
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddWorkcellOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddWorkcell}>Add Workcell</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </FormDialog>
 
-      {/* Edit Workcell Dialog */}
-      <Dialog open={editWorkcellOpen} onOpenChange={setEditWorkcellOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Workcell</DialogTitle>
-            <DialogDescription>
-              Update workcell details
-            </DialogDescription>
-          </DialogHeader>
-          {selectedWorkcell && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Workcell Name</Label>
-                <Input
-                  value={selectedWorkcell.name}
-                  onChange={(e) =>
-                    setSelectedWorkcell((prev) =>
-                      prev ? { ...prev, name: e.target.value } : null
-                    )
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select
-                  value={selectedWorkcell.status}
-                  onValueChange={(value) =>
-                    setSelectedWorkcell((prev) =>
-                      prev ? { ...prev, status: value } : null
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Number of Devices</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={selectedWorkcell.devices}
-                  onChange={(e) =>
-                    setSelectedWorkcell((prev) =>
-                      prev
-                        ? { ...prev, devices: parseInt(e.target.value) || 0 }
-                        : null
-                    )
-                  }
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditWorkcellOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditWorkcell}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete Workcell"
+        description={`Are you sure you want to delete "${workcellToDelete?.workcell.name}"? This action cannot be undone.`}
+        onConfirm={handleDeleteWorkcell}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

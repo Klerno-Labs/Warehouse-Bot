@@ -9,6 +9,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { InstallPWA } from "@/components/pwa/InstallPWA";
 import { registerServiceWorker } from "@/lib/pwa/registerServiceWorker";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { KeyboardShortcutsProvider } from "@/components/ui/keyboard-shortcuts";
+import { UndoRedoProvider } from "@/lib/undo-redo";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -21,8 +24,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <TooltipProvider>
         <ErrorBoundary>
           <AuthProvider>
-            {children}
-            <InstallPWA />
+            <OnboardingProvider>
+              <KeyboardShortcutsProvider>
+                <UndoRedoProvider>
+                  {children}
+                  <InstallPWA />
+                </UndoRedoProvider>
+              </KeyboardShortcutsProvider>
+            </OnboardingProvider>
           </AuthProvider>
         </ErrorBoundary>
         <Toaster />

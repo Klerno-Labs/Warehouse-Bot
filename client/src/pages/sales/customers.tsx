@@ -37,6 +37,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/form-dialog";
 import {
   Table,
   TableBody,
@@ -45,6 +46,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Tabs,
   TabsContent,
@@ -305,11 +308,15 @@ export default function CustomersPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            <InlineLoading message="Loading customers..." />
           ) : filteredCustomers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No customers found
-            </div>
+            <EmptyState
+              icon={Users}
+              title="No customers yet"
+              description="Add your first customer to start selling."
+              actions={[{ label: "Add Customer", onClick: () => { setSelectedCustomer(null); setFormData(emptyCustomer); setIsDialogOpen(true); }, icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -710,29 +717,15 @@ export default function CustomersPage() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Customer</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete {selectedCustomer?.name}? This action
-              cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => selectedCustomer && deleteMutation.mutate(selectedCustomer.id)}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        title="Delete Customer"
+        description={`Are you sure you want to delete ${selectedCustomer?.name}? This action cannot be undone.`}
+        onConfirm={() => selectedCustomer && deleteMutation.mutate(selectedCustomer.id)}
+        confirmLabel={deleteMutation.isPending ? "Deleting..." : "Delete"}
+        variant="destructive"
+      />
     </div>
   );
 }

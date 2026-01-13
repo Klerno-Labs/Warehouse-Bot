@@ -18,7 +18,9 @@ import {
   AlertTriangle,
   Users,
   Calendar,
+  Scan,
 } from "lucide-react";
+import { MetricCard, MetricGrid } from "@/components/dashboard/metric-card";
 import type { Department } from "@shared/job-tracking";
 import { DEPARTMENT_CONFIGS } from "@shared/job-tracking";
 
@@ -123,61 +125,39 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Overall Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Total Completed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{overall.totalCompleted}</div>
-            <p className="text-xs text-muted-foreground mt-1">operations</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Throughput
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{overall.throughput}</div>
-            <p className="text-xs text-muted-foreground mt-1">ops/day</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Avg Cycle Time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-600">
-              {formatTime(overall.avgJobCompletionTime)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">per operation</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Total Scans
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{overall.totalScans}</div>
-            <p className="text-xs text-muted-foreground mt-1">scan events</p>
-          </CardContent>
-        </Card>
-      </div>
+      <MetricGrid columns={4}>
+        <MetricCard
+          title="Total Completed"
+          value={overall.totalCompleted}
+          subtitle="operations"
+          icon={Activity}
+          animate={false}
+        />
+        <MetricCard
+          title="Throughput"
+          value={overall.throughput}
+          subtitle="ops/day"
+          icon={TrendingUp}
+          variant="primary"
+          animate={false}
+        />
+        <MetricCard
+          title="Avg Cycle Time"
+          value={formatTime(overall.avgJobCompletionTime)}
+          subtitle="per operation"
+          icon={Clock}
+          variant="warning"
+          animate={false}
+        />
+        <MetricCard
+          title="Total Scans"
+          value={overall.totalScans}
+          subtitle="scan events"
+          icon={Scan}
+          variant="success"
+          animate={false}
+        />
+      </MetricGrid>
 
       {/* Bottlenecks Alert */}
       {bottlenecks.length > 0 && (

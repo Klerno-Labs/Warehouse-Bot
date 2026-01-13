@@ -42,6 +42,8 @@ import {
   Truck,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"];
 
@@ -227,14 +229,7 @@ export default function PurchasingAnalyticsPage() {
   if (isLoading) {
     return (
       <div className="p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 w-64 bg-gray-200 rounded" />
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg" />
-            ))}
-          </div>
-        </div>
+        <InlineLoading message="Loading purchasing analytics..." />
       </div>
     );
   }
@@ -388,8 +383,13 @@ export default function PurchasingAnalyticsPage() {
               <SupplierPerformanceCard key={supplier.supplierCode} supplier={supplier} />
             ))}
             {suppliers.length === 0 && (
-              <div className="col-span-full text-center py-12 text-muted-foreground">
-                No supplier data for this period
+              <div className="col-span-full">
+                <EmptyState
+                  icon={Building2}
+                  title="No supplier data"
+                  description="No supplier activity recorded for this period."
+                  compact
+                />
               </div>
             )}
           </div>
@@ -473,9 +473,12 @@ export default function PurchasingAnalyticsPage() {
                   </div>
                 ))}
                 {orders.length === 0 && (
-                  <div className="text-center py-12 text-muted-foreground">
-                    No orders found for this period
-                  </div>
+                  <EmptyState
+                    icon={ShoppingCart}
+                    title="No orders found"
+                    description="No purchase orders placed during this period."
+                    compact
+                  />
                 )}
               </div>
             </CardContent>

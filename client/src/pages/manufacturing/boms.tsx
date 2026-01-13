@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Plus, Trash2, Edit, Copy, CheckCircle } from "lucide-react";
+import { FormDialog } from "@/components/ui/form-dialog";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type BOMStatus = "DRAFT" | "ACTIVE" | "INACTIVE" | "SUPERSEDED";
 type UOM = "EA" | "FT" | "YD" | "ROLL";
@@ -657,11 +660,19 @@ export default function BOMsPage() {
         </CardHeader>
         <CardContent>
           {isLoadingBOMs ? (
-            <div className="text-center py-8">Loading...</div>
+            <InlineLoading message="Loading BOMs..." />
           ) : filteredBOMs.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No BOMs found
-            </div>
+            <EmptyState
+              icon={FileText}
+              title="No BOMs found"
+              description={statusFilter !== "ALL" || itemFilter !== "ALL"
+                ? "Try adjusting your filters"
+                : "Create your first Bill of Materials to define production components"}
+              actions={statusFilter === "ALL" && itemFilter === "ALL"
+                ? [{ label: "New BOM", onClick: () => setIsCreateDialogOpen(true), icon: Plus }]
+                : undefined}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

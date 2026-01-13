@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/form-dialog";
 import {
   Select,
   SelectContent,
@@ -57,6 +58,7 @@ export default function DepartmentUserManagement() {
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUser, setEditingUser] = useState<DepartmentUser | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [userToDelete, setUserToDelete] = useState<DepartmentUser | null>(null);
 
   // Form state
   const [email, setEmail] = useState("");
@@ -172,9 +174,10 @@ export default function DepartmentUserManagement() {
     });
   };
 
-  const handleDeleteUser = (userId: string) => {
-    if (confirm("Are you sure you want to remove this user?")) {
-      deleteUserMutation.mutate(userId);
+  const handleDeleteUser = () => {
+    if (userToDelete) {
+      deleteUserMutation.mutate(userToDelete.id);
+      setUserToDelete(null);
     }
   };
 
@@ -276,32 +279,32 @@ export default function DepartmentUserManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {departmentUsers.map((user) => (
-                <TableRow key={user.id}>
+              {departmentUsers.map((depUser) => (
+                <TableRow key={depUser.id}>
                   <TableCell className="font-medium">
-                    {user.firstName} {user.lastName}
+                    {depUser.firstName} {depUser.lastName}
                   </TableCell>
-                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{depUser.email}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{user.badgeNumber}</Badge>
+                    <Badge variant="outline">{depUser.badgeNumber}</Badge>
                   </TableCell>
-                  <TableCell>{user.role}</TableCell>
-                  <TableCell>{user.department}</TableCell>
+                  <TableCell>{depUser.role}</TableCell>
+                  <TableCell>{depUser.department}</TableCell>
                   <TableCell>
-                    <Badge variant={user.isActive ? "default" : "secondary"}>
-                      {user.isActive ? "Active" : "Inactive"}
+                    <Badge variant={depUser.isActive ? "default" : "secondary"}>
+                      {depUser.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => setEditingUser(user)}>
+                      <Button variant="ghost" size="icon" onClick={() => setEditingUser(depUser)}>
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="text-red-600"
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => setUserToDelete(depUser)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -454,6 +457,17 @@ export default function DepartmentUserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete User Confirmation */}
+      <ConfirmDialog
+        open={!!userToDelete}
+        onOpenChange={(open) => !open && setUserToDelete(null)}
+        title="Remove User"
+        description={`Are you sure you want to remove ${userToDelete?.firstName} ${userToDelete?.lastName} from this department? This action cannot be undone.`}
+        onConfirm={handleDeleteUser}
+        confirmLabel="Remove"
+        variant="destructive"
+      />
     </div>
   );
 }

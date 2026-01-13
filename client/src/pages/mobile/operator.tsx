@@ -25,6 +25,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { QRScanner } from "@/components/qr-scanner";
+import { ConfirmDialog } from "@/components/ui/form-dialog";
 
 interface JobData {
   id: string;
@@ -65,6 +66,7 @@ export default function MobileOperatorApp() {
   const [scannedJobId, setScannedJobId] = useState<string | null>(null);
   const [newNote, setNewNote] = useState("");
   const [noteType, setNoteType] = useState<"info" | "issue" | "part_replacement">("info");
+  const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
 
   // Get user department from mobile login
   const [userDepartment, setUserDepartment] = useState<string | null>(null);
@@ -156,9 +158,8 @@ export default function MobileOperatorApp() {
   };
 
   const handleCompleteJob = () => {
-    if (confirm("Mark this job as complete?")) {
-      completeJobMutation.mutate();
-    }
+    completeJobMutation.mutate();
+    setShowCompleteConfirm(false);
   };
 
   // No job scanned - Scanner view
@@ -484,7 +485,7 @@ export default function MobileOperatorApp() {
           </Button>
           <Button
             className="flex-1 h-12"
-            onClick={handleCompleteJob}
+            onClick={() => setShowCompleteConfirm(true)}
             disabled={completeJobMutation.isPending}
           >
             <CheckCircle className="mr-2 h-5 w-5" />
@@ -492,6 +493,17 @@ export default function MobileOperatorApp() {
           </Button>
         </div>
       </div>
+
+      {/* Complete Job Confirmation */}
+      <ConfirmDialog
+        open={showCompleteConfirm}
+        onOpenChange={setShowCompleteConfirm}
+        title="Complete Job"
+        description="Mark this job as complete? This action will move the job to the next stage."
+        onConfirm={handleCompleteJob}
+        confirmLabel={completeJobMutation.isPending ? "Completing..." : "Complete"}
+        variant="default"
+      />
     </div>
   );
 }

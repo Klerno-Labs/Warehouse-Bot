@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Package } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Receipt = {
   id: string;
@@ -88,11 +90,14 @@ export default function ReceiptsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8">Loading receipts...</div>
+            <InlineLoading message="Loading receipts..." />
           ) : filteredReceipts.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No receipts found. Receive items from purchase orders to create receipts.
-            </div>
+            <EmptyState
+              icon={Package}
+              title="No receipts yet"
+              description="Receive items from purchase orders to create receipts."
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

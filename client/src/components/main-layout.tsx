@@ -1,7 +1,8 @@
-import { Search, Bell, HelpCircle, Command, Sparkles } from "lucide-react";
+import { Menu, Search, Bell, HelpCircle, Command } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { CompanySwitcher } from "@/components/company-switcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,9 +24,9 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBranding } from "@/hooks/useBranding";
-import { cn } from "@/lib/utils";
 
 const breadcrumbLabels: Record<string, string> = {
+  // Core modules
   modules: "Modules",
   admin: "Administration",
   manufacturing: "Manufacturing",
@@ -33,34 +34,59 @@ const breadcrumbLabels: Record<string, string> = {
   inventory: "Inventory",
   jobs: "Jobs",
   purchasing: "Purchasing",
+  sales: "Sales",
+
+  // Operations
   "cycle-counts": "Cycle Counts",
   maintenance: "Maintenance",
-  "sales-atp": "Sales ATP",
-  dashboards: "Dashboards",
-  users: "Users",
-  facilities: "Facilities",
-  audit: "Audit Log",
-  settings: "Settings",
+  "job-scanner": "Job Scanner",
+
+  // Purchasing
+  "purchase-orders": "Purchase Orders",
+  receipts: "Receipts",
+  suppliers: "Suppliers",
+
+  // Sales
+  "sales-pit": "Sales Pit",
+  customers: "Customers",
+  orders: "Orders",
+  shipments: "Shipments",
+
+  // Manufacturing
+  "production-board": "Production Board",
+  "production-orders": "Production Orders",
+  boms: "Bills of Materials",
+  "component-tracking": "Component Tracking",
+
+  // Inventory
   items: "Items",
   locations: "Locations",
   balances: "Balances",
   events: "Events",
-  "reason-codes": "Reason Codes",
-  "production-board": "Production Board",
-  "job-scanner": "Job Scanner",
-  analytics: "Analytics",
-  "component-tracking": "Component Tracking",
-  "dba-import": "DBA Import",
-  sales: "Sales",
-  customers: "Customers",
-  orders: "Orders",
-  shipments: "Shipments",
-  suppliers: "Suppliers",
-  receipts: "Receipts",
-  "purchase-orders": "Purchase Orders",
-  engineering: "Engineering",
-  "sales-pit": "Sales Pit",
+  costs: "Costs",
+  alerts: "Alerts",
   reports: "Reports",
+  "reason-codes": "Reason Codes",
+  forecasting: "Forecasting",
+
+  // Admin
+  users: "Users",
+  facilities: "Facilities",
+  audit: "Audit Log",
+  settings: "Settings",
+  "dba-import": "DBA Import",
+  "custom-roles": "Custom Roles",
+  departments: "Departments",
+  "department-users": "Department Users",
+  badges: "Badge Management",
+  roles: "Roles",
+
+  // Special
+  engineering: "Engineering",
+  "super-admin": "Super Admin",
+  analytics: "Analytics",
+  dashboards: "Dashboards",
+  help: "Help & Support",
 };
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
@@ -92,17 +118,10 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-screen w-full items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-primary animate-pulse" />
-            </div>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-24" />
-          </div>
+          <Skeleton className="h-10 w-10 rounded-md" />
+          <Skeleton className="h-4 w-32" />
         </div>
       </div>
     );
@@ -112,142 +131,82 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
       <div className="flex h-screen w-full bg-background">
         <AppSidebar enabledModules={enabledModules} />
-        <SidebarInset className="flex flex-1 flex-col overflow-hidden">
-          {/* Premium Header */}
-          <header className={cn(
-            "sticky top-0 z-50 flex h-14 items-center gap-4 px-4 lg:px-6",
-            "border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-          )}>
-            {/* Left Section */}
-            <div className="flex items-center gap-3">
-              <SidebarTrigger
-                data-testid="button-sidebar-toggle"
-                className={cn(
-                  "h-8 w-8 rounded-lg transition-colors",
-                  "hover:bg-accent text-muted-foreground hover:text-foreground"
-                )}
-              />
+        <SidebarInset className="flex flex-1 flex-col">
+          {/* Elite Header - Elevated with subtle shadow */}
+          <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 px-6 shadow-sm">
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="hover:bg-accent">
+              <Menu className="h-5 w-5" />
+            </SidebarTrigger>
 
-              <div className="hidden md:block h-4 w-px bg-border" />
+            <CompanySwitcher />
 
-              <CompanySwitcher />
-
-              <div className="hidden lg:block h-4 w-px bg-border" />
-
-              {/* Breadcrumb */}
-              <Breadcrumb className="hidden lg:flex">
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink asChild>
-                      <Link
-                        href="/"
-                        className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        Home
-                      </Link>
-                    </BreadcrumbLink>
+            <Breadcrumb className="hidden md:flex">
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">
+                      Home
+                    </Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {pathSegments.map((segment, idx) => (
+                  <BreadcrumbItem key={segment}>
+                    <BreadcrumbSeparator className="text-border" />
+                    {idx === pathSegments.length - 1 ? (
+                      <BreadcrumbPage className="text-sm font-semibold text-foreground">
+                        {breadcrumbLabels[segment] || segment}
+                      </BreadcrumbPage>
+                    ) : (
+                      <BreadcrumbLink asChild>
+                        <Link
+                          href={`/${pathSegments.slice(0, idx + 1).join("/")}`}
+                          className="text-sm font-medium hover:text-primary transition-colors"
+                        >
+                          {breadcrumbLabels[segment] || segment}
+                        </Link>
+                      </BreadcrumbLink>
+                    )}
                   </BreadcrumbItem>
-                  {pathSegments.map((segment, idx) => (
-                    <BreadcrumbItem key={segment}>
-                      <BreadcrumbSeparator className="text-border" />
-                      {idx === pathSegments.length - 1 ? (
-                        <BreadcrumbPage className="text-sm font-medium text-foreground">
-                          {breadcrumbLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)}
-                        </BreadcrumbPage>
-                      ) : (
-                        <BreadcrumbLink asChild>
-                          <Link
-                            href={`/${pathSegments.slice(0, idx + 1).join("/")}`}
-                            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            {breadcrumbLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)}
-                          </Link>
-                        </BreadcrumbLink>
-                      )}
-                    </BreadcrumbItem>
-                  ))}
-                </BreadcrumbList>
-              </Breadcrumb>
-            </div>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
 
-            {/* Right Section */}
-            <div className="flex flex-1 items-center justify-end gap-2">
-              {/* Search */}
+            <div className="flex flex-1 items-center justify-end gap-3">
               <div className="relative hidden sm:block">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search..."
-                  className={cn(
-                    "w-[180px] lg:w-[280px] pl-9 pr-12 h-9",
-                    "bg-muted/50 border-transparent",
-                    "focus:bg-background focus:border-input",
-                    "placeholder:text-muted-foreground/70",
-                    "transition-all duration-200"
-                  )}
+                  placeholder="Search items, SKUs, orders..."
+                  className="w-[200px] pl-9 pr-12 lg:w-[300px] bg-background border-border hover:border-primary/50 focus:border-primary transition-colors"
                   data-testid="input-global-search"
                 />
-                <kbd className={cn(
-                  "absolute right-2 top-1/2 -translate-y-1/2",
-                  "pointer-events-none hidden lg:inline-flex",
-                  "h-5 select-none items-center gap-1 rounded border",
-                  "bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground"
-                )}>
+                <kbd className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
                   <Command className="h-3 w-3" />K
                 </kbd>
               </div>
-
-              <div className="flex items-center gap-1">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
-                        asChild
-                      >
-                        <Link href="/help">
-                          <HelpCircle className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="text-xs">Help & Documentation</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground relative"
-                        data-testid="button-notifications"
-                      >
-                        <Bell className="h-4 w-4" />
-                        {/* Notification dot */}
-                        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="text-xs">Notifications</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" asChild>
+                      <Link href="/help">
+                        <HelpCircle className="h-5 w-5" />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Help & Documentation</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" data-testid="button-notifications">
+                <Bell className="h-5 w-5" />
+              </Button>
+              <ThemeToggle />
             </div>
           </header>
 
-          {/* Main Content Area */}
-          <main className="flex-1 overflow-auto">
-            <div className="h-full p-4 lg:p-6">
-              <div className="mx-auto max-w-[1600px] h-full">
-                {children ?? null}
-              </div>
+          {/* Main Content - Premium Spacing */}
+          <main className="flex-1 overflow-auto bg-background p-6 md:p-8">
+            <div className="mx-auto max-w-[1600px]">
+              {children ?? null}
             </div>
           </main>
         </SidebarInset>

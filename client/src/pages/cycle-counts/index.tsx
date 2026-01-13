@@ -27,6 +27,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { RefreshCw, Plus, Play, CheckCircle, XCircle, Eye, ClipboardCheck } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CycleCount, CycleCountLine, CycleCountStatus, CycleCountType } from "@shared/cycle-counts";
 import { CYCLE_COUNT_STATUS, CYCLE_COUNT_TYPE } from "@shared/cycle-counts";
 import type { Location, Item } from "@shared/inventory";
@@ -222,9 +224,15 @@ export default function CycleCountsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-muted-foreground">Loading...</p>
+            <InlineLoading message="Loading cycle counts..." />
           ) : cycleCounts.length === 0 ? (
-            <p className="text-muted-foreground">No cycle counts found. Create one to get started.</p>
+            <EmptyState
+              icon={RefreshCw}
+              title="No cycle counts found"
+              description="Schedule a cycle count to audit your inventory and ensure accuracy."
+              actions={[{ label: "New Cycle Count", onClick: () => setShowCreateDialog(true), icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

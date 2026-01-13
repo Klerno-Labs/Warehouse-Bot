@@ -19,6 +19,7 @@ import {
   Save,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { InlineLoading } from "@/components/LoadingSpinner";
 
 interface Permission {
   id: string;
@@ -168,7 +169,11 @@ export default function RoleManagement() {
   };
 
   if (rolesLoading) {
-    return <div className="p-6">Loading...</div>;
+    return (
+      <div className="p-6">
+        <InlineLoading message="Loading roles..." />
+      </div>
+    );
   }
 
   return (
