@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { loginSchema, type LoginCredentials } from "@shared/validation";
 
 export default function LoginPage() {
@@ -56,10 +55,6 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <header className="flex items-center justify-end p-4">
-        <ThemeToggle />
-      </header>
-      
       <main className="flex flex-1 items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
