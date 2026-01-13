@@ -50,7 +50,12 @@
       "Bash(tee:*)",
       "Bash(command -v:*)",
       "Bash(convert:*)",
-      "Bash(node scripts/generate-icons.js:*)"
+      "Bash(node scripts/generate-icons.js:*)",
+      "Bash(npx vercel:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git branch:*)",
+      "Bash(git merge:*)"
     ]
   }
 }
