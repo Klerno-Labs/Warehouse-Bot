@@ -1,5 +1,7 @@
 import { PrismaClient, type InventoryEventType, type Uom } from "@prisma/client";
-import { ValidationError, NotFoundError, AuthorizationError } from "./errors";
+import { ValidationError, NotFoundError, AuthorizationError, InventoryError } from "./errors";
+
+export { InventoryError };
 
 type AllowedUom = {
   uom: Uom;
