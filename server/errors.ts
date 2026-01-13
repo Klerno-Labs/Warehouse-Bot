@@ -92,6 +92,12 @@ export class ExternalServiceError extends AppError {
   }
 }
 
+export class InventoryError extends AppError {
+  constructor(message: string, details?: Record<string, any>) {
+    super(message, 400, "INVENTORY_ERROR", details);
+  }
+}
+
 /**
  * Error response structure for API
  */
