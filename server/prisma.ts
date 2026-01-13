@@ -37,6 +37,11 @@ function createPrismaClient(): PrismaClient {
     connectionLimit: poolConfig.connectionLimit,
   });
 
+  // Don't pass datasources if DATABASE_URL is not set (allows build to succeed)
+  const datasourcesConfig = process.env.DATABASE_URL
+    ? { datasources: { db: { url: process.env.DATABASE_URL } } }
+    : {};
+
   const client = new PrismaClient({
     log: [
       {
@@ -52,12 +57,7 @@ function createPrismaClient(): PrismaClient {
         level: "warn",
       },
     ],
-    // Connection pool configuration via datasource URL
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
-      },
-    },
+    ...datasourcesConfig,
   });
 
   // Query logging for performance monitoring
@@ -99,13 +99,22 @@ function createPrismaClient(): PrismaClient {
 }
 
 /**
- * Singleton Prisma client instance
+ * Singleton Prisma client instance (lazy-loaded to avoid build-time errors)
  */
-export const prisma = global.prisma || createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  global.prisma = prisma;
+function getPrismaClient(): PrismaClient {
+  if (!global.prisma) {
+    global.prisma = createPrismaClient();
+  }
+  return global.prisma;
 }
+
+// Export a proxy that lazily initializes the client on first access
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getPrismaClient();
+    return (client as any)[prop];
+  },
+});
 
 /**
  * Health check for database connectivity
