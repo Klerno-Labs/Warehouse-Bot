@@ -477,7 +477,7 @@ export class ESGReportingService {
       environmental: {
         carbonFootprint: footprint.totalEmissions,
         energyEfficiency: energy.efficiency,
-        wasteDiv ersion: waste.summary.diversionRate,
+        wasteDiversion: waste.summary.diversionRate,
         renewableEnergy: energy.renewable.percentRenewable,
       },
       social: {
