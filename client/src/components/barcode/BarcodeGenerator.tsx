@@ -56,7 +56,7 @@ export function BarcodeGenerator({
           width: 300,
           margin: 2,
           color: {
-            "#0f172a",
+            dark: "#0f172a",
             light: "#ffffff",
           },
         });
