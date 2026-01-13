@@ -37,6 +37,7 @@ function createPrismaClient(): PrismaClient {
     connectionLimit: poolConfig.connectionLimit,
   });
 
+  // Prisma will use DATABASE_URL from schema.prisma env() automatically
   const client = new PrismaClient({
     log: [
       {
@@ -52,12 +53,6 @@ function createPrismaClient(): PrismaClient {
         level: "warn",
       },
     ],
-    // Connection pool configuration via datasource URL
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
-      },
-    },
   });
 
   // Query logging for performance monitoring
@@ -99,13 +94,92 @@ function createPrismaClient(): PrismaClient {
 }
 
 /**
- * Singleton Prisma client instance
+ * Create a recursive stub proxy for build-time that handles nested access like prisma.user.findMany()
  */
-export const prisma = global.prisma || createPrismaClient();
+function createBuildTimeStub(): PrismaClient {
+  const createNestedProxy = (path: string[] = []): any => {
+    return new Proxy(() => {}, {
+      get(_target, prop) {
+        const propStr = String(prop);
+        // Handle special properties
+        if (prop === "then" || prop === Symbol.toStringTag || prop === Symbol.iterator) {
+          return undefined;
+        }
+        // Return no-op for Prisma lifecycle methods
+        if (propStr.startsWith("$")) {
+          return () => Promise.resolve();
+        }
+        // Return nested proxy for model access (e.g., prisma.user.findMany)
+        return createNestedProxy([...path, propStr]);
+      },
+      apply(_target, _thisArg, _args) {
+        // Get the method name (last item in path)
+        const methodName = path[path.length - 1];
 
-if (process.env.NODE_ENV !== "production") {
-  global.prisma = prisma;
+        // Return appropriate defaults based on method name
+        if (methodName === "findUnique" || methodName === "findFirst") {
+          return Promise.resolve(null);
+        }
+        if (methodName === "count") {
+          return Promise.resolve(0);
+        }
+        if (methodName === "create" || methodName === "update" || methodName === "upsert") {
+          return Promise.resolve({});
+        }
+        // Default: return empty array for findMany, etc.
+        return Promise.resolve([]);
+      },
+    });
+  };
+
+  return createNestedProxy() as PrismaClient;
 }
+
+/**
+ * Check if we're in a build environment without database access
+ */
+function isBuildTime(): boolean {
+  // Only use stub during actual Next.js build phase
+  // NEXT_PHASE is set by Next.js during build
+  const isNextBuild = process.env.NEXT_PHASE === "phase-production-build";
+  const noDatabaseUrl = !process.env.DATABASE_URL;
+
+  return isNextBuild && noDatabaseUrl;
+}
+
+/**
+ * Singleton Prisma client instance (lazy-loaded to avoid build-time errors)
+ */
+function getPrismaClient(): PrismaClient {
+  if (!global.prisma) {
+    if (isBuildTime()) {
+      console.warn("[Prisma] DATABASE_URL not set - using stub client for build");
+      return createBuildTimeStub();
+    }
+
+    // At runtime, DATABASE_URL must be configured
+    if (!process.env.DATABASE_URL) {
+      throw new Error(
+        "DATABASE_URL environment variable is not set. " +
+          "Please configure it in your Vercel project settings or .env file."
+      );
+    }
+
+    global.prisma = createPrismaClient();
+  }
+  return global.prisma;
+}
+
+// Export a proxy that lazily initializes the client on first access
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    if (prop === "then") {
+      return undefined;
+    }
+    const client = getPrismaClient();
+    return (client as any)[prop];
+  },
+});
 
 /**
  * Health check for database connectivity

@@ -2,7 +2,6 @@ import { Menu, Search, Bell, HelpCircle, Command } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { CompanySwitcher } from "@/components/company-switcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -199,7 +198,6 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
               <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" data-testid="button-notifications">
                 <Bell className="h-5 w-5" />
               </Button>
-              <ThemeToggle />
             </div>
           </header>
 
