@@ -5,7 +5,7 @@
  * Implements background sync for data updates
  */
 
-const CACHE_VERSION = "v1.0.1"; // Updated for new manifest.json and PWA icons
+const CACHE_VERSION = "v1.0.2"; // Updated offline.html to Cream & Emerald design
 const CACHE_NAME = `wms-pro-${CACHE_VERSION}`;
 
 // Assets to cache immediately
