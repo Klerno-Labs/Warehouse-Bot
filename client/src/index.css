@@ -53,6 +53,17 @@
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 221 83% 96%;
     --sidebar-accent-foreground: 221 83% 53%;
+
+    /* Component Border Colors */
+    --card-border: 240 6% 90%;
+    --popover-border: 240 6% 90%;
+    --primary-border: hsl(221 83% 45%);
+    --secondary-border: hsl(240 5% 88%);
+    --muted-border: hsl(240 5% 88%);
+    --accent-border: hsl(221 83% 90%);
+    --destructive-border: hsl(0 84% 50%);
+    --sidebar-primary-border: hsl(221 83% 45%);
+    --sidebar-accent-border: hsl(221 83% 90%);
   }
 
   .dark {
@@ -103,6 +114,17 @@
     --sidebar-primary-foreground: 240 10% 4%;
     --sidebar-accent: 217 91% 15%;
     --sidebar-accent-foreground: 217 91% 70%;
+
+    /* Component Border Colors - Dark */
+    --card-border: 240 4% 16%;
+    --popover-border: 240 4% 16%;
+    --primary-border: hsl(217 91% 50%);
+    --secondary-border: hsl(240 4% 20%);
+    --muted-border: hsl(240 4% 20%);
+    --accent-border: hsl(217 91% 25%);
+    --destructive-border: hsl(0 63% 40%);
+    --sidebar-primary-border: hsl(217 91% 50%);
+    --sidebar-accent-border: hsl(217 91% 25%);
   }
 }
 
@@ -306,11 +328,13 @@
   }
 
   /* Interactive Hover States */
-  .hover-lift {
+  .hover-lift,
+  .hover-elevate {
     @apply transition-all duration-200 ease-out;
   }
 
-  .hover-lift:hover {
+  .hover-lift:hover,
+  .hover-elevate:hover {
     @apply -translate-y-0.5;
     box-shadow:
       0 0 0 1px hsl(var(--border) / 0.5),
