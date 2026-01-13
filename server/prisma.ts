@@ -99,10 +99,36 @@ function createPrismaClient(): PrismaClient {
 }
 
 /**
+ * Check if we're in a build environment without database access
+ */
+function isBuildTime(): boolean {
+  // During Next.js build, DATABASE_URL won't be available
+  return !process.env.DATABASE_URL;
+}
+
+/**
  * Singleton Prisma client instance (lazy-loaded to avoid build-time errors)
  */
 function getPrismaClient(): PrismaClient {
   if (!global.prisma) {
+    if (isBuildTime()) {
+      // Return a stub during build that throws helpful errors at runtime
+      console.warn("[Prisma] DATABASE_URL not set - using stub client for build");
+      return new Proxy({} as PrismaClient, {
+        get(_target, prop) {
+          // Return no-op for common Prisma lifecycle methods
+          if (prop === "$connect" || prop === "$disconnect" || prop === "$on") {
+            return () => Promise.resolve();
+          }
+          // Return a function that throws for actual queries
+          return () => {
+            throw new Error(
+              `Database not available: DATABASE_URL is not configured. Attempted to access prisma.${String(prop)}`
+            );
+          };
+        },
+      }) as PrismaClient;
+    }
     global.prisma = createPrismaClient();
   }
   return global.prisma;
@@ -111,6 +137,10 @@ function getPrismaClient(): PrismaClient {
 // Export a proxy that lazily initializes the client on first access
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop) {
+    // Allow thenable check without initialization (for async detection)
+    if (prop === "then") {
+      return undefined;
+    }
     const client = getPrismaClient();
     return (client as any)[prop];
   },
