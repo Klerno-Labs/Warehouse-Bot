@@ -156,8 +156,8 @@ export function ManagerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              <span className="text-green-600 font-medium">+{stats.inventoryChange}%</span>
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <span className="text-emerald-600 font-medium">+{stats.inventoryChange}%</span>
               <span className="text-muted-foreground">vs last month</span>
             </div>
           </CardContent>
@@ -170,8 +170,8 @@ export function ManagerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              <span className="text-green-600 font-medium">+{stats.jobsChange}%</span>
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <span className="text-emerald-600 font-medium">+{stats.jobsChange}%</span>
               <span className="text-muted-foreground">vs last week</span>
             </div>
           </CardContent>
@@ -198,8 +198,8 @@ export function ManagerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600" />
-              <span className="text-green-600 font-medium">
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+              <span className="text-emerald-600 font-medium">
                 +{stats.productivityChange}%
               </span>
               <span className="text-muted-foreground">this week</span>
@@ -277,7 +277,7 @@ export function ManagerDashboard() {
               </div>
               <div className="flex justify-between text-sm">
                 <span>Error Rate</span>
-                <span className="font-semibold text-green-600">0.8%</span>
+                <span className="font-semibold text-emerald-600">0.8%</span>
               </div>
             </div>
           </CardContent>
@@ -298,7 +298,7 @@ export function ManagerDashboard() {
               </div>
               <div className="flex justify-between text-sm">
                 <span>Stock Accuracy</span>
-                <span className="font-semibold text-green-600">98.5%</span>
+                <span className="font-semibold text-emerald-600">98.5%</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Days of Supply</span>
@@ -319,7 +319,7 @@ export function ManagerDashboard() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>First Pass Yield</span>
-                <span className="font-semibold text-green-600">96.2%</span>
+                <span className="font-semibold text-emerald-600">96.2%</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Scrap Rate</span>
@@ -327,7 +327,7 @@ export function ManagerDashboard() {
               </div>
               <div className="flex justify-between text-sm">
                 <span>On-Time Delivery</span>
-                <span className="font-semibold text-green-600">94.8%</span>
+                <span className="font-semibold text-emerald-600">94.8%</span>
               </div>
             </div>
           </CardContent>

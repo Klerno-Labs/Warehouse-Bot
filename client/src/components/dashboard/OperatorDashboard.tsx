@@ -86,7 +86,7 @@ export function OperatorDashboard() {
           <CardHeader className="pb-3">
             <CardDescription>Completed Today</CardDescription>
             <CardTitle className="text-3xl flex items-center gap-2">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+              <CheckCircle className="h-6 w-6 text-emerald-600" />
               {stats.jobsCompletedToday}
             </CardTitle>
           </CardHeader>

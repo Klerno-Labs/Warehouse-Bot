@@ -2,7 +2,6 @@ import { Search, Bell, HelpCircle, Command, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { CompanySwitcher } from "@/components/company-switcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -239,9 +238,6 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
                   </Tooltip>
                 </TooltipProvider>
 
-                <div className="h-4 w-px bg-border mx-1" />
-
-                <ThemeToggle />
               </div>
             </div>
           </header>
