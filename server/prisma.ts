@@ -37,11 +37,7 @@ function createPrismaClient(): PrismaClient {
     connectionLimit: poolConfig.connectionLimit,
   });
 
-  // Don't pass datasources if DATABASE_URL is not set (allows build to succeed)
-  const datasourcesConfig = process.env.DATABASE_URL
-    ? { datasources: { db: { url: process.env.DATABASE_URL } } }
-    : {};
-
+  // Prisma will use DATABASE_URL from schema.prisma env() automatically
   const client = new PrismaClient({
     log: [
       {
@@ -57,7 +53,6 @@ function createPrismaClient(): PrismaClient {
         level: "warn",
       },
     ],
-    ...datasourcesConfig,
   });
 
   // Query logging for performance monitoring
