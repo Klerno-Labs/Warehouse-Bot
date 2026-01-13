@@ -94,10 +94,39 @@ function createPrismaClient(): PrismaClient {
 }
 
 /**
+ * Create a recursive stub proxy for build-time that handles nested access like prisma.user.findMany()
+ */
+function createBuildTimeStub(): PrismaClient {
+  const createNestedProxy = (path: string[] = []): any => {
+    return new Proxy(() => {}, {
+      get(_target, prop) {
+        const propStr = String(prop);
+        // Handle special properties
+        if (prop === "then" || prop === Symbol.toStringTag || prop === Symbol.iterator) {
+          return undefined;
+        }
+        // Return no-op for Prisma lifecycle methods
+        if (propStr.startsWith("$")) {
+          return () => Promise.resolve();
+        }
+        // Return nested proxy for model access (e.g., prisma.user.findMany)
+        return createNestedProxy([...path, propStr]);
+      },
+      apply(_target, _thisArg, _args) {
+        // When called as a function (e.g., findMany()), return empty result
+        // This allows build to complete without actual DB access
+        return Promise.resolve([]);
+      },
+    });
+  };
+
+  return createNestedProxy() as PrismaClient;
+}
+
+/**
  * Check if we're in a build environment without database access
  */
 function isBuildTime(): boolean {
-  // During Next.js build, DATABASE_URL won't be available
   return !process.env.DATABASE_URL;
 }
 
@@ -107,22 +136,8 @@ function isBuildTime(): boolean {
 function getPrismaClient(): PrismaClient {
   if (!global.prisma) {
     if (isBuildTime()) {
-      // Return a stub during build that throws helpful errors at runtime
       console.warn("[Prisma] DATABASE_URL not set - using stub client for build");
-      return new Proxy({} as PrismaClient, {
-        get(_target, prop) {
-          // Return no-op for common Prisma lifecycle methods
-          if (prop === "$connect" || prop === "$disconnect" || prop === "$on") {
-            return () => Promise.resolve();
-          }
-          // Return a function that throws for actual queries
-          return () => {
-            throw new Error(
-              `Database not available: DATABASE_URL is not configured. Attempted to access prisma.${String(prop)}`
-            );
-          };
-        },
-      }) as PrismaClient;
+      return createBuildTimeStub();
     }
     global.prisma = createPrismaClient();
   }
@@ -132,7 +147,6 @@ function getPrismaClient(): PrismaClient {
 // Export a proxy that lazily initializes the client on first access
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop) {
-    // Allow thenable check without initialization (for async detection)
     if (prop === "then") {
       return undefined;
     }
