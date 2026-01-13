@@ -96,22 +96,22 @@ export default function AlertsPage() {
   const getAlertBadge = (type: "lowStock" | "outOfStock" | "deadStock") => {
     switch (type) {
       case "lowStock":
-        return <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">Low Stock</Badge>;
+        return <Badge variant="secondary" className="bg-amber-100 text-amber-800">Low Stock</Badge>;
       case "outOfStock":
         return <Badge variant="destructive">Out of Stock</Badge>;
       case "deadStock":
-        return <Badge variant="outline" className="text-blue-600 border-blue-600 dark:text-blue-400 dark:border-blue-400">Dead Stock</Badge>;
+        return <Badge variant="outline" className="text-blue-600 border-blue-600">Dead Stock</Badge>;
     }
   };
 
   const getSeverityColor = (severity: "warning" | "error" | "info") => {
     switch (severity) {
       case "error":
-        return "text-red-600 dark:text-red-400";
+        return "text-red-600";
       case "warning":
-        return "text-amber-600 dark:text-amber-400";
+        return "text-amber-600";
       case "info":
-        return "text-blue-600 dark:text-blue-400";
+        return "text-blue-600";
     }
   };
 
@@ -251,7 +251,7 @@ export default function AlertsPage() {
                         </TableCell>
                         <TableCell className="text-right">
                           {shortage > 0 ? (
-                            <span className="text-red-600 dark:text-red-400 font-semibold">
+                            <span className="text-red-600 font-semibold">
                               -{shortage}
                             </span>
                           ) : (
@@ -286,7 +286,7 @@ export default function AlertsPage() {
       </Card>
 
       {lowStockItems.length > 0 && (
-        <Card className="border-amber-200 dark:border-amber-900">
+        <Card className="border-amber-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingDown className="h-5 w-5 text-amber-500" />

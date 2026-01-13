@@ -427,7 +427,7 @@ export function AppSidebar({ enabledModules }: AppSidebarProps) {
                       >
                         <Link href="/super-admin" data-testid="link-super-admin" className="flex items-center gap-3">
                           <Crown className="h-4 w-4 text-purple-500" />
-                          <span className="font-semibold text-purple-600 dark:text-purple-400">Super Admin</span>
+                          <span className="font-semibold text-purple-600">Super Admin</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

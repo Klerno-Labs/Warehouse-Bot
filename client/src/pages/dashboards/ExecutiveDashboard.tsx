@@ -188,7 +188,7 @@ export default function ExecutiveDashboard() {
 
       {/* Critical Alerts */}
       {(metrics?.production.overdueJobs || 0) > 0 && (
-        <Card className="border-red-500 bg-red-50 dark:bg-red-950/20">
+        <Card className="border-red-500 bg-red-50">
           <CardContent className="flex items-center gap-3 py-4">
             <AlertCircle className="h-5 w-5 text-red-600" />
             <div className="flex-1">
@@ -583,9 +583,9 @@ function MetricCard({
   status?: "good" | "warning" | "critical";
 }) {
   const statusColors = {
-    good: "text-green-600 dark:text-green-400",
-    warning: "text-amber-600 dark:text-amber-400",
-    critical: "text-red-600 dark:text-red-400",
+    good: "text-green-600",
+    warning: "text-amber-600",
+    critical: "text-red-600",
   };
 
   return (
@@ -614,7 +614,7 @@ function TrendIndicator({ value, size = "sm" }: { value: number; size?: "sm" | "
   const isPositive = value > 0;
   const Icon = isPositive ? ArrowUpRight : ArrowDownRight;
   const colorClass = isPositive ? "text-green-600" : "text-red-600";
-  const bgClass = isPositive ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30";
+  const bgClass = isPositive ? "bg-green-100" : "bg-red-100";
   const sizeClass = size === "lg" ? "h-8 w-8" : "h-5 w-5";
   const iconSize = size === "lg" ? "h-5 w-5" : "h-3 w-3";
 

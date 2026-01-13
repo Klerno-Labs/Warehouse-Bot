@@ -90,7 +90,7 @@ export default function SuperAdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
       {/* Super Admin Header */}
       <div className="border-b bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg">
         <div className="p-6">
@@ -233,7 +233,7 @@ export default function SuperAdminDashboard() {
                   {tenants.map((tenant) => (
                     <div
                       key={tenant.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50:bg-slate-800 transition-colors"
                     >
                       <div className="flex items-center gap-4">
                         <div className="h-12 w-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-lg flex items-center justify-center">

@@ -78,14 +78,14 @@ const auditEvents = [
 ];
 
 const actionColors: Record<string, string> = {
-  CREATE: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  UPDATE: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-  DELETE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  LOGIN: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-  LOGOUT: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
-  ALERT: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-  COMPLETE: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-  VIEW: "bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400",
+  CREATE: "bg-green-100 text-green-800",
+  UPDATE: "bg-blue-100 text-blue-800",
+  DELETE: "bg-red-100 text-red-800",
+  LOGIN: "bg-purple-100 text-purple-800",
+  LOGOUT: "bg-gray-100 text-gray-800",
+  ALERT: "bg-amber-100 text-amber-800",
+  COMPLETE: "bg-emerald-100 text-emerald-800",
+  VIEW: "bg-slate-100 text-slate-800",
 };
 
 export default function AdminAuditPage() {

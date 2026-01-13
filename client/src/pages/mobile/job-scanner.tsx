@@ -289,7 +289,7 @@ export default function JobScannerPage() {
                 {activeJobs.map((job) => (
                   <div
                     key={job.id}
-                    className="flex items-center justify-between p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/20"
+                    className="flex items-center justify-between p-4 border rounded-lg bg-amber-50"
                   >
                     <div className="flex-1">
                       <div className="font-semibold text-foreground">
