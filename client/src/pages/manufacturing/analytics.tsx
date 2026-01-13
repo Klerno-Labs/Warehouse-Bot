@@ -181,9 +181,9 @@ export default function AnalyticsPage() {
 
       {/* Bottlenecks Alert */}
       {bottlenecks.length > 0 && (
-        <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+        <Card className="border-amber-500/50 bg-amber-50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+            <CardTitle className="flex items-center gap-2 text-amber-700">
               <AlertTriangle className="h-5 w-5" />
               Identified Bottlenecks
             </CardTitle>
@@ -194,7 +194,7 @@ export default function AnalyticsPage() {
               {bottlenecks.map((bottleneck, idx) => (
                 <div
                   key={bottleneck.department}
-                  className="border rounded-lg p-4 bg-white dark:bg-background"
+                  className="border rounded-lg p-4 bg-white"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold">
@@ -365,11 +365,11 @@ export default function AnalyticsPage() {
                   <div
                     className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${
                       idx === 0
-                        ? "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400"
+                        ? "bg-amber-100 text-amber-700"
                         : idx === 1
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400"
+                        ? "bg-gray-100 text-gray-700"
                         : idx === 2
-                        ? "bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-400"
+                        ? "bg-orange-100 text-orange-700"
                         : "bg-secondary text-muted-foreground"
                     }`}
                   >

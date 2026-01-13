@@ -43,7 +43,7 @@ export function MetricTooltip({
             )}
             {goodRange && (
               <p className="text-xs">
-                <span className="font-medium text-green-600 dark:text-green-400">Good range:</span>{" "}
+                <span className="font-medium text-green-600">Good range:</span>{" "}
                 {goodRange}
               </p>
             )}

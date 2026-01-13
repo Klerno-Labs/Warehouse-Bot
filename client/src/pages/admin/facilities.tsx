@@ -293,7 +293,7 @@ export default function AdminFacilitiesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-semibold text-green-600 dark:text-green-400" data-testid="text-active-workcells">
+            <p className="text-2xl font-semibold text-green-600" data-testid="text-active-workcells">
               {facilitiesData.departments.reduce(
                 (acc, d) => acc + d.workcells.filter((w) => w.status === "active").length,
                 0

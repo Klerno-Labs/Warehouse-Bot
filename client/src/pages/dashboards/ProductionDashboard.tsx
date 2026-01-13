@@ -277,7 +277,7 @@ export default function ProductionDashboard() {
                     <div
                       key={dept.department}
                       className={`p-4 border rounded-lg ${
-                        isBottleneck ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20" : ""
+                        isBottleneck ? "border-yellow-500 bg-yellow-50" : ""
                       }`}
                     >
                       <div className="flex items-center justify-between mb-3">
@@ -325,7 +325,7 @@ export default function ProductionDashboard() {
 
       {/* Bottleneck Alert */}
       {metrics?.bottleneckDept && (
-        <Card className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950/20">
+        <Card className="border-yellow-500 bg-yellow-50">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-yellow-600" />

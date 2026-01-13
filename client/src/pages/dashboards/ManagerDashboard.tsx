@@ -137,7 +137,7 @@ export default function ManagerDashboard() {
 
       {/* Critical Alerts */}
       {(metrics?.overdueJobs || 0) > 0 && (
-        <Alert className="border-red-500 bg-red-50 dark:bg-red-950/20">
+        <Alert className="border-red-500 bg-red-50">
           <AlertTriangle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-600">
             <strong>{metrics?.overdueJobs} overdue jobs</strong> in your department require immediate attention.
@@ -146,7 +146,7 @@ export default function ManagerDashboard() {
       )}
 
       {metrics?.bottleneckStation && (
-        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+        <Alert className="border-amber-500 bg-amber-50">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <AlertDescription className="text-amber-600">
             <strong>Bottleneck detected:</strong> {metrics.bottleneckStation} is operating at high capacity. Consider reassigning resources.
@@ -241,9 +241,9 @@ export default function ManagerDashboard() {
               <div className="space-y-3">
                 {team.map((member) => {
                   const statusColors = {
-                    ACTIVE: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-                    IDLE: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-                    OFFLINE: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400",
+                    ACTIVE: "bg-green-100 text-green-700",
+                    IDLE: "bg-amber-100 text-amber-700",
+                    OFFLINE: "bg-gray-100 text-gray-700",
                   };
 
                   return (
@@ -367,7 +367,7 @@ export default function ManagerDashboard() {
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
                     <Target className="h-5 w-5 text-blue-600" />
                   </div>
                   <div>
@@ -379,7 +379,7 @@ export default function ManagerDashboard() {
 
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
                     <Activity className="h-5 w-5 text-green-600" />
                   </div>
                   <div>
@@ -399,7 +399,7 @@ export default function ManagerDashboard() {
 
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
                     <Timer className="h-5 w-5 text-purple-600" />
                   </div>
                   <div>
@@ -411,7 +411,7 @@ export default function ManagerDashboard() {
 
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
                     <UserCheck className="h-5 w-5 text-green-600" />
                   </div>
                   <div>

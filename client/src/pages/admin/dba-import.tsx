@@ -156,9 +156,9 @@ export default function DBAImportPage() {
       </div>
 
       {/* Instructions */}
-      <Card className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/20">
+      <Card className="border-blue-500/50 bg-blue-50">
         <CardHeader>
-          <CardTitle className="text-blue-700 dark:text-blue-400">
+          <CardTitle className="text-blue-700">
             Migration Instructions
           </CardTitle>
         </CardHeader>

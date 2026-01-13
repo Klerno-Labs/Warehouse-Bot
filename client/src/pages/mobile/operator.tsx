@@ -164,9 +164,9 @@ export default function MobileOperatorApp() {
   // No job scanned - Scanner view
   if (!scannedJobId) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
         {/* Mobile Header */}
-        <div className="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b shadow-sm">
+        <div className="sticky top-0 z-50 bg-white border-b shadow-sm">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -223,7 +223,7 @@ export default function MobileOperatorApp() {
   // Job is scanned - Show job details
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="h-16 w-16 mx-auto rounded-full bg-primary/10 animate-pulse" />
           <p className="text-muted-foreground">Loading job details...</p>
@@ -234,7 +234,7 @@ export default function MobileOperatorApp() {
 
   if (!jobData) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
@@ -257,9 +257,9 @@ export default function MobileOperatorApp() {
 
   // Job Details View
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-slate-50">
       {/* Mobile Header with Job Info */}
-      <div className="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b shadow-sm">
+      <div className="sticky top-0 z-50 bg-white border-b shadow-sm">
         <div className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -408,7 +408,7 @@ export default function MobileOperatorApp() {
                       note.type === "issue"
                         ? "border-l-destructive bg-destructive/5"
                         : note.type === "part_replacement"
-                        ? "border-l-amber-500 bg-amber-50 dark:bg-amber-950/20"
+                        ? "border-l-amber-500 bg-amber-50"
                         : "border-l-primary bg-muted"
                     }`}
                   >
@@ -473,7 +473,7 @@ export default function MobileOperatorApp() {
       </div>
 
       {/* Fixed Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-slate-900 border-t shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg">
         <div className="flex gap-3">
           <Button
             variant="outline"

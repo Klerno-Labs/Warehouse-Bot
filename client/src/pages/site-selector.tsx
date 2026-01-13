@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
-import { ThemeToggle } from "@/components/theme-toggle";
 import type { Site } from "@shared/schema";
 
 export default function SiteSelectorPage() {
@@ -33,12 +32,9 @@ export default function SiteSelectorPage() {
             <p className="text-xs text-muted-foreground">{user?.tenantName}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-          <Button variant="ghost" size="sm" onClick={logout} data-testid="button-logout-selector">
-            Sign out
-          </Button>
-        </div>
+        <Button variant="ghost" size="sm" onClick={logout} data-testid="button-logout-selector">
+          Sign out
+        </Button>
       </header>
 
       <main className="flex flex-1 flex-col items-center justify-center p-6">

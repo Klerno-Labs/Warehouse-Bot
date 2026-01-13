@@ -201,7 +201,7 @@ export default function KanbanBoardPage() {
   if (departments.length === 0) {
     return (
       <div className="p-6">
-        <Card className="bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800">
+        <Card className="bg-yellow-50 border-yellow-200">
           <CardContent className="pt-6 text-center">
             <AlertCircle className="h-12 w-12 mx-auto text-yellow-600 mb-4" />
             <h3 className="text-lg font-semibold mb-2">No Departments Configured</h3>

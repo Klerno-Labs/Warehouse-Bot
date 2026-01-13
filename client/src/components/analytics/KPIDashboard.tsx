@@ -47,9 +47,9 @@ interface Analytics {
 }
 
 const STATUS_CONFIG = {
-  good: { icon: CheckCircle, color: "text-green-600", bg: "bg-green-100", border: "border-green-500" },
-  warning: { icon: AlertTriangle, color: "text-orange-600", bg: "bg-orange-100", border: "border-orange-500" },
-  critical: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-100", border: "border-red-500" },
+  good: { icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" },
+  warning: { icon: AlertTriangle, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" },
+  critical: { icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50", border: "border-red-500" },
 };
 
 function KPICard({ kpi }: { kpi: KPI }) {
@@ -76,7 +76,7 @@ function KPICard({ kpi }: { kpi: KPI }) {
           </div>
 
           {kpi.trend !== 0 && (
-            <div className={`flex items-center gap-1 text-sm ${kpi.trend > 0 ? "text-green-600" : "text-red-600"}`}>
+            <div className={`flex items-center gap-1 text-sm ${kpi.trend > 0 ? "text-emerald-600" : "text-red-600"}`}>
               {kpi.trend > 0 ? (
                 <TrendingUp className="h-3 w-3" />
               ) : (
