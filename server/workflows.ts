@@ -575,54 +575,41 @@ export class WorkflowEngine {
     tenantId: string,
     triggerType: TriggerType
   ): Promise<Workflow[]> {
-    // In production, fetch from database
-    // For now, return sample workflows
-    return [
-      {
-        id: "workflow-1",
-        name: "Auto-Reorder on Low Stock",
-        description: "Automatically create PO when stock falls below reorder point",
-        enabled: true,
-        trigger: {
-          type: "STOCK_BELOW_THRESHOLD",
-        },
-        conditions: [
-          {
-            field: "currentStock",
-            operator: "less_than",
-            value: "{{reorderPoint}}",
-          },
-        ],
-        actions: [
-          {
-            type: "CREATE_PURCHASE_ORDER",
-            config: {
-              supplierId: "{{item.defaultSupplierId}}",
-              items: [
-                {
-                  itemId: "{{item.id}}",
-                  quantity: "{{item.reorderQtyBase}}",
-                },
-              ],
-            },
-            order: 1,
-          },
-          {
-            type: "SEND_EMAIL",
-            config: {
-              to: "purchasing@company.com",
-              subject: "Auto-PO Created: {{item.name}}",
-              template: "A purchase order has been automatically created for {{item.name}}.",
-            },
-            order: 2,
-          },
-        ],
+    // Fetch active workflows from database
+    const workflowRules = await prisma.workflowRule.findMany({
+      where: {
         tenantId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        executionCount: 0,
+        isActive: true,
+        triggerType: triggerType,
       },
-    ];
+      include: {
+        executions: {
+          orderBy: { executedAt: 'desc' },
+          take: 1,
+        },
+        _count: {
+          select: { executions: true },
+        },
+      },
+    });
+
+    // Map database records to Workflow interface
+    return workflowRules.map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      description: rule.description || undefined,
+      enabled: rule.isActive,
+      trigger: {
+        type: rule.triggerType as TriggerType,
+      },
+      conditions: (rule.conditions as WorkflowCondition[]) || [],
+      actions: (rule.actions as WorkflowAction[]) || [],
+      tenantId: rule.tenantId,
+      createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt,
+      lastExecutedAt: rule.executions[0]?.executedAt,
+      executionCount: rule._count.executions,
+    }));
   }
 
   /**

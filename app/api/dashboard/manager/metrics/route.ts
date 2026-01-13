@@ -16,8 +16,15 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // TODO: User schema doesn't have managedDepartmentIds or departmentIds
-    const managedDepartmentIds = user.assignedDepartments || [];
+    // Get departments managed by this user
+    // Fall back to all departments if user has admin/manager role but no specific assignments
+    let managedDepartmentIds = user.assignedDepartments || user.managedDepartmentIds || [];
+
+    // If manager has no specific departments, get all departments (for admin view)
+    if (managedDepartmentIds.length === 0 && (user.role === 'Admin' || user.role === 'Manager')) {
+      const allDepts = await storage.getDepartmentsByTenant(tenantId);
+      managedDepartmentIds = allDepts.map(d => d.id);
+    }
 
     if (managedDepartmentIds.length === 0) {
       return NextResponse.json({
@@ -62,15 +69,27 @@ export async function GET() {
 
     // Team metrics
     const teamMembers = users.filter(u =>
-      u.assignedDepartments?.some(deptId => managedDepartmentIds.includes(deptId))
+      u.assignedDepartments?.some(deptId => managedDepartmentIds.includes(deptId)) ||
+      managedDepartmentIds.includes(u.departmentId)
     );
 
-    // TODO: Track user activity/last active timestamp
-    const activeTeam = teamMembers.filter(u => u.isActive);
+    // Determine user activity based on production order assignments
+    const usersWithActiveJobs = new Set(activeJobs.map(job => job.assignedTo).filter(Boolean));
+    const usersWithRecentActivity = new Set(
+      allOrders
+        .filter(o => o.updatedAt && new Date(o.updatedAt) >= startOfToday)
+        .map(o => o.assignedTo)
+        .filter(Boolean)
+    );
 
-    // TODO: Implement user status tracking
+    // Active team = users with active jobs or recent activity
+    const activeTeam = teamMembers.filter(u =>
+      u.isActive && (usersWithActiveJobs.has(u.id) || usersWithRecentActivity.has(u.id))
+    );
+
+    // Idle team = active users without current work assignments
     const idleTeam = teamMembers.filter(u =>
-      !activeJobs.some(job => job.assignedTo === u.id)
+      u.isActive && !usersWithActiveJobs.has(u.id)
     );
 
     // Calculate efficiency
@@ -103,14 +122,17 @@ export async function GET() {
         }, 0) / completedWithTimes.length
       : 0;
 
-    // Quality rate (assuming quality checks recorded)
+    // Quality rate from quality records
     const qualityRecords = await storage.getQualityRecordsByTenant(tenantId);
     const recentQuality = qualityRecords.filter(
       q => new Date(q.createdAt) >= startOfWeek
     );
-    // TODO: Determine passed/failed from quality record status
+    // Check for PASSED status or PASS result
+    const passedQuality = recentQuality.filter(q =>
+      q.status === "PASSED" || q.result === "PASS" || q.outcome === "PASS"
+    );
     const qualityRate = recentQuality.length > 0
-      ? (recentQuality.filter(q => q.status === "PASSED").length / recentQuality.length) * 100
+      ? (passedQuality.length / recentQuality.length) * 100
       : 100;
 
     // Bottleneck detection

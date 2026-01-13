@@ -70,7 +70,7 @@ export async function POST(req: Request) {
   } catch (error) {
     logger.error("Login error", error as Error);
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request", details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "Invalid request", details: error.issues }, { status: 400 });
     }
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ error: "Internal server error", details: errorMessage }, { status: 500 });
