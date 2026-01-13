@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Shield, Edit, Save, X, Info } from "lucide-react";
+import { Shield, Edit, Save, X, Info, Loader2 } from "lucide-react";
 import { Role, Permission, ROLE_PERMISSIONS, getRoleDisplayName, getRoleTier } from "@shared/permissions";
 
 /**
@@ -24,10 +25,12 @@ import { Role, Permission, ROLE_PERMISSIONS, getRoleDisplayName, getRoleTier } f
  * Allows executives to customize role names and permissions within their tenant
  */
 export default function RoleManagement() {
+  const { toast } = useToast();
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [customName, setCustomName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<Permission[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Get all roles except SuperAdmin (that's platform-only)
   const editableRoles = Object.values(Role).filter(
@@ -44,6 +47,7 @@ export default function RoleManagement() {
   const handleSaveRole = async () => {
     if (!editingRole) return;
 
+    setIsSaving(true);
     try {
       const response = await fetch("/api/admin/roles/configure", {
         method: "POST",
@@ -56,14 +60,26 @@ export default function RoleManagement() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to save role configuration");
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to save role configuration");
+      }
 
-      // Success - close dialog
+      // Success - close dialog and show toast
       setEditingRole(null);
-      // TODO: Show success toast
-    } catch (error) {
+      toast({
+        title: "Role Updated",
+        description: `${customName} configuration has been saved successfully.`,
+      });
+    } catch (error: any) {
       console.error("Error saving role:", error);
-      // TODO: Show error toast
+      toast({
+        title: "Failed to Save Role",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -228,13 +244,22 @@ export default function RoleManagement() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingRole(null)}>
+            <Button variant="outline" onClick={() => setEditingRole(null)} disabled={isSaving}>
               <X className="mr-2 h-4 w-4" />
               Cancel
             </Button>
-            <Button onClick={handleSaveRole}>
-              <Save className="mr-2 h-4 w-4" />
-              Save Changes
+            <Button onClick={handleSaveRole} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Changes
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

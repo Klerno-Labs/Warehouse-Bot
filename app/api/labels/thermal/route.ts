@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
-import { 
-  labelService, 
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
+import {
   LabelPrintService,
   PRINTER_PRESETS,
   type ItemLabel,
@@ -104,12 +103,10 @@ const LabelRequestSchema = z.object({
  * Generate thermal label commands (TSPL/ZPL) for direct printer output
  */
 export async function POST(request: NextRequest) {
-  try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     const body = await request.json();
     const parsed = LabelRequestSchema.safeParse(body);
 
@@ -166,16 +163,12 @@ export async function POST(request: NextRequest) {
       success: true,
       format,
       commands,
-      printInstructions: format === "tspl" 
+      printInstructions: format === "tspl"
         ? "Send commands to TSC printer via USB or network (port 9100)"
         : "Send commands to Zebra printer via USB or network (port 9100)",
     });
   } catch (error) {
-    console.error("Thermal label generation error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate thermal label" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -183,13 +176,11 @@ export async function POST(request: NextRequest) {
  * GET /api/labels/thermal
  * Get available thermal printer presets
  */
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export async function GET() {
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     const presets = Object.entries(PRINTER_PRESETS).map(([name, config]) => ({
       name,
       type: config.type,
@@ -203,10 +194,6 @@ export async function GET(request: NextRequest) {
       supportedFormats: ["tspl", "zpl"],
     });
   } catch (error) {
-    console.error("Error fetching thermal presets:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch presets" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

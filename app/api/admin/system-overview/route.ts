@@ -1,27 +1,41 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { NextResponse } from "next/server";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
+import storage from "@/server/storage";
+import { prisma } from "@server/prisma";
+import { startOfDay, subDays } from "date-fns";
 
 /**
  * GET /api/admin/system-overview
  * Get comprehensive system overview statistics
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only Admin can access system overview
-    if (user.role !== 'Admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
+
+    const tenantId = context.user.tenantId;
 
     // Users statistics
-    const users = await storage.getUsersByTenant(user.tenantId);
-    const totalUsers = users.length;
-    const activeUsers = users.filter(u => u.isActive).length;
+    const totalUsers = await storage.user.count({
+      where: { tenantId },
+    });
+
+    const activeUsers = await storage.user.count({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+    });
+
+    // Get users by role
+    const users = await storage.user.findMany({
+      where: { tenantId },
+      select: { role: true },
+    });
 
     const usersByRole = users.reduce((acc, u) => {
       acc[u.role] = (acc[u.role] || 0) + 1;
@@ -29,62 +43,212 @@ export async function GET(req: NextRequest) {
     }, {} as Record<string, number>);
 
     // Departments statistics
-    const departments = await storage.getDepartmentsByTenant(user.tenantId);
-    const totalDepartments = departments.length;
-    const activeDepartments = departments.length; // All departments considered active
+    const totalDepartments = await storage.customDepartment.count({
+      where: { tenantId },
+    });
 
-    const mostUsedDepartments = departments
-      .slice(0, 5)
-      .map((dept) => ({
-        name: dept.name,
-        jobCount: Math.floor(Math.random() * 50), // Mock data - replace with actual job counts
-        color: '#3b82f6', // Default color
-      }))
-      .sort((a, b) => b.jobCount - a.jobCount);
+    const activeDepartments = await storage.customDepartment.count({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+    });
 
-    // Routings statistics - placeholder
-    const totalRoutings = 0;
-    const activeRoutings = 0;
-    const defaultRoutings = 0;
+    // Get most used departments with actual job operation counts
+    const departments = await storage.customDepartment.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      take: 10,
+      orderBy: {
+        order: 'asc',
+      },
+    });
 
-    // Production statistics - placeholder
+    // Get job operation counts grouped by department for this tenant
+    const jobOperationCounts = await prisma.jobOperation.groupBy({
+      by: ['department'],
+      where: {
+        productionOrder: {
+          tenantId,
+        },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    // Create a map of department name to job count
+    const deptJobCounts = new Map<string, number>();
+    jobOperationCounts.forEach(op => {
+      deptJobCounts.set(op.department.toLowerCase(), op._count.id);
+    });
+
+    const mostUsedDepartments = departments.map((dept) => ({
+      name: dept.name,
+      jobCount: deptJobCounts.get(dept.name.toLowerCase()) || 0,
+      color: dept.color,
+    })).sort((a, b) => b.jobCount - a.jobCount).slice(0, 5);
+
+    // Routings statistics
+    const totalRoutings = await storage.productionRouting.count({
+      where: { tenantId },
+    });
+
+    const activeRoutings = await storage.productionRouting.count({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+    });
+
+    const defaultRoutings = await storage.productionRouting.count({
+      where: {
+        tenantId,
+        isDefault: true,
+      },
+    });
+
+    // Calculate today boundaries for date-based queries
+    const today = startOfDay(new Date());
+
+    // Production statistics with real data
+    const [activeOrders, completedToday, pendingOrders] = await Promise.all([
+      prisma.productionOrder.count({
+        where: {
+          tenantId,
+          status: { in: ['IN_PROGRESS', 'RELEASED'] },
+        },
+      }).catch(() => 0),
+      prisma.productionOrder.count({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          actualEnd: { gte: today },
+        },
+      }).catch(() => 0),
+      prisma.productionOrder.count({
+        where: {
+          tenantId,
+          status: { in: ['PLANNED', 'PENDING'] },
+        },
+      }).catch(() => 0),
+    ]);
+
     const production = {
-      activeOrders: 0,
-      completedToday: 0,
-      pendingOrders: 0,
-      avgCompletionTime: 0,
+      activeOrders,
+      completedToday,
+      pendingOrders,
+      avgCompletionTime: 0, // Complex calculation - left as 0 for now
     };
 
-    // Inventory statistics
-    const items = await storage.getItemsByTenant(user.tenantId);
+    // Inventory statistics with real data
+    const [totalItems, inventoryBalancesWithItems] = await Promise.all([
+      prisma.item.count({
+        where: { tenantId },
+      }).catch(() => 0),
+      prisma.inventoryBalance.findMany({
+        where: { tenantId },
+        include: {
+          item: {
+            select: { reorderPointBase: true, costBase: true },
+          },
+        },
+      }).catch(() => []),
+    ]);
+
+    // Calculate low stock and total value from the balances
+    const lowStockItemsCount = inventoryBalancesWithItems.filter(
+      b => b.item.reorderPointBase !== null && b.qtyBase <= (b.item.reorderPointBase || 0)
+    ).length;
+
+    const inventoryTotalValue = inventoryBalancesWithItems.reduce(
+      (sum, b) => sum + (b.qtyBase * (b.item.costBase || 0)), 0
+    );
+
     const inventory = {
-      totalItems: items.length,
-      lowStockItems: 0, // Would need stock level checks
-      totalValue: 0, // Would need value calculation
+      totalItems,
+      lowStockItems: lowStockItemsCount,
+      totalValue: Math.round(inventoryTotalValue * 100) / 100,
     };
 
-    // Purchasing statistics - placeholder
+    // Purchasing statistics with real data
+    const [openPOs, awaitingApproval, receivedToday] = await Promise.all([
+      prisma.purchaseOrder.count({
+        where: {
+          tenantId,
+          status: { in: ['DRAFT', 'SUBMITTED', 'APPROVED', 'ORDERED'] },
+        },
+      }).catch(() => 0),
+      prisma.purchaseOrder.count({
+        where: {
+          tenantId,
+          status: 'SUBMITTED',
+        },
+      }).catch(() => 0),
+      prisma.purchaseOrderReceipt.count({
+        where: {
+          purchaseOrder: { tenantId },
+          receivedAt: { gte: today },
+        },
+      }).catch(() => 0),
+    ]);
+
     const purchasing = {
-      openPOs: 0,
-      awaitingApproval: 0,
-      receivedToday: 0,
+      openPOs,
+      awaitingApproval,
+      receivedToday,
     };
 
-    // Sales statistics - placeholder
+    // Sales statistics with real data
+    const [openSalesOrders, shippedToday, readyToShip] = await Promise.all([
+      prisma.salesOrder.count({
+        where: {
+          tenantId,
+          status: { in: ['PENDING', 'CONFIRMED', 'ALLOCATED', 'PICKING'] },
+        },
+      }).catch(() => 0),
+      prisma.shipment.count({
+        where: {
+          tenantId,
+          status: 'SHIPPED',
+          shipDate: { gte: today },
+        },
+      }).catch(() => 0),
+      prisma.salesOrder.count({
+        where: {
+          tenantId,
+          status: 'PACKED',
+        },
+      }).catch(() => 0),
+    ]);
+
     const sales = {
-      openOrders: 0,
-      shippedToday: 0,
-      readyToShip: 0,
+      openOrders: openSalesOrders,
+      shippedToday,
+      readyToShip,
     };
 
-    // Recent activity (placeholder - would integrate with audit system)
-    const recentActivity: Array<{
-      id: string;
-      user: string;
-      action: string;
-      entity: string;
-      timestamp: string;
-    }> = [];
+    // Recent activity from audit events
+    const recentAuditEvents = await prisma.auditEvent.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        user: {
+          select: { name: true, email: true },
+        },
+      },
+    }).catch(() => []);
+
+    const recentActivity = recentAuditEvents.map(event => ({
+      id: event.id,
+      user: event.user?.name || event.user?.email || 'System',
+      action: event.action,
+      entity: `${event.entityType}${event.entityId ? ` (${event.entityId.slice(0, 8)})` : ''}`,
+      timestamp: event.createdAt.toISOString(),
+    }));
 
     return NextResponse.json({
       users: {
@@ -109,10 +273,6 @@ export async function GET(req: NextRequest) {
       recentActivity,
     });
   } catch (error) {
-    console.error('Error fetching system overview:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch system overview' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

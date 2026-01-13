@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError } from "@app/api/_utils/middleware";
 import { prisma } from "@server/prisma";
 import { EmailService } from "@server/email";
 
@@ -7,19 +7,17 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const type = searchParams.get("type") || "confirmation"; // confirmation, shipped, delivered
-
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get("type") || "confirmation"; // confirmation, shipped, delivered
+
     const order = await prisma.salesOrder.findFirst({
       where: {
         id: params.id,
-        tenantId: session.sessionUser.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         customer: true,
@@ -40,12 +38,11 @@ export async function POST(
       },
     });
 
-    if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    }
+    const validatedOrder = await requireTenantResource(context, order, "Order");
+    if (validatedOrder instanceof NextResponse) return validatedOrder;
 
     // Check if customer has email
-    if (!order.customer.email) {
+    if (!validatedOrder.customer.email) {
       return NextResponse.json(
         { error: "Customer does not have an email address" },
         { status: 400 }
@@ -57,23 +54,23 @@ export async function POST(
     switch (type) {
       case "confirmation":
         success = await EmailService.sendOrderConfirmation(
-          order.customer.email,
+          validatedOrder.customer.email,
           {
-            orderNumber: order.orderNumber,
-            customerName: order.customer.name,
-            orderDate: order.orderDate,
-            total: order.total,
-            items: order.lines.map((line) => ({
+            orderNumber: validatedOrder.orderNumber,
+            customerName: validatedOrder.customer.name,
+            orderDate: validatedOrder.orderDate,
+            total: validatedOrder.total,
+            items: validatedOrder.lines.map((line) => ({
               name: line.item.name,
               qty: line.qtyOrdered,
               unitPrice: line.unitPrice,
             })),
             shippingAddress: [
-              order.shipToName || order.customer.name,
-              order.shipToAddress1,
-              order.shipToAddress2,
-              `${order.shipToCity}, ${order.shipToState} ${order.shipToZip}`,
-              order.shipToCountry,
+              validatedOrder.shipToName || validatedOrder.customer.name,
+              validatedOrder.shipToAddress1,
+              validatedOrder.shipToAddress2,
+              `${validatedOrder.shipToCity}, ${validatedOrder.shipToState} ${validatedOrder.shipToZip}`,
+              validatedOrder.shipToCountry,
             ]
               .filter(Boolean)
               .join("\n"),
@@ -83,7 +80,7 @@ export async function POST(
 
       case "shipped":
         // Get the most recent shipment
-        const shipment = order.shipments[order.shipments.length - 1];
+        const shipment = validatedOrder.shipments[validatedOrder.shipments.length - 1];
         if (!shipment) {
           return NextResponse.json(
             { error: "No shipment found for this order" },
@@ -92,11 +89,11 @@ export async function POST(
         }
 
         success = await EmailService.sendShipmentNotification(
-          order.customer.email,
+          validatedOrder.customer.email,
           {
-            orderNumber: order.orderNumber,
+            orderNumber: validatedOrder.orderNumber,
             shipmentNumber: shipment.shipmentNumber,
-            customerName: order.customer.name,
+            customerName: validatedOrder.customer.name,
             carrier: shipment.carrier || "Standard Shipping",
             trackingNumber: shipment.trackingNumber || undefined,
             estimatedDelivery: shipment.deliveryDate || undefined,
@@ -110,10 +107,10 @@ export async function POST(
 
       case "delivered":
         success = await EmailService.sendDeliveryConfirmation(
-          order.customer.email,
+          validatedOrder.customer.email,
           {
-            orderNumber: order.orderNumber,
-            customerName: order.customer.name,
+            orderNumber: validatedOrder.orderNumber,
+            customerName: validatedOrder.customer.name,
             deliveredAt: new Date(),
           }
         );
@@ -127,8 +124,8 @@ export async function POST(
     }
 
     if (success) {
-      return NextResponse.json({ 
-        message: `Email sent successfully to ${order.customer.email}` 
+      return NextResponse.json({
+        message: `Email sent successfully to ${validatedOrder.customer.email}`
       });
     } else {
       return NextResponse.json(
@@ -136,11 +133,7 @@ export async function POST(
         { status: 500 }
       );
     }
-  } catch (error: any) {
-    console.error("Email error:", error);
-    return NextResponse.json(
-      { error: "Failed to send email" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleApiError(error);
   }
 }

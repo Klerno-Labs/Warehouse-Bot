@@ -7,6 +7,7 @@
 
 import { prisma } from "./prisma";
 import { EmailService } from "./email";
+import { logger } from "./logger";
 
 export type AlertType =
   | "LOW_STOCK"
@@ -126,7 +127,7 @@ export class AlertService {
 
       // Check if stock is below reorder point but not zero
       if (currentStock > 0 && currentStock <= reorderPoint) {
-        const daysUntilStockout = this.calculateDaysUntilStockout(item.id, currentStock);
+        const daysUntilStockout = await this.calculateDaysUntilStockout(item.id, currentStock);
 
         alerts.push({
           id: `alert-${Date.now()}-${item.id}`,
@@ -498,15 +499,45 @@ export class AlertService {
    */
   private static async sendEmailNotification(alert: Alert): Promise<void> {
     try {
-      // Get admin users for the tenant
+      // Get admin users for the tenant with their email preferences
       const users = await prisma.user.findMany({
         where: {
           tenantId: alert.tenantId,
           role: { in: ["Admin", "Supervisor"] },
         },
+        select: {
+          email: true,
+          preferences: true,
+        },
       });
 
-      const recipients = users.map((u) => u.email);
+      // Filter users based on their email notification preferences
+      const recipients = users
+        .filter((u) => {
+          const prefs = (u.preferences as Record<string, any>) || {};
+          const emailPrefs = prefs.emailNotifications || {};
+
+          // Check if email notifications are enabled (default: true)
+          if (emailPrefs.emailNotifications === false) return false;
+
+          // Check specific alert type preferences
+          switch (alert.type) {
+            case "LOW_STOCK":
+            case "REORDER_POINT_REACHED":
+            case "SAFETY_STOCK_BREACH":
+              return emailPrefs.lowStockAlerts !== false;
+            case "OUT_OF_STOCK":
+              return emailPrefs.outOfStockAlerts !== false;
+            case "QUALITY_ISSUE":
+            case "HIGH_SCRAP_RATE":
+              return emailPrefs.qualityIssueNotifications !== false;
+            case "CYCLE_COUNT_VARIANCE":
+              return emailPrefs.cycleCountNotifications !== false;
+            default:
+              return true; // Allow by default for other alert types
+          }
+        })
+        .map((u) => u.email);
 
       if (recipients.length === 0) return;
 
@@ -539,7 +570,7 @@ export class AlertService {
         });
       }
     } catch (error) {
-      console.error("Failed to send email notification:", error);
+      logger.error("Failed to send email notification", error as Error);
     }
   }
 
@@ -547,16 +578,53 @@ export class AlertService {
    * Store in-app notification
    */
   private static async storeInAppNotification(alert: Alert): Promise<void> {
-    // In production, would store in notifications table
-    console.log("Storing in-app notification:", alert);
+    await prisma.notification.create({
+      data: {
+        tenantId: alert.tenantId,
+        type: alert.type,
+        title: alert.title,
+        message: alert.message,
+        priority: alert.severity === "critical" ? "URGENT" : alert.severity === "warning" ? "HIGH" : "MEDIUM",
+        metadata: {
+          alertId: alert.id,
+          entityType: alert.entityType,
+          entityId: alert.entityId,
+          ...alert.metadata,
+        },
+      },
+    });
+
+    logger.debug("Stored in-app notification", { alertId: alert.id, alertType: alert.type });
   }
 
   /**
    * Calculate days until stockout based on historical usage
    */
-  private static calculateDaysUntilStockout(itemId: string, currentStock: number): number {
-    // Simplified calculation - in production would use forecasting service
-    const avgDailyUsage = 5; // Mock value
+  private static async calculateDaysUntilStockout(itemId: string, currentStock: number): Promise<number> {
+    // Calculate average daily usage from recent inventory events
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const usageEvents = await prisma.inventoryEvent.findMany({
+      where: {
+        itemId,
+        eventType: { in: ["ISSUE", "SALE", "CONSUMPTION"] },
+        createdAt: { gte: thirtyDaysAgo },
+      },
+      select: { qtyBase: true },
+    });
+
+    if (usageEvents.length === 0) {
+      return 999; // No usage data, assume no stockout risk
+    }
+
+    const totalUsage = usageEvents.reduce((sum, e) => sum + Math.abs(e.qtyBase), 0);
+    const avgDailyUsage = totalUsage / 30;
+
+    if (avgDailyUsage <= 0) {
+      return 999;
+    }
+
     return Math.floor(currentStock / avgDailyUsage);
   }
 
@@ -567,8 +635,21 @@ export class AlertService {
     alertId: string,
     userId: string
   ): Promise<{ success: boolean }> {
-    // In production, update alert record
-    console.log(`Alert ${alertId} acknowledged by user ${userId}`);
+    // Mark the related notification as read
+    await prisma.notification.updateMany({
+      where: {
+        metadata: {
+          path: ["alertId"],
+          equals: alertId,
+        },
+      },
+      data: {
+        isRead: true,
+        readAt: new Date(),
+      },
+    });
+
+    logger.info("Alert acknowledged", { alertId, userId });
     return { success: true };
   }
 
@@ -576,8 +657,17 @@ export class AlertService {
    * Resolve an alert
    */
   static async resolveAlert(alertId: string): Promise<{ success: boolean }> {
-    // In production, update alert record
-    console.log(`Alert ${alertId} resolved`);
+    // Delete the notification for this alert
+    await prisma.notification.deleteMany({
+      where: {
+        metadata: {
+          path: ["alertId"],
+          equals: alertId,
+        },
+      },
+    });
+
+    logger.info("Alert resolved", { alertId });
     return { success: true };
   }
 }

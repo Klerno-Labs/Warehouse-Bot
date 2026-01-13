@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, requireSiteAccess, requireTenantResource, validateBody, handleApiError } from "@app/api/_utils/middleware";
 import { approveVarianceSchema } from "@shared/cycle-counts";
 
 interface RouteParams {
@@ -10,26 +9,26 @@ interface RouteParams {
 
 export async function POST(req: Request, { params }: RouteParams) {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!["Admin", "Supervisor"].includes(session.user.role)) {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const roleCheck = requireRole(context, ["Admin", "Supervisor"]);
+    if (roleCheck instanceof NextResponse) {
       return NextResponse.json({ error: "Only Admin or Supervisor can approve variances" }, { status: 403 });
     }
 
     const { id } = await params;
     const cycleCount = await storage.getCycleCountById(id);
 
-    if (!cycleCount || cycleCount.tenantId !== session.user.tenantId) {
-      return NextResponse.json({ error: "Cycle count not found" }, { status: 404 });
-    }
+    const tenantCheck = await requireTenantResource(context, cycleCount, "Cycle count");
+    if (tenantCheck instanceof NextResponse) return tenantCheck;
 
-    if (!session.user.siteIds.includes(cycleCount.siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const siteCheck = requireSiteAccess(context, cycleCount.siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
 
-    const payload = approveVarianceSchema.parse(await req.json());
+    const payload = await validateBody(req, approveVarianceSchema);
+    if (payload instanceof NextResponse) return payload;
+
     const line = await storage.getCycleCountLineById(payload.cycleCountLineId);
 
     if (!line || line.cycleCountId !== id) {
@@ -45,10 +44,10 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     // Update line status based on approval decision
     const newStatus = payload.approved ? "VARIANCE_APPROVED" : "VARIANCE_REJECTED";
-    
+
     const updatedLine = await storage.updateCycleCountLine(payload.cycleCountLineId, {
       status: newStatus,
-      approvedByUserId: session.user.id,
+      approvedByUserId: context.user.id,
       approvedAt: new Date(),
       notes: payload.notes || line.notes,
     });
@@ -66,7 +65,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         const item = await storage.getItemById(line.itemId);
 
         await storage.createInventoryEvent({
-          tenantId: session.user.tenantId,
+          tenantId: context.user.tenantId,
           siteId: cycleCount.siteId,
           eventType: "ADJUST",
           itemId: line.itemId,
@@ -78,7 +77,7 @@ export async function POST(req: Request, { params }: RouteParams) {
           referenceId: cycleCount.id,
           reasonCodeId: null,
           notes: `Cycle count adjustment: ${cycleCount.name}`,
-          createdByUserId: session.user.id,
+          createdByUserId: context.user.id,
           workcellId: null,
           deviceId: null,
         });
@@ -96,13 +95,6 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(updatedLine);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid request", details: error.errors },
-        { status: 400 }
-      );
-    }
-    console.error("Error approving variance:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleApiError(error);
   }
 }

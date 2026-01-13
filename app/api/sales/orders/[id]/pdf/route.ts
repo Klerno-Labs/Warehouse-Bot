@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError } from "@app/api/_utils/middleware";
 import { prisma } from "@server/prisma";
 import { generateSalesOrderPDF, generateInvoicePDF, generatePackingSlipPDF } from "@server/pdf-service";
 
@@ -7,19 +7,17 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const type = searchParams.get("type") || "order"; // order, invoice, packing-slip
-
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const { searchParams } = new URL(request.url);
+    const type = searchParams.get("type") || "order"; // order, invoice, packing-slip
+
     const order = await prisma.salesOrder.findFirst({
       where: {
         id: params.id,
-        tenantId: session.sessionUser.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         customer: true,
@@ -33,43 +31,42 @@ export async function GET(
       },
     });
 
-    if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    }
+    const validatedOrder = await requireTenantResource(context, order, "Order");
+    if (validatedOrder instanceof NextResponse) return validatedOrder;
 
     // Format data for PDF
     const pdfData = {
-      orderNumber: order.orderNumber,
-      orderDate: order.orderDate,
-      requestedDate: order.requestedDate || undefined,
-      promisedDate: order.promisedDate || undefined,
-      status: order.status,
-      customerPO: order.customerPO || undefined,
+      orderNumber: validatedOrder.orderNumber,
+      orderDate: validatedOrder.orderDate,
+      requestedDate: validatedOrder.requestedDate || undefined,
+      promisedDate: validatedOrder.promisedDate || undefined,
+      status: validatedOrder.status,
+      customerPO: validatedOrder.customerPO || undefined,
       customer: {
-        name: order.customer.name,
-        code: order.customer.code,
-        email: order.customer.email || undefined,
-        phone: order.customer.phone || undefined,
+        name: validatedOrder.customer.name,
+        code: validatedOrder.customer.code,
+        email: validatedOrder.customer.email || undefined,
+        phone: validatedOrder.customer.phone || undefined,
       },
       billTo: {
-        name: order.customer.name,
-        address1: order.customer.billingAddress1 || undefined,
-        address2: order.customer.billingAddress2 || undefined,
-        city: order.customer.billingCity || undefined,
-        state: order.customer.billingState || undefined,
-        zip: order.customer.billingZip || undefined,
-        country: order.customer.billingCountry || undefined,
+        name: validatedOrder.customer.name,
+        address1: validatedOrder.customer.billingAddress1 || undefined,
+        address2: validatedOrder.customer.billingAddress2 || undefined,
+        city: validatedOrder.customer.billingCity || undefined,
+        state: validatedOrder.customer.billingState || undefined,
+        zip: validatedOrder.customer.billingZip || undefined,
+        country: validatedOrder.customer.billingCountry || undefined,
       },
       shipTo: {
-        name: order.shipToName || order.customer.name,
-        address1: order.shipToAddress1 || undefined,
-        address2: order.shipToAddress2 || undefined,
-        city: order.shipToCity || undefined,
-        state: order.shipToState || undefined,
-        zip: order.shipToZip || undefined,
-        country: order.shipToCountry || undefined,
+        name: validatedOrder.shipToName || validatedOrder.customer.name,
+        address1: validatedOrder.shipToAddress1 || undefined,
+        address2: validatedOrder.shipToAddress2 || undefined,
+        city: validatedOrder.shipToCity || undefined,
+        state: validatedOrder.shipToState || undefined,
+        zip: validatedOrder.shipToZip || undefined,
+        country: validatedOrder.shipToCountry || undefined,
       },
-      lines: order.lines.map((line) => ({
+      lines: validatedOrder.lines.map((line) => ({
         sku: line.item.sku,
         description: line.description || line.item.name,
         qty: line.qtyOrdered,
@@ -77,13 +74,13 @@ export async function GET(
         unitPrice: line.unitPrice,
         total: line.lineTotal,
       })),
-      subtotal: order.subtotal,
-      taxAmount: order.taxAmount,
-      shippingAmount: order.shippingAmount,
-      total: order.total,
-      notes: order.notes || undefined,
-      createdBy: order.createdBy?.firstName 
-        ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
+      subtotal: validatedOrder.subtotal,
+      taxAmount: validatedOrder.taxAmount,
+      shippingAmount: validatedOrder.shippingAmount,
+      total: validatedOrder.total,
+      notes: validatedOrder.notes || undefined,
+      createdBy: validatedOrder.createdBy?.firstName
+        ? `${validatedOrder.createdBy.firstName} ${validatedOrder.createdBy.lastName}`
         : undefined,
     };
 
@@ -94,37 +91,37 @@ export async function GET(
       case "invoice":
         pdfBuffer = generateInvoicePDF({
           ...pdfData,
-          invoiceNumber: `INV-${order.orderNumber.replace("SO-", "")}`,
+          invoiceNumber: `INV-${validatedOrder.orderNumber.replace("SO-", "")}`,
           invoiceDate: new Date(),
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // Net 30
-          paymentTerms: order.customer.paymentTerms || "Net 30",
+          paymentTerms: validatedOrder.customer.paymentTerms || "Net 30",
         });
-        filename = `Invoice-${order.orderNumber}.pdf`;
+        filename = `Invoice-${validatedOrder.orderNumber}.pdf`;
         break;
 
       case "packing-slip":
         pdfBuffer = generatePackingSlipPDF({
-          orderNumber: order.orderNumber,
+          orderNumber: validatedOrder.orderNumber,
           shipmentNumber: `SHIP-${Date.now()}`,
           shipDate: new Date(),
           carrier: "TBD",
           customer: pdfData.customer,
           shipTo: pdfData.shipTo,
-          lines: order.lines.map((line) => ({
+          lines: validatedOrder.lines.map((line) => ({
             sku: line.item.sku,
             description: line.description || line.item.name,
             qtyOrdered: line.qtyOrdered,
             qtyShipped: line.qtyShipped,
             uom: line.uom,
           })),
-          notes: order.notes || undefined,
+          notes: validatedOrder.notes || undefined,
         });
-        filename = `PackingSlip-${order.orderNumber}.pdf`;
+        filename = `PackingSlip-${validatedOrder.orderNumber}.pdf`;
         break;
 
       default:
         pdfBuffer = generateSalesOrderPDF(pdfData);
-        filename = `SalesOrder-${order.orderNumber}.pdf`;
+        filename = `SalesOrder-${validatedOrder.orderNumber}.pdf`;
     }
 
     return new NextResponse(pdfBuffer, {
@@ -133,11 +130,7 @@ export async function GET(
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch (error: any) {
-    console.error("PDF generation error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleApiError(error);
   }
 }

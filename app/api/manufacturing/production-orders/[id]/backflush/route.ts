@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError, validateBody, createAuditLog } from "@app/api/_utils/middleware";
 import { backflushConsumption } from "@server/manufacturing";
 
 const backflushSchema = z.object({
@@ -13,19 +13,13 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const order = await storage.getProductionOrderById(params.id);
-    if (!order || order.tenantId !== session.user.tenantId) {
-      return NextResponse.json(
-        { error: "Production order not found" },
-        { status: 404 }
-      );
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const rawOrder = await storage.getProductionOrderById(params.id);
+    const order = await requireTenantResource(context, rawOrder, "Production order");
+    if (order instanceof NextResponse) return order;
 
     // Can only backflush for RELEASED or IN_PROGRESS orders
     if (!["RELEASED", "IN_PROGRESS"].includes(order.status)) {
@@ -35,8 +29,8 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
-    const validatedData = backflushSchema.parse(body);
+    const validatedData = await validateBody(req, backflushSchema);
+    if (validatedData instanceof NextResponse) return validatedData;
 
     // Validate quantity doesn't exceed ordered quantity
     if (validatedData.qtyProduced > order.qtyOrdered) {
@@ -49,11 +43,11 @@ export async function POST(
     // Execute backflush
     const backflushedComponents = await backflushConsumption(
       storage.prisma,
-      session.user.tenantId,
+      context.user.tenantId,
       params.id,
       validatedData.qtyProduced,
       validatedData.fromLocationId,
-      session.user.id
+      context.user.id
     );
 
     // Update order status to IN_PROGRESS if not already
@@ -64,28 +58,19 @@ export async function POST(
       });
     }
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "CREATE",
-      entityType: "ProductionConsumption",
-      entityId: params.id,
-      details: `Backflushed ${backflushedComponents.length} components for ${validatedData.qtyProduced} units of order ${order.orderNumber}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "CREATE",
+      "ProductionConsumption",
+      params.id,
+      `Backflushed ${backflushedComponents.length} components for ${validatedData.qtyProduced} units of order ${order.orderNumber}`
+    );
 
     return NextResponse.json({
       backflushedComponents,
       count: backflushedComponents.length,
     }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error backflushing components:", error);
-    return NextResponse.json(
-      { error: "Failed to backflush components" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

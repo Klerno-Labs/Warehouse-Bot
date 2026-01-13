@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError, validateBody, createAuditLog } from "@app/api/_utils/middleware";
 import { convertQuantity } from "@server/inventory";
 
 const recordOutputSchema = z.object({
@@ -19,19 +19,13 @@ export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const order = await storage.getProductionOrderById(params.id);
-    if (!order || order.tenantId !== session.user.tenantId) {
-      return NextResponse.json(
-        { error: "Production order not found" },
-        { status: 404 }
-      );
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const rawOrder = await storage.getProductionOrderById(params.id);
+    const order = await requireTenantResource(context, rawOrder, "Production order");
+    if (order instanceof NextResponse) return order;
 
     // Can only record output for RELEASED or IN_PROGRESS orders
     if (!["RELEASED", "IN_PROGRESS"].includes(order.status)) {
@@ -41,8 +35,8 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
-    const validatedData = recordOutputSchema.parse(body);
+    const validatedData = await validateBody(req, recordOutputSchema);
+    if (validatedData instanceof NextResponse) return validatedData;
 
     // Validate total output doesn't exceed ordered quantity
     const currentTotal = order.qtyCompleted + order.qtyRejected;
@@ -58,7 +52,7 @@ export async function POST(
     // Convert to base UOM
     const { qtyBase } = await convertQuantity(
       storage.prisma,
-      session.user.tenantId,
+      context.user.tenantId,
       order.itemId,
       validatedData.qtyProduced,
       order.uom
@@ -80,7 +74,7 @@ export async function POST(
         : null,
       inspectionStatus: validatedData.inspectionStatus,
       notes: validatedData.notes,
-      createdByUserId: session.user.id,
+      createdByUserId: context.user.id,
     });
 
     // Update production order quantities
@@ -100,25 +94,16 @@ export async function POST(
       });
     }
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "CREATE",
-      entityType: "ProductionOutput",
-      entityId: output.id,
-      details: `Recorded output: ${validatedData.qtyProduced} produced, ${validatedData.qtyRejected} rejected for order ${order.orderNumber}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "CREATE",
+      "ProductionOutput",
+      output.id,
+      `Recorded output: ${validatedData.qtyProduced} produced, ${validatedData.qtyRejected} rejected for order ${order.orderNumber}`
+    );
 
     return NextResponse.json({ output }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error recording output:", error);
-    return NextResponse.json(
-      { error: "Failed to record output" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

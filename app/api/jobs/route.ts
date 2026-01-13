@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, requireSiteAccess, validateBody, handleApiError } from "@app/api/_utils/middleware";
 import { createJobSchema } from "@shared/jobs";
 
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   const { searchParams } = new URL(req.url);
   const siteId = searchParams.get("siteId");
@@ -16,17 +13,16 @@ export async function GET(req: Request) {
   const type = searchParams.get("type");
   const assignedToMe = searchParams.get("assignedToMe") === "true";
 
-  let jobs = await storage.getJobsByTenant(session.user.tenantId);
+  let jobs = await storage.getJobsByTenant(context.user.tenantId);
 
   // Filter by site
   if (siteId) {
-    if (!session.user.siteIds.includes(siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const siteCheck = requireSiteAccess(context, siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
     jobs = jobs.filter((j) => j.siteId === siteId);
   } else {
     // Only show jobs for sites user has access to
-    jobs = jobs.filter((j) => session.user.siteIds.includes(j.siteId));
+    jobs = jobs.filter((j) => context.user.siteIds.includes(j.siteId));
   }
 
   // Filter by status
@@ -41,34 +37,32 @@ export async function GET(req: Request) {
 
   // Filter by assigned to current user
   if (assignedToMe) {
-    jobs = jobs.filter((j) => j.assignedToUserId === session.user.id);
+    jobs = jobs.filter((j) => j.assignedToUserId === context.user.id);
   }
 
   return NextResponse.json(jobs);
 }
 
 export async function POST(req: Request) {
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
+
+  const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
+  if (roleCheck instanceof NextResponse) return roleCheck;
+
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!["Admin", "Supervisor", "Inventory"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const payload = await validateBody(req, createJobSchema);
+    if (payload instanceof NextResponse) return payload;
 
-    const payload = createJobSchema.parse(await req.json());
-
-    if (!session.user.siteIds.includes(payload.siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const siteCheck = requireSiteAccess(context, payload.siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
 
     // Get next job number
-    const jobNumber = await storage.getNextJobNumber(session.user.tenantId);
+    const jobNumber = await storage.getNextJobNumber(context.user.tenantId);
 
     // Create the job
     const job = await storage.createJob({
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
       siteId: payload.siteId,
       workcellId: null,
       routingId: null,
@@ -80,12 +74,11 @@ export async function POST(req: Request) {
       scheduledDate: null,
       startedAt: null,
       completedAt: null,
-      createdByUserId: session.user.id,
+      createdByUserId: context.user.id,
     });
 
     // Create lines if provided
     if (payload.lines && payload.lines.length > 0) {
-      let lineNumber = 1;
       for (const line of payload.lines) {
         if (!line.itemId) continue; // Skip lines without itemId
 
@@ -96,25 +89,17 @@ export async function POST(req: Request) {
           toLocationId: line.toLocationId || null,
           qtyOrdered: line.qtyOrdered,
           qtyCompleted: 0,
-          qtyBase: line.qtyOrdered, // Assuming qtyOrdered is in base UOM
+          qtyBase: line.qtyOrdered,
           status: "PENDING",
           notes: line.notes || null,
           completedByUserId: null,
           completedAt: null,
         });
-        lineNumber++;
       }
     }
 
     return NextResponse.json(job, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid request", details: error.errors },
-        { status: 400 }
-      );
-    }
-    console.error("Error creating job:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleApiError(error);
   }
 }

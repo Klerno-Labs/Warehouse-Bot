@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * GET /api/quality/ncrs
@@ -8,10 +8,8 @@ import { storage } from '@server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
@@ -19,7 +17,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
 
     const where: any = {
-      tenantId: user.tenantId,
+      tenantId: context.user.tenantId,
     };
 
     if (status) {
@@ -34,7 +32,7 @@ export async function GET(req: NextRequest) {
       where.ncrNumber = { contains: search, mode: 'insensitive' };
     }
 
-    const ncrs = await storage.prisma.nonConformanceReport.findMany({
+    const ncrs = await storage.nonConformanceReport.findMany({
       where,
       include: {
         item: {
@@ -70,11 +68,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ncrs });
   } catch (error) {
-    console.error('Error fetching NCRs:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch NCRs' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -84,15 +78,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only QC, Supervisor, and Admin can create NCRs
-    if (!['Admin', 'Supervisor', 'QC'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const {
@@ -118,14 +109,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate NCR number
-    const count = await storage.prisma.nonConformanceReport.count({
-      where: { tenantId: user.tenantId },
+    const count = await storage.nonConformanceReport.count({
+      where: { tenantId: context.user.tenantId },
     });
     const ncrNumber = `NCR-${String(count + 1).padStart(6, '0')}`;
 
-    const ncr = await storage.prisma.nonConformanceReport.create({
+    const ncr = await storage.nonConformanceReport.create({
       data: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         ncrNumber,
         itemId,
         lotId,
@@ -139,7 +130,7 @@ export async function POST(req: NextRequest) {
         status: 'OPEN',
         disposition: 'PENDING',
         capaRequired: capaRequired || false,
-        reportedBy: user.email,
+        reportedBy: context.user.email,
         reportedAt: new Date(),
         attachments: attachments || null,
       },
@@ -152,10 +143,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ncr }, { status: 201 });
   } catch (error) {
-    console.error('Error creating NCR:', error);
-    return NextResponse.json(
-      { error: 'Failed to create NCR' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

@@ -1,40 +1,21 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@server/prisma";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
-import type { SalesOrderStatus, SOLineStatus } from "@prisma/client";
-
-const updateSOSchema = z.object({
-  customerPO: z.string().optional().nullable(),
-  requestedDate: z.string().optional().nullable(),
-  promisedDate: z.string().optional().nullable(),
-  shipToName: z.string().optional().nullable(),
-  shipToAddress1: z.string().optional().nullable(),
-  shipToAddress2: z.string().optional().nullable(),
-  shipToCity: z.string().optional().nullable(),
-  shipToState: z.string().optional().nullable(),
-  shipToZip: z.string().optional().nullable(),
-  shipToCountry: z.string().optional(),
-  shippingMethod: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-  internalNotes: z.string().optional().nullable(),
-});
+import { requireAuth, requireRole, requireTenantResource, validateBody, handleApiError } from "@app/api/_utils/middleware";
+import { updateSOSchema } from "@shared/sales";
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   const { id } = await params;
 
   const salesOrder = await prisma.salesOrder.findFirst({
     where: {
       id,
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
     },
     include: {
       customer: true,
@@ -69,9 +50,8 @@ export async function GET(
     },
   });
 
-  if (!salesOrder) {
-    return NextResponse.json({ error: "Sales order not found" }, { status: 404 });
-  }
+  const resource = await requireTenantResource(context, salesOrder, "Sales order");
+  if (resource instanceof NextResponse) return resource;
 
   return NextResponse.json({ salesOrder });
 }
@@ -80,31 +60,27 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
-  if (!["Admin", "Supervisor", "Sales"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const roleCheck = requireRole(context, ["Admin", "Supervisor", "Sales"]);
+  if (roleCheck instanceof NextResponse) return roleCheck;
 
   const { id } = await params;
 
   try {
-    const body = await req.json();
-    const data = updateSOSchema.parse(body);
+    const data = await validateBody(req, updateSOSchema);
+    if (data instanceof NextResponse) return data;
 
     const salesOrder = await prisma.salesOrder.findFirst({
-      where: { id, tenantId: session.user.tenantId },
+      where: { id, tenantId: context.user.tenantId },
     });
 
-    if (!salesOrder) {
-      return NextResponse.json({ error: "Sales order not found" }, { status: 404 });
-    }
+    const resource = await requireTenantResource(context, salesOrder, "Sales order");
+    if (resource instanceof NextResponse) return resource;
 
     // Only allow edits on draft orders
-    if (salesOrder.status !== "DRAFT") {
+    if (salesOrder!.status !== "DRAFT") {
       return NextResponse.json(
         { error: "Can only edit draft orders" },
         { status: 400 }
@@ -126,14 +102,7 @@ export async function PATCH(
 
     return NextResponse.json({ salesOrder: updated });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error updating sales order:", error);
-    return NextResponse.json(
-      { error: "Failed to update sales order" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -141,27 +110,23 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
-  if (!["Admin"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const roleCheck = requireRole(context, ["Admin"]);
+  if (roleCheck instanceof NextResponse) return roleCheck;
 
   const { id } = await params;
 
   const salesOrder = await prisma.salesOrder.findFirst({
-    where: { id, tenantId: session.user.tenantId },
+    where: { id, tenantId: context.user.tenantId },
     include: { _count: { select: { shipments: true } } },
   });
 
-  if (!salesOrder) {
-    return NextResponse.json({ error: "Sales order not found" }, { status: 404 });
-  }
+  const resource = await requireTenantResource(context, salesOrder, "Sales order");
+  if (resource instanceof NextResponse) return resource;
 
-  if (salesOrder.status !== "DRAFT" && salesOrder.status !== "CANCELLED") {
+  if (salesOrder!.status !== "DRAFT" && salesOrder!.status !== "CANCELLED") {
     return NextResponse.json(
       { error: "Can only delete draft or cancelled orders" },
       { status: 400 }

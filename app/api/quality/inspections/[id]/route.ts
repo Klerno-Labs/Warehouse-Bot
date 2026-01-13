@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * GET /api/quality/inspections/[id]
@@ -11,15 +11,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const inspection = await storage.prisma.qualityInspection.findUnique({
+    const inspection = await storage.qualityInspection.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         item: true,
@@ -48,11 +46,7 @@ export async function GET(
 
     return NextResponse.json({ inspection });
   } catch (error) {
-    console.error('Error fetching inspection:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch inspection' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -65,20 +59,17 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only QC, Supervisor, and Admin can update inspections
-    if (!['Admin', 'Supervisor', 'QC'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const existingInspection = await storage.prisma.qualityInspection.findUnique({
+    const existingInspection = await storage.qualityInspection.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -115,14 +106,14 @@ export async function PATCH(
       await Promise.all(
         checkpoints.map(async (checkpoint: any) => {
           if (checkpoint.id) {
-            await storage.prisma.qualityCheckpoint.update({
+            await storage.qualityCheckpoint.update({
               where: { id: checkpoint.id },
               data: {
                 result: checkpoint.result,
                 measuredValue: checkpoint.measuredValue,
                 notes: checkpoint.notes,
                 checkedAt: checkpoint.checkedAt ? new Date(checkpoint.checkedAt) : new Date(),
-                checkedBy: checkpoint.checkedBy || user.email,
+                checkedBy: checkpoint.checkedBy || context.user.email,
               },
             });
           }
@@ -130,7 +121,7 @@ export async function PATCH(
       );
     }
 
-    const inspection = await storage.prisma.qualityInspection.update({
+    const inspection = await storage.qualityInspection.update({
       where: {
         id: params.id,
       },
@@ -146,7 +137,7 @@ export async function PATCH(
 
     // Auto-update lot QC status if this is a lot inspection
     if (inspection.lotId && overallResult) {
-      await storage.prisma.lot.update({
+      await storage.lot.update({
         where: { id: inspection.lotId },
         data: {
           qcStatus: overallResult === 'ACCEPT' ? 'PASSED' : overallResult === 'REJECT' ? 'FAILED' : 'CONDITIONAL',
@@ -158,10 +149,6 @@ export async function PATCH(
 
     return NextResponse.json({ inspection });
   } catch (error) {
-    console.error('Error updating inspection:', error);
-    return NextResponse.json(
-      { error: 'Failed to update inspection' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

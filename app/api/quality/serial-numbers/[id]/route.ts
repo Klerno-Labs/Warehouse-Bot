@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * GET /api/quality/serial-numbers/[id]
@@ -11,15 +11,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const serialNumber = await storage.prisma.serialNumber.findUnique({
+    const serialNumber = await storage.serialNumber.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         item: true,
@@ -31,7 +29,11 @@ export async function GET(
         location: true,
         customer: true,
         salesOrder: true,
-        shipment: true, // TODO: Add carrier relation when schema is updated
+        shipment: {
+          include: {
+            carrier: true,
+          },
+        },
         history: {
           orderBy: {
             createdAt: 'desc',
@@ -46,11 +48,7 @@ export async function GET(
 
     return NextResponse.json({ serialNumber });
   } catch (error) {
-    console.error('Error fetching serial number:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch serial number' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -63,20 +61,17 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only certain roles can update serial numbers
-    if (!['Admin', 'Supervisor', 'Inventory', 'QC', 'Sales'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor', 'Inventory'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const existingSerial = await storage.prisma.serialNumber.findUnique({
+    const existingSerial = await storage.serialNumber.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -107,7 +102,7 @@ export async function PATCH(
     if (shippedDate !== undefined) updateData.shippedDate = shippedDate ? new Date(shippedDate) : null;
     if (notes !== undefined) updateData.notes = notes;
 
-    const serialNumber = await storage.prisma.serialNumber.update({
+    const serialNumber = await storage.serialNumber.update({
       where: {
         id: params.id,
       },
@@ -165,16 +160,12 @@ export async function PATCH(
 
     if (historyEntries.length > 0) {
       await Promise.all(
-        historyEntries.map((entry) => storage.prisma.serialNumberHistory.create({ data: entry }))
+        historyEntries.map((entry) => storage.serialNumberHistory.create({ data: entry }))
       );
     }
 
     return NextResponse.json({ serialNumber });
   } catch (error) {
-    console.error('Error updating serial number:', error);
-    return NextResponse.json(
-      { error: 'Failed to update serial number' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

@@ -3,6 +3,13 @@ import { z } from "zod";
 import { requireAuth, handleApiError, validateBody } from "@app/api/_utils/middleware";
 import { prisma } from "@server/prisma";
 
+// Type for inventory balance used in batch operations
+type InventoryBalanceRecord = {
+  id: string;
+  itemId: string;
+  qtyBase: number;
+};
+
 /**
  * Batch Operations API
  *
@@ -43,215 +50,267 @@ export async function POST(req: Request) {
 
     switch (operation) {
       case "update-costs":
-        // Bulk update item costs
-        for (const itemId of items) {
-          try {
-            await prisma.item.update({
-              where: { id: itemId },
-              data: {
-                costBase: data.costBase,
-                ...(data.costPerUom && { costPerUom: data.costPerUom }),
-              },
-            });
-            results.success++;
-          } catch (error: any) {
-            results.failed++;
-            results.errors.push({ itemId, error: error.message });
-          }
+        // Optimized: Single updateMany instead of N updates
+        try {
+          const updateData: Record<string, unknown> = { costBase: data.costBase };
+          if (data.costPerUom) updateData.costPerUom = data.costPerUom;
+
+          const result = await prisma.item.updateMany({
+            where: { id: { in: items } },
+            data: updateData,
+          });
+          results.success = result.count;
+          results.failed = items.length - result.count;
+        } catch (error: unknown) {
+          results.failed = items.length;
+          results.errors.push({ itemId: "all", error: error instanceof Error ? error.message : String(error) });
         }
         break;
 
       case "adjust-quantities":
-        // Bulk adjust inventory quantities
-        for (const itemId of items) {
-          try {
-            const balance = await prisma.inventoryBalance.findFirst({
-              where: {
-                itemId,
-                siteId: data.siteId,
-                locationId: data.locationId,
-              },
-            });
+        // Optimized: Fetch all balances in one query, then batch update
+        try {
+          // Fetch all balances at once
+          const balances = await prisma.inventoryBalance.findMany({
+            where: {
+              itemId: { in: items },
+              siteId: data.siteId,
+              locationId: data.locationId,
+            },
+          });
 
-            if (balance) {
-              await prisma.inventoryBalance.update({
-                where: { id: balance.id },
-                data: {
-                  qtyBase: balance.qtyBase + data.adjustmentQty,
-                },
-              });
+          const balanceMap = new Map<string, InventoryBalanceRecord>(balances.map((b: InventoryBalanceRecord): [string, InventoryBalanceRecord] => [b.itemId, b]));
 
-              // Create inventory event
-              await prisma.inventoryEvent.create({
-                data: {
-                  tenantId: context.user.tenantId,
-                  siteId: data.siteId,
-                  itemId,
-                  fromLocationId: data.locationId,
-                  eventType: data.adjustmentQty > 0 ? "RECEIVE" : "ADJUST",
-                  qtyEntered: Math.abs(data.adjustmentQty),
-                  uomEntered: "EA",
-                  qtyBase: Math.abs(data.adjustmentQty),
-                  notes: data.notes || "Batch adjustment",
-                  createdByUserId: context.user.id,
-                },
-              });
+          // Use transaction for atomic updates
+          await prisma.$transaction(async (tx: typeof prisma) => {
+            const updatePromises: Promise<unknown>[] = [];
+            const eventPromises: Promise<unknown>[] = [];
+
+            for (const itemId of items) {
+              const balance = balanceMap.get(itemId);
+              if (balance) {
+                updatePromises.push(
+                  tx.inventoryBalance.update({
+                    where: { id: balance.id },
+                    data: { qtyBase: balance.qtyBase + data.adjustmentQty },
+                  })
+                );
+
+                eventPromises.push(
+                  tx.inventoryEvent.create({
+                    data: {
+                      tenantId: context.user.tenantId,
+                      siteId: data.siteId,
+                      itemId,
+                      fromLocationId: data.locationId,
+                      eventType: data.adjustmentQty > 0 ? "RECEIVE" : "ADJUST",
+                      qtyEntered: Math.abs(data.adjustmentQty),
+                      uomEntered: "EA",
+                      qtyBase: Math.abs(data.adjustmentQty),
+                      notes: data.notes || "Batch adjustment",
+                      createdByUserId: context.user.id,
+                    },
+                  })
+                );
+                results.success++;
+              } else {
+                results.failed++;
+                results.errors.push({ itemId, error: "No balance found" });
+              }
             }
-            results.success++;
-          } catch (error: any) {
-            results.failed++;
-            results.errors.push({ itemId, error: error.message });
-          }
+
+            // Execute all updates in parallel within transaction
+            await Promise.all([...updatePromises, ...eventPromises]);
+          });
+        } catch (error: unknown) {
+          results.failed = items.length;
+          results.errors.push({ itemId: "all", error: error instanceof Error ? error.message : String(error) });
         }
         break;
 
       case "update-reorder-points":
-        // Bulk update reorder points
-        for (const itemId of items) {
-          try {
-            await prisma.item.update({
-              where: { id: itemId },
-              data: {
-                reorderPointBase: data.reorderPoint,
-                ...(data.reorderQty && { reorderQty: data.reorderQty }),
-              },
-            });
-            results.success++;
-          } catch (error: any) {
-            results.failed++;
-            results.errors.push({ itemId, error: error.message });
-          }
+        // Optimized: Single updateMany instead of N updates
+        try {
+          const updateData: Record<string, unknown> = { reorderPointBase: data.reorderPoint };
+          if (data.reorderQty) updateData.reorderQty = data.reorderQty;
+
+          const result = await prisma.item.updateMany({
+            where: { id: { in: items } },
+            data: updateData,
+          });
+          results.success = result.count;
+          results.failed = items.length - result.count;
+        } catch (error: unknown) {
+          results.failed = items.length;
+          results.errors.push({ itemId: "all", error: error instanceof Error ? error.message : String(error) });
         }
         break;
 
       case "move-locations":
-        // Bulk move items between locations
-        for (const itemId of items) {
-          try {
-            // Get current balance
-            const fromBalance = await prisma.inventoryBalance.findFirst({
+        // Optimized: Fetch all balances at once, batch operations in transaction
+        try {
+          // Fetch all from and to balances in parallel
+          const [fromBalances, toBalances] = await Promise.all([
+            prisma.inventoryBalance.findMany({
               where: {
-                itemId,
+                itemId: { in: items },
                 siteId: data.siteId,
                 locationId: data.fromLocationId,
               },
-            });
-
-            if (!fromBalance || fromBalance.qtyBase < data.qtyToMove) {
-              throw new Error("Insufficient quantity");
-            }
-
-            // Update from location
-            await prisma.inventoryBalance.update({
-              where: { id: fromBalance.id },
-              data: { qtyBase: fromBalance.qtyBase - data.qtyToMove },
-            });
-
-            // Update or create to location
-            const toBalance = await prisma.inventoryBalance.findFirst({
+            }),
+            prisma.inventoryBalance.findMany({
               where: {
-                itemId,
+                itemId: { in: items },
                 siteId: data.siteId,
                 locationId: data.toLocationId,
               },
-            });
+            }),
+          ]);
 
-            if (toBalance) {
-              await prisma.inventoryBalance.update({
-                where: { id: toBalance.id },
-                data: { qtyBase: toBalance.qtyBase + data.qtyToMove },
-              });
-            } else {
-              await prisma.inventoryBalance.create({
-                data: {
-                  tenantId: context.user.tenantId,
-                  siteId: data.siteId,
-                  itemId,
-                  locationId: data.toLocationId,
-                  qtyBase: data.qtyToMove,
-                },
-              });
+          const fromBalanceMap = new Map<string, InventoryBalanceRecord>(fromBalances.map((b: InventoryBalanceRecord): [string, InventoryBalanceRecord] => [b.itemId, b]));
+          const toBalanceMap = new Map<string, InventoryBalanceRecord>(toBalances.map((b: InventoryBalanceRecord): [string, InventoryBalanceRecord] => [b.itemId, b]));
+
+          await prisma.$transaction(async (tx: typeof prisma) => {
+            const operations: Promise<unknown>[] = [];
+
+            for (const itemId of items) {
+              const fromBalance = fromBalanceMap.get(itemId);
+
+              if (!fromBalance || fromBalance.qtyBase < data.qtyToMove) {
+                results.failed++;
+                results.errors.push({ itemId, error: "Insufficient quantity" });
+                continue;
+              }
+
+              // Update from location
+              operations.push(
+                tx.inventoryBalance.update({
+                  where: { id: fromBalance.id },
+                  data: { qtyBase: fromBalance.qtyBase - data.qtyToMove },
+                })
+              );
+
+              // Update or create to location
+              const toBalance = toBalanceMap.get(itemId);
+              if (toBalance) {
+                operations.push(
+                  tx.inventoryBalance.update({
+                    where: { id: toBalance.id },
+                    data: { qtyBase: toBalance.qtyBase + data.qtyToMove },
+                  })
+                );
+              } else {
+                operations.push(
+                  tx.inventoryBalance.create({
+                    data: {
+                      tenantId: context.user.tenantId,
+                      siteId: data.siteId,
+                      itemId,
+                      locationId: data.toLocationId,
+                      qtyBase: data.qtyToMove,
+                    },
+                  })
+                );
+              }
+
+              // Create move event
+              operations.push(
+                tx.inventoryEvent.create({
+                  data: {
+                    tenantId: context.user.tenantId,
+                    siteId: data.siteId,
+                    itemId,
+                    fromLocationId: data.fromLocationId,
+                    toLocationId: data.toLocationId,
+                    eventType: "MOVE",
+                    qtyEntered: data.qtyToMove,
+                    uomEntered: "EA",
+                    qtyBase: data.qtyToMove,
+                    notes: data.notes || "Batch move",
+                    createdByUserId: context.user.id,
+                  },
+                })
+              );
+
+              results.success++;
             }
 
-            // Create move event
-            await prisma.inventoryEvent.create({
-              data: {
-                tenantId: context.user.tenantId,
-                siteId: data.siteId,
-                itemId,
-                fromLocationId: data.fromLocationId,
-                toLocationId: data.toLocationId,
-                eventType: "MOVE",
-                qtyEntered: data.qtyToMove,
-                uomEntered: "EA",
-                qtyBase: data.qtyToMove,
-                notes: data.notes || "Batch move",
-                createdByUserId: context.user.id,
-              },
-            });
-
-            results.success++;
-          } catch (error: any) {
-            results.failed++;
-            results.errors.push({ itemId, error: error.message });
-          }
+            await Promise.all(operations);
+          });
+        } catch (error: unknown) {
+          results.errors.push({ itemId: "transaction", error: error instanceof Error ? error.message : String(error) });
         }
         break;
 
       case "update-categories":
-        // Bulk update item categories
-        for (const itemId of items) {
-          try {
-            await prisma.item.update({
-              where: { id: itemId },
-              data: { category: data.category },
-            });
-            results.success++;
-          } catch (error: any) {
-            results.failed++;
-            results.errors.push({ itemId, error: error.message });
-          }
+        // Optimized: Single updateMany instead of N updates
+        try {
+          const result = await prisma.item.updateMany({
+            where: { id: { in: items } },
+            data: { category: data.category },
+          });
+          results.success = result.count;
+          results.failed = items.length - result.count;
+        } catch (error: unknown) {
+          results.failed = items.length;
+          results.errors.push({ itemId: "all", error: error instanceof Error ? error.message : String(error) });
         }
         break;
 
       case "bulk-scrap":
-        // Bulk scrap items
-        for (const itemId of items) {
-          try {
-            const balance = await prisma.inventoryBalance.findFirst({
-              where: {
-                itemId,
-                siteId: data.siteId,
-                locationId: data.locationId,
-              },
-            });
+        // Optimized: Fetch all balances at once, batch operations
+        try {
+          const balances = await prisma.inventoryBalance.findMany({
+            where: {
+              itemId: { in: items },
+              siteId: data.siteId,
+              locationId: data.locationId,
+            },
+          });
 
-            if (balance && balance.qtyBase >= data.scrapQty) {
-              await prisma.inventoryBalance.update({
-                where: { id: balance.id },
-                data: { qtyBase: balance.qtyBase - data.scrapQty },
-              });
+          const balanceMap = new Map<string, InventoryBalanceRecord>(balances.map((b: InventoryBalanceRecord): [string, InventoryBalanceRecord] => [b.itemId, b]));
 
-              await prisma.inventoryEvent.create({
-                data: {
-                  tenantId: context.user.tenantId,
-                  siteId: data.siteId,
-                  itemId,
-                  fromLocationId: data.locationId,
-                  eventType: "SCRAP",
-                  qtyEntered: data.scrapQty,
-                  uomEntered: "EA",
-                  qtyBase: data.scrapQty,
-                  notes: data.notes || "Batch scrap",
-                  createdByUserId: context.user.id,
-                },
-              });
+          await prisma.$transaction(async (tx: typeof prisma) => {
+            const operations: Promise<unknown>[] = [];
+
+            for (const itemId of items) {
+              const balance = balanceMap.get(itemId);
+
+              if (balance && balance.qtyBase >= data.scrapQty) {
+                operations.push(
+                  tx.inventoryBalance.update({
+                    where: { id: balance.id },
+                    data: { qtyBase: balance.qtyBase - data.scrapQty },
+                  })
+                );
+
+                operations.push(
+                  tx.inventoryEvent.create({
+                    data: {
+                      tenantId: context.user.tenantId,
+                      siteId: data.siteId,
+                      itemId,
+                      fromLocationId: data.locationId,
+                      eventType: "SCRAP",
+                      qtyEntered: data.scrapQty,
+                      uomEntered: "EA",
+                      qtyBase: data.scrapQty,
+                      notes: data.notes || "Batch scrap",
+                      createdByUserId: context.user.id,
+                    },
+                  })
+                );
+                results.success++;
+              } else {
+                results.failed++;
+                results.errors.push({ itemId, error: "Insufficient quantity or no balance" });
+              }
             }
-            results.success++;
-          } catch (error: any) {
-            results.failed++;
-            results.errors.push({ itemId, error: error.message });
-          }
+
+            await Promise.all(operations);
+          });
+        } catch (error: unknown) {
+          results.errors.push({ itemId: "transaction", error: error instanceof Error ? error.message : String(error) });
         }
         break;
 

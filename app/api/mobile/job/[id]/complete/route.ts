@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * POST /api/mobile/job/[id]/complete
@@ -10,22 +10,20 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     const jobId = params.id;
 
     // Find the production order
-    const productionOrder = await storage.prisma.productionOrder.findFirst({
+    const productionOrder = await storage.productionOrder.findFirst({
       where: {
         OR: [
           { id: jobId },
           { orderNumber: jobId },
         ],
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -34,7 +32,7 @@ export async function POST(
     }
 
     // Update status to completed
-    const updated = await storage.prisma.productionOrder.update({
+    const updated = await storage.productionOrder.update({
       where: {
         id: productionOrder.id,
       },
@@ -42,7 +40,7 @@ export async function POST(
         status: 'COMPLETED',
         qtyCompleted: productionOrder.qtyOrdered,
         completedAt: new Date(),
-        completedBy: user.id,
+        completedById: context.user.id,
       },
     });
 
@@ -52,10 +50,6 @@ export async function POST(
       completedAt: updated.completedAt,
     });
   } catch (error) {
-    console.error('Error completing job:', error);
-    return NextResponse.json(
-      { error: 'Failed to complete job' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

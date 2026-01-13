@@ -12,6 +12,7 @@ import { extractIPAddress, validatePagination } from "./validation";
 import { rateLimit, RateLimitConfig, RateLimitPresets } from "./rate-limit";
 import type { AuthenticatedContext, UserRole } from "@app/api/_utils/middleware";
 import { requireAuth as baseRequireAuth, requireRole as baseRequireRole } from "@app/api/_utils/middleware";
+import type { ZodType } from "zod";
 
 /**
  * Request context with enhanced information
@@ -253,7 +254,7 @@ export function withErrorHandling<T>(
  */
 export async function validateRequestBody<T>(
   req: Request,
-  schema: any // Zod schema
+  schema: ZodType<T>
 ): Promise<{ data: T; error: null } | { data: null; error: NextResponse }> {
   try {
     const body = await req.json();
@@ -446,6 +447,9 @@ export function createSecureRoute<T = any>(options: {
   };
 }
 
+/** Handler type for secure route handlers */
+type SecureRouteHandler<T = unknown> = (req: Request, context: EnhancedContext) => Promise<T>;
+
 /**
  * Preset middleware configurations
  */
@@ -453,7 +457,7 @@ export const MiddlewarePresets = {
   /**
    * Public endpoint - no auth, standard rate limit
    */
-  public: (handler: any) => createSecureRoute({
+  public: <T = unknown>(handler: SecureRouteHandler<T>) => createSecureRoute({
     handler,
     requiresAuth: false,
     rateLimit: RateLimitPresets.API,
@@ -462,7 +466,7 @@ export const MiddlewarePresets = {
   /**
    * Authenticated endpoint - requires auth, standard rate limit
    */
-  authenticated: (handler: any) => createSecureRoute({
+  authenticated: <T = unknown>(handler: SecureRouteHandler<T>) => createSecureRoute({
     handler,
     requiresAuth: true,
     rateLimit: RateLimitPresets.API,
@@ -471,7 +475,7 @@ export const MiddlewarePresets = {
   /**
    * Admin only endpoint - requires admin role, strict rate limit
    */
-  adminOnly: (handler: any) => createSecureRoute({
+  adminOnly: <T = unknown>(handler: SecureRouteHandler<T>) => createSecureRoute({
     handler,
     requiresAuth: true,
     roles: ["Admin"],
@@ -481,7 +485,7 @@ export const MiddlewarePresets = {
   /**
    * Write endpoint - authenticated, stricter rate limit
    */
-  write: (handler: any) => createSecureRoute({
+  write: <T = unknown>(handler: SecureRouteHandler<T>) => createSecureRoute({
     handler,
     requiresAuth: true,
     rateLimit: RateLimitPresets.WRITE,
@@ -490,7 +494,7 @@ export const MiddlewarePresets = {
   /**
    * Sensitive operation - authenticated, very strict rate limit
    */
-  sensitive: (handler: any) => createSecureRoute({
+  sensitive: <T = unknown>(handler: SecureRouteHandler<T>) => createSecureRoute({
     handler,
     requiresAuth: true,
     rateLimit: RateLimitPresets.SENSITIVE,
@@ -499,7 +503,7 @@ export const MiddlewarePresets = {
   /**
    * Authentication endpoint - no auth required, brute force protection
    */
-  auth: (handler: any) => createSecureRoute({
+  auth: <T = unknown>(handler: SecureRouteHandler<T>) => createSecureRoute({
     handler,
     requiresAuth: false,
     rateLimit: RateLimitPresets.AUTH,

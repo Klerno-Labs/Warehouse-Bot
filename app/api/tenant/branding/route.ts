@@ -1,20 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { NextResponse } from "next/server";
+import storage from "@/server/storage";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 
 /**
  * GET /api/tenant/branding
  * Get tenant branding settings
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const tenant = await storage.prisma.tenant.findUnique({
-      where: { id: user.tenantId },
+    const tenant = await storage.tenant.findUnique({
+      where: { id: context.user.tenantId },
       select: {
         id: true,
         name: true,
@@ -30,7 +28,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!tenant) {
-      return NextResponse.json({ error: 'Tenant not found' }, { status: 404 });
+      return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -43,11 +41,7 @@ export async function GET(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error fetching tenant branding:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch branding' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -55,22 +49,19 @@ export async function GET(req: NextRequest) {
  * PATCH /api/tenant/branding
  * Update tenant branding (Admin only)
  */
-export async function PATCH(req: NextRequest) {
+export async function PATCH(req: Request) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const { brandLogo, brandColor, brandColorSecondary, favicon, customCSS } = body;
 
-    const updatedTenant = await storage.prisma.tenant.update({
-      where: { id: user.tenantId },
+    const updatedTenant = await storage.tenant.update({
+      where: { id: context.user.tenantId },
       data: {
         brandLogo: brandLogo !== undefined ? brandLogo : undefined,
         brandColor: brandColor !== undefined ? brandColor : undefined,
@@ -100,10 +91,6 @@ export async function PATCH(req: NextRequest) {
       }
     });
   } catch (error) {
-    console.error('Error updating tenant branding:', error);
-    return NextResponse.json(
-      { error: 'Failed to update branding' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

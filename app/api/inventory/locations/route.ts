@@ -1,40 +1,39 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, requireSiteAccess, validateBody, handleApiError } from "@app/api/_utils/middleware";
 import { createLocationSchema } from "@shared/inventory";
 
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
+
   const { searchParams } = new URL(req.url);
-  const siteId = searchParams.get("siteId") || session.user.siteIds[0];
+  const siteId = searchParams.get("siteId") || context.user.siteIds[0];
   const locations = await storage.getLocationsBySite(siteId);
-  return NextResponse.json(locations.filter((l) => l.tenantId === session.user.tenantId));
+  return NextResponse.json(locations.filter((l) => l.tenantId === context.user.tenantId));
 }
 
 export async function POST(req: Request) {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!["Admin", "Supervisor", "Inventory"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const payload = createLocationSchema.parse(await req.json());
-    if (!session.user.siteIds.includes(payload.siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
+
+    const payload = await validateBody(req, createLocationSchema);
+    if (payload instanceof NextResponse) return payload;
+
+    const siteCheck = requireSiteAccess(context, payload.siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
+
     const existing = await storage.getLocationByLabel(payload.siteId, payload.label);
     if (existing) {
       return NextResponse.json({ error: "Location label already exists" }, { status: 409 });
     }
+
     const location = await storage.createLocation({
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
       ...payload,
       zone: payload.zone || null,
       bin: payload.bin || null,
@@ -42,9 +41,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(location, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request", details: error.errors }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleApiError(error);
   }
 }

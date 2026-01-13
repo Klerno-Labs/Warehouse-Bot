@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, requireSiteAccess, requireTenantResource, validateBody, handleApiError } from "@app/api/_utils/middleware";
 import { updateCycleCountSchema, CYCLE_COUNT_STATUS } from "@shared/cycle-counts";
 
 interface RouteParams {
@@ -9,21 +8,17 @@ interface RouteParams {
 }
 
 export async function GET(req: Request, { params }: RouteParams) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   const { id } = await params;
   const cycleCount = await storage.getCycleCountById(id);
 
-  if (!cycleCount || cycleCount.tenantId !== session.user.tenantId) {
-    return NextResponse.json({ error: "Cycle count not found" }, { status: 404 });
-  }
+  const tenantCheck = await requireTenantResource(context, cycleCount, "Cycle count");
+  if (tenantCheck instanceof NextResponse) return tenantCheck;
 
-  if (!session.user.siteIds.includes(cycleCount.siteId)) {
-    return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-  }
+  const siteCheck = requireSiteAccess(context, cycleCount.siteId);
+  if (siteCheck instanceof NextResponse) return siteCheck;
 
   // Get lines and summary data
   const lines = await storage.getCycleCountLinesByCycleCount(id);
@@ -45,26 +40,23 @@ export async function GET(req: Request, { params }: RouteParams) {
 
 export async function PATCH(req: Request, { params }: RouteParams) {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!["Admin", "Supervisor", "Inventory"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const { id } = await params;
     const cycleCount = await storage.getCycleCountById(id);
 
-    if (!cycleCount || cycleCount.tenantId !== session.user.tenantId) {
-      return NextResponse.json({ error: "Cycle count not found" }, { status: 404 });
-    }
+    const tenantCheck = await requireTenantResource(context, cycleCount, "Cycle count");
+    if (tenantCheck instanceof NextResponse) return tenantCheck;
 
-    if (!session.user.siteIds.includes(cycleCount.siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const siteCheck = requireSiteAccess(context, cycleCount.siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
 
-    const payload = updateCycleCountSchema.parse(await req.json());
+    const payload = await validateBody(req, updateCycleCountSchema);
+    if (payload instanceof NextResponse) return payload;
 
     // Handle status transitions
     const updates: Partial<typeof cycleCount> = {};
@@ -114,36 +106,25 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const updated = await storage.updateCycleCount(id, updates);
     return NextResponse.json(updated);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid request", details: error.errors },
-        { status: 400 }
-      );
-    }
-    console.error("Error updating cycle count:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleApiError(error);
   }
 }
 
 export async function DELETE(req: Request, { params }: RouteParams) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!["Admin", "Supervisor"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
+
+  const roleCheck = requireRole(context, ["Admin", "Supervisor"]);
+  if (roleCheck instanceof NextResponse) return roleCheck;
 
   const { id } = await params;
   const cycleCount = await storage.getCycleCountById(id);
 
-  if (!cycleCount || cycleCount.tenantId !== session.user.tenantId) {
-    return NextResponse.json({ error: "Cycle count not found" }, { status: 404 });
-  }
+  const tenantCheck = await requireTenantResource(context, cycleCount, "Cycle count");
+  if (tenantCheck instanceof NextResponse) return tenantCheck;
 
-  if (!session.user.siteIds.includes(cycleCount.siteId)) {
-    return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-  }
+  const siteCheck = requireSiteAccess(context, cycleCount.siteId);
+  if (siteCheck instanceof NextResponse) return siteCheck;
 
   // Only allow deletion of scheduled or cancelled counts
   if (!["SCHEDULED", "CANCELLED"].includes(cycleCount.status)) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * GET /api/quality/inspections
@@ -8,10 +8,8 @@ import { storage } from '@server/storage';
  */
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(req.url);
     const inspectionType = searchParams.get('inspectionType');
@@ -20,7 +18,7 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get('search');
 
     const where: any = {
-      tenantId: user.tenantId,
+      tenantId: context.user.tenantId,
     };
 
     if (inspectionType) {
@@ -39,7 +37,7 @@ export async function GET(req: NextRequest) {
       where.inspectionNumber = { contains: search, mode: 'insensitive' };
     }
 
-    const inspections = await storage.prisma.qualityInspection.findMany({
+    const inspections = await storage.qualityInspection.findMany({
       where,
       include: {
         item: {
@@ -87,11 +85,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ inspections });
   } catch (error) {
-    console.error('Error fetching inspections:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch inspections' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -101,15 +95,12 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only QC, Supervisor, and Admin can create inspections
-    if (!['Admin', 'Supervisor', 'QC'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const {
@@ -134,15 +125,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate inspection number
-    const count = await storage.prisma.qualityInspection.count({
-      where: { tenantId: user.tenantId },
+    const count = await storage.qualityInspection.count({
+      where: { tenantId: context.user.tenantId },
     });
     const inspectionNumber = `INS-${String(count + 1).padStart(6, '0')}`;
 
     // If plan is specified, load checkpoint templates
     let checkpointData = checkpoints || [];
     if (planId && (!checkpoints || checkpoints.length === 0)) {
-      const plan = await storage.prisma.qualityInspectionPlan.findUnique({
+      const plan = await storage.qualityInspectionPlan.findUnique({
         where: { id: planId },
         include: {
           checkpointTemplates: {
@@ -167,9 +158,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Create inspection with checkpoints
-    const inspection = await storage.prisma.qualityInspection.create({
+    const inspection = await storage.qualityInspection.create({
       data: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         inspectionNumber,
         inspectionType,
         itemId,
@@ -197,10 +188,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ inspection }, { status: 201 });
   } catch (error) {
-    console.error('Error creating inspection:', error);
-    return NextResponse.json(
-      { error: 'Failed to create inspection' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

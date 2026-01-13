@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * GET /api/quality/capas/[id]
@@ -11,15 +11,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const capa = await storage.prisma.cAPA.findUnique({
+    const capa = await storage.cAPA.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         ncr: {
@@ -37,11 +35,7 @@ export async function GET(
 
     return NextResponse.json({ capa });
   } catch (error) {
-    console.error('Error fetching CAPA:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch CAPA' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -54,20 +48,17 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only QC, Supervisor, and Admin can update CAPAs
-    if (!['Admin', 'Supervisor', 'QC'].includes(user.role)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor'] as any);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const existingCAPA = await storage.prisma.cAPA.findUnique({
+    const existingCAPA = await storage.cAPA.findUnique({
       where: {
         id: params.id,
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -108,7 +99,7 @@ export async function PATCH(
     if (effectivenessCheck !== undefined) updateData.effectivenessCheck = effectivenessCheck;
     if (effectivenessDate !== undefined) updateData.effectivenessDate = effectivenessDate ? new Date(effectivenessDate) : null;
 
-    const capa = await storage.prisma.cAPA.update({
+    const capa = await storage.cAPA.update({
       where: {
         id: params.id,
       },
@@ -120,10 +111,6 @@ export async function PATCH(
 
     return NextResponse.json({ capa });
   } catch (error) {
-    console.error('Error updating CAPA:', error);
-    return NextResponse.json(
-      { error: 'Failed to update CAPA' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

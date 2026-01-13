@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, validateBody, handleApiError } from "@app/api/_utils/middleware";
 import { createItemSchema } from "@shared/inventory";
 
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
+
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search")?.toLowerCase() || "";
   const category = searchParams.get("category") || "";
@@ -17,15 +14,15 @@ export async function GET(req: Request) {
   const limit = parseInt(searchParams.get("limit") || "0", 10);
   const offset = parseInt(searchParams.get("offset") || "0", 10);
 
-  let items = await storage.getItemsByTenant(session.user.tenantId);
+  let items = await storage.getItemsByTenant(context.user.tenantId);
 
   // If low stock filter is enabled, fetch balances and filter items
   if (lowStock) {
-    const balances = await storage.getInventoryBalancesBySite(session.user.siteIds[0] || "");
-    
+    const balances = await storage.getInventoryBalancesBySite(context.user.siteIds[0] || "");
+
     // OPTIMIZATION: Create item map for O(1) lookups instead of O(n) find() in loop
     const itemMap = new Map(items.map((i) => [i.id, i]));
-    
+
     const lowStockItemIds = new Set(
       balances
         .filter((b) => {
@@ -49,14 +46,14 @@ export async function GET(req: Request) {
   if (category) {
     items = items.filter((item) => item.category === category);
   }
-  
+
   const total = items.length;
-  
+
   // Apply pagination if limit is specified
   if (limit > 0) {
     items = items.slice(offset, offset + limit);
   }
-  
+
   return NextResponse.json({
     items,
     total,
@@ -68,20 +65,22 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!["Admin", "Supervisor", "Inventory"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    const payload = createItemSchema.parse(await req.json());
-    const existing = await storage.getItemBySku(session.user.tenantId, payload.sku);
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
+
+    const payload = await validateBody(req, createItemSchema);
+    if (payload instanceof NextResponse) return payload;
+
+    const existing = await storage.getItemBySku(context.user.tenantId, payload.sku);
     if (existing) {
       return NextResponse.json({ error: "SKU already exists" }, { status: 409 });
     }
+
     const item = await storage.createItem({
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
       ...payload,
       description: payload.description || null,
       minQtyBase: payload.minQtyBase ?? null,
@@ -97,9 +96,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request", details: error.errors }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleApiError(error);
   }
 }

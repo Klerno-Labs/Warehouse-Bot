@@ -1,30 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { NextResponse } from "next/server";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
+import storage from "@/server/storage";
 
 /**
  * GET /api/dashboard/suggested-actions
  * AI-powered suggested next actions based on system state and user role
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const suggestions = await generateSuggestedActions(user);
+    const suggestions = await generateSuggestedActions(context.user);
 
     return NextResponse.json({
       suggestions,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Error generating suggested actions:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate suggestions' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -42,16 +36,18 @@ interface SuggestedAction {
   data?: any;
 }
 
-async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
-  // TODO: Implement AI-powered suggested actions
-  const suggestions: SuggestedAction[] = [];
-  return suggestions;
+interface UserContext {
+  id: string;
+  tenantId: string;
+  role: string;
+}
 
-  /* Placeholder for future implementation
+async function generateSuggestedActions(user: UserContext): Promise<SuggestedAction[]> {
+  const suggestions: SuggestedAction[] = [];
   const now = new Date();
 
-  // Check for out of stock items - would need proper inventory query
-  const outOfStockItems: any[] = [];
+  // Check for out of stock items
+  const outOfStockItems = await storage.inventoryBalance.findMany({
     where: {
       tenantId: user.tenantId,
       qtyBase: 0,
@@ -88,7 +84,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for low stock items
-  const lowStockItems = await storage.prisma.inventoryBalance.findMany({
+  const lowStockItems = await storage.inventoryBalance.findMany({
     where: {
       tenantId: user.tenantId,
       item: {
@@ -129,7 +125,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for pending receipts (old purchase orders)
-  const oldPendingPOs = await storage.prisma.purchaseOrder.findMany({
+  const oldPendingPOs = await storage.purchaseOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['APPROVED', 'SENT'] },
@@ -157,7 +153,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for pending production orders
-  const pendingProduction = await storage.prisma.productionOrder.findMany({
+  const pendingProduction = await storage.productionOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['PLANNED', 'RELEASED'] },
@@ -169,7 +165,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   });
 
   const overdueProduction = pendingProduction.filter(
-    (po) => po.scheduledEnd && po.scheduledEnd < now
+    (po) => po.dueDate && po.dueDate < now
   );
 
   if (overdueProduction.length > 0) {
@@ -202,7 +198,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for pending sales orders
-  const pendingSalesOrders = await storage.prisma.salesOrder.findMany({
+  const pendingSalesOrders = await storage.salesOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['CONFIRMED', 'PICKING'] },
@@ -250,7 +246,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const itemsNeedingCount = await storage.prisma.item.findMany({
+  const itemsNeedingCount = await storage.item.findMany({
     where: {
       tenantId: user.tenantId,
       isActive: true,
@@ -281,7 +277,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for quality inspections pending
-  const pendingInspections = await storage.prisma.qualityInspection.findMany({
+  const pendingInspections = await storage.qualityInspection.findMany({
     where: {
       tenantId: user.tenantId,
       status: 'PENDING',
@@ -305,7 +301,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   }
 
   // Check for open NCRs
-  const openNCRs = await storage.prisma.nonConformanceReport.findMany({
+  const openNCRs = await storage.nonConformanceReport.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['OPEN', 'IN_REVIEW'] },
@@ -332,7 +328,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-  const deadStockCount = await storage.prisma.inventoryBalance.count({
+  const deadStockCount = await storage.inventoryBalance.count({
     where: {
       tenantId: user.tenantId,
       qtyBase: { gt: 0 },
@@ -367,7 +363,7 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
   // Role-specific suggestions
   if (user.role === 'Purchasing' || user.role === 'Admin') {
     // Check vendor performance
-    const recentReceipts = await storage.prisma.receipt.findMany({
+    const recentReceipts = await storage.receipt.findMany({
       where: {
         tenantId: user.tenantId,
         createdAt: {
@@ -399,5 +395,10 @@ async function generateSuggestedActions(user: any): Promise<SuggestedAction[]> {
     }
   }
 
-  // END placeholder comment */
+  // Sort by priority
+  const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+  suggestions.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+
+  // Limit to top 8 suggestions
+  return suggestions.slice(0, 8);
 }

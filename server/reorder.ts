@@ -60,92 +60,106 @@ export class ReorderService {
 
     const suggestions: ReorderSuggestion[] = [];
 
-    for (const item of items) {
-      // Calculate total current stock across all locations
-      const currentStock = item.balances.reduce((sum, b) => sum + b.qtyBase, 0);
+    // Pre-compute items that need reorder analysis
+    const itemsNeedingAnalysis = items.filter((item: typeof items[0]) => {
+      const currentStock = item.balances.reduce((sum: number, b: typeof item.balances[0]) => sum + b.qtyBase, 0);
+      return item.reorderPointBase && item.reorderPointBase > 0 && currentStock <= item.reorderPointBase;
+    });
 
-      // Skip if no reorder point set
-      if (!item.reorderPointBase || item.reorderPointBase === 0) continue;
+    // Fetch all usage events for these items in a single query (optimized from N queries to 1)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // Check if below reorder point
-      if (currentStock <= item.reorderPointBase) {
-        // Get usage data from last 30 days
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const itemIdsForAnalysis = itemsNeedingAnalysis.map((item: typeof items[0]) => item.id);
 
-        const recentEvents = await prisma.inventoryEvent.findMany({
+    const allRecentEvents = itemIdsForAnalysis.length > 0
+      ? await prisma.inventoryEvent.findMany({
           where: {
-            itemId: item.id,
+            itemId: { in: itemIdsForAnalysis },
             createdAt: { gte: thirtyDaysAgo },
             eventType: { in: ["ISSUE_TO_WORKCELL", "MOVE", "SCRAP"] },
           },
           select: {
+            itemId: true,
             qtyBase: true,
             createdAt: true,
           },
-        });
+        })
+      : [];
 
-        // Calculate average daily usage
-        const totalUsage = recentEvents.reduce((sum, e) => sum + Math.abs(e.qtyBase), 0);
-        const averageDailyUsage = totalUsage / 30;
+    // Group events by item ID
+    const eventsByItem = new Map<string, Array<{ qtyBase: number; createdAt: Date }>>();
+    for (const event of allRecentEvents) {
+      const existing = eventsByItem.get(event.itemId) || [];
+      existing.push({ qtyBase: event.qtyBase, createdAt: event.createdAt });
+      eventsByItem.set(event.itemId, existing);
+    }
 
-        // Estimate days until stockout
-        const daysUntilStockout =
-          averageDailyUsage > 0 ? Math.floor(currentStock / averageDailyUsage) : 999;
+    // Process each item that needs analysis
+    for (const item of itemsNeedingAnalysis) {
+      const currentStock = item.balances.reduce((sum: number, b: typeof item.balances[0]) => sum + b.qtyBase, 0);
+      const recentEvents = eventsByItem.get(item.id) || [];
 
-        // Determine lead time (use default if not set)
-        const leadTimeDays = item.leadTimeDays || 7;
+      // Calculate average daily usage
+      const totalUsage = recentEvents.reduce((sum, e) => sum + Math.abs(e.qtyBase), 0);
+      const averageDailyUsage = totalUsage / 30;
 
-        // Calculate suggested order quantity
-        // Formula: (Average Daily Usage × Lead Time) + Safety Stock - Current Stock
-        const safetyStock = item.reorderPointBase;
-        // Use base UOM ordering quantity or calculated qty
-        const minOrderQty = 10; // Default minimum order quantity
-        const suggestedOrderQty = Math.max(
-          Math.ceil(averageDailyUsage * leadTimeDays + safetyStock - currentStock),
-          minOrderQty
-        );
+      // Estimate days until stockout
+      const daysUntilStockout =
+        averageDailyUsage > 0 ? Math.floor(currentStock / averageDailyUsage) : 999;
 
-        // Estimate cost
-        const estimatedCost = suggestedOrderQty * (item.costBase || 0);
+      // Determine lead time (use default if not set)
+      const leadTimeDays = item.leadTimeDays || 7;
 
-        // Determine priority
-        let priority: ReorderSuggestion["priority"];
-        let reason: string;
+      // Calculate suggested order quantity
+      // Formula: (Average Daily Usage × Lead Time) + Safety Stock - Current Stock
+      const safetyStock = item.reorderPointBase!;
+      // Use base UOM ordering quantity or calculated qty
+      const minOrderQty = 10; // Default minimum order quantity
+      const suggestedOrderQty = Math.max(
+        Math.ceil(averageDailyUsage * leadTimeDays + safetyStock - currentStock),
+        minOrderQty
+      );
 
-        if (currentStock <= 0) {
-          priority = "critical";
-          reason = "OUT OF STOCK - Immediate action required";
-        } else if (daysUntilStockout <= leadTimeDays) {
-          priority = "critical";
-          reason = `Stock will run out in ${daysUntilStockout} days (lead time: ${leadTimeDays} days)`;
-        } else if (currentStock < item.reorderPointBase * 0.5) {
-          priority = "high";
-          reason = "Below 50% of reorder point";
-        } else if (currentStock <= item.reorderPointBase) {
-          priority = "medium";
-          reason = "Below reorder point";
-        } else {
-          priority = "low";
-          reason = "Approaching reorder point";
-        }
+      // Estimate cost
+      const estimatedCost = suggestedOrderQty * (item.costBase || 0);
 
-        suggestions.push({
-          itemId: item.id,
-          sku: item.sku,
-          name: item.name,
-          currentStock,
-          reorderPoint: item.reorderPointBase,
-          reorderQuantity: suggestedOrderQty,
-          daysUntilStockout,
-          averageDailyUsage,
-          leadTimeDays,
-          suggestedOrderQty,
-          estimatedCost,
-          priority,
-          reason,
-        });
+      // Determine priority
+      let priority: ReorderSuggestion["priority"];
+      let reason: string;
+
+      if (currentStock <= 0) {
+        priority = "critical";
+        reason = "OUT OF STOCK - Immediate action required";
+      } else if (daysUntilStockout <= leadTimeDays) {
+        priority = "critical";
+        reason = `Stock will run out in ${daysUntilStockout} days (lead time: ${leadTimeDays} days)`;
+      } else if (currentStock < item.reorderPointBase! * 0.5) {
+        priority = "high";
+        reason = "Below 50% of reorder point";
+      } else if (currentStock <= item.reorderPointBase!) {
+        priority = "medium";
+        reason = "Below reorder point";
+      } else {
+        priority = "low";
+        reason = "Approaching reorder point";
       }
+
+      suggestions.push({
+        itemId: item.id,
+        sku: item.sku,
+        name: item.name,
+        currentStock,
+        reorderPoint: item.reorderPointBase!,
+        reorderQuantity: suggestedOrderQty,
+        daysUntilStockout,
+        averageDailyUsage,
+        leadTimeDays,
+        suggestedOrderQty,
+        estimatedCost,
+        priority,
+        reason,
+      });
     }
 
     // Sort by priority and days until stockout
@@ -182,15 +196,19 @@ export class ReorderService {
       throw new Error("No valid suggestions selected");
     }
 
-    // Get next PO number - using lastReceiptNumber as surrogate
-    const lastPO = await prisma.purchaseOrder.findFirst({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      select: { id: true },
+    // Get next PO number by counting existing POs for the current year
+    const currentYear = new Date().getFullYear();
+    const yearStart = new Date(currentYear, 0, 1);
+
+    const poCount = await prisma.purchaseOrder.count({
+      where: {
+        tenantId,
+        createdAt: { gte: yearStart },
+      },
     });
 
-    const nextNumber = lastPO ? Math.floor(Math.random() * 100000) : 1;
-    const poNumber = `PO-${new Date().getFullYear()}-${String(nextNumber).padStart(5, "0")}`;
+    const nextNumber = poCount + 1;
+    const poNumber = `PO-${currentYear}-${String(nextNumber).padStart(5, "0")}`;
 
     // Create PO (simplified - would need full PurchaseOrder schema)
     const po = await prisma.purchaseOrder.create({

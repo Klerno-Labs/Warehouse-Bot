@@ -5,6 +5,7 @@
  */
 
 import { prisma } from "./prisma";
+import { logger } from "./logger";
 
 export interface ShippingLabel {
   orderNumber: string;
@@ -245,7 +246,7 @@ export class LabelService {
         const label = await this.generateShippingLabel(orderId, tenantId);
         labels.push(label);
       } catch (error) {
-        console.error(`Failed to generate label for order ${orderId}:`, error);
+        logger.error(`Failed to generate label for order ${orderId}`, error as Error);
       }
     }
 

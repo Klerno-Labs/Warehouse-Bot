@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
+import { SkipNavLink, SkipNavContent } from "@/components/ui/skip-nav";
 import "../client/src/index.css";
 
 export const metadata: Metadata = {
@@ -45,7 +46,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="Warehouse Builder" />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <SkipNavLink />
+        <Providers>
+          <SkipNavContent>
+            {children}
+          </SkipNavContent>
+        </Providers>
       </body>
     </html>
   );

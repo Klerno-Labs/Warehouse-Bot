@@ -1,22 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
 import { prisma } from "@server/prisma";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import { generatePurchaseOrderPDF } from "@server/pdf-service";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
     const po = await prisma.purchaseOrder.findFirst({
       where: {
         id: params.id,
-        tenantId: session.sessionUser.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         supplier: true,
@@ -75,11 +73,7 @@ export async function GET(
         "Content-Disposition": `attachment; filename="PO-${po.poNumber}.pdf"`,
       },
     });
-  } catch (error: any) {
-    console.error("PDF generation error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate PDF" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleApiError(error);
   }
 }

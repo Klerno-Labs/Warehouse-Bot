@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth } from "@app/api/_utils/middleware";
 import type { InventoryBalance } from "@shared/inventory";
 
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   const { searchParams } = new URL(req.url);
   const siteId = searchParams.get("siteId");
@@ -16,9 +14,9 @@ export async function GET(req: Request) {
   // Get balances for sites user has access to
   let allBalances: InventoryBalance[] = [];
 
-  const sitesToQuery = siteId 
-    ? (session.user.siteIds.includes(siteId) ? [siteId] : [])
-    : session.user.siteIds;
+  const sitesToQuery = siteId
+    ? (context.user.siteIds.includes(siteId) ? [siteId] : [])
+    : context.user.siteIds;
 
   for (const sid of sitesToQuery) {
     const siteBalances = await storage.getInventoryBalancesBySite(sid);
@@ -26,9 +24,9 @@ export async function GET(req: Request) {
   }
 
   // Get items and locations for enrichment
-  const items = await storage.getItemsByTenant(session.user.tenantId);
+  const items = await storage.getItemsByTenant(context.user.tenantId);
   const itemMap = new Map(items.map((i) => [i.id, i]));
-  
+
   const locationPromises = sitesToQuery.map((sid) => storage.getLocationsBySite(sid));
   const locationArrays = await Promise.all(locationPromises);
   const locations = locationArrays.flat();
@@ -67,7 +65,7 @@ export async function GET(req: Request) {
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(b);
     }
-    
+
     report = Array.from(grouped.entries()).map(([key, balances]) => ({
       groupKey: key,
       groupLabel: `${balances[0].itemSku} - ${balances[0].itemName}`,
@@ -82,7 +80,7 @@ export async function GET(req: Request) {
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(b);
     }
-    
+
     report = Array.from(grouped.entries()).map(([key, balances]) => ({
       groupKey: key,
       groupLabel: balances[0].locationLabel,
@@ -97,7 +95,7 @@ export async function GET(req: Request) {
       if (!grouped.has(key)) grouped.set(key, []);
       grouped.get(key)!.push(b);
     }
-    
+
     report = Array.from(grouped.entries()).map(([key, balances]) => ({
       groupKey: key,
       groupLabel: key,

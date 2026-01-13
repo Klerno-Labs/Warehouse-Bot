@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@server/prisma";
-import { getSession } from "@app/api/_utils/session";
+import { requireAuth, requireRole, validateBody, handleApiError } from "@app/api/_utils/middleware";
 
 const UpdateTenantSchema = z.object({
   name: z.string().min(1).optional(),
@@ -21,15 +21,13 @@ const UpdateTenantSchema = z.object({
 });
 
 // GET current tenant profile
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const session = await getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const tenant = await prisma.tenant.findUnique({
-      where: { id: session.tenantId },
+      where: { id: context.user.tenantId },
       include: {
         subscription: {
           include: {
@@ -90,48 +88,26 @@ export async function GET(req: NextRequest) {
       createdAt: tenant.createdAt,
     });
   } catch (error) {
-    console.error("Error fetching tenant profile:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch tenant profile" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
 // PATCH update tenant profile
-export async function PATCH(req: NextRequest) {
+export async function PATCH(req: Request) {
   try {
-    const session = await getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    // Check user has admin permissions
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: { role: true },
-    });
+    // Check user has admin permissions (Owner or Admin)
+    const roleCheck = requireRole(context, ["Admin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
-    if (!user || !["Owner", "Admin"].includes(user.role)) {
-      return NextResponse.json(
-        { error: "Only admins can update tenant settings" },
-        { status: 403 }
-      );
-    }
-
-    const body = await req.json();
-    const parsed = UpdateTenantSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Invalid input", details: parsed.error.flatten() },
-        { status: 400 }
-      );
-    }
+    const parsed = await validateBody(req, UpdateTenantSchema);
+    if (parsed instanceof NextResponse) return parsed;
 
     const tenant = await prisma.tenant.update({
-      where: { id: session.tenantId },
-      data: parsed.data,
+      where: { id: context.user.tenantId },
+      data: parsed,
     });
 
     return NextResponse.json({
@@ -144,10 +120,6 @@ export async function PATCH(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Error updating tenant profile:", error);
-    return NextResponse.json(
-      { error: "Failed to update tenant profile" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

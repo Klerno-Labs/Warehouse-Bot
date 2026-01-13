@@ -231,10 +231,8 @@ export async function GET(req: Request) {
         });
 
       case "excel":
-        // For now, use CSV format compatible with Excel
-        // TODO: Implement true .xlsx format using a library like exceljs
-        const excelCSV = generateCSV(data, headers);
-        return new NextResponse(excelCSV, {
+        const excelXML = generateExcelXML(data, headers, filename, type);
+        return new NextResponse(excelXML, {
           headers: {
             "Content-Type": "application/vnd.ms-excel",
             "Content-Disposition": `attachment; filename="${filename}.xls"`,
@@ -242,17 +240,11 @@ export async function GET(req: Request) {
         });
 
       case "pdf":
-        // For now, return JSON with data - frontend can use jsPDF
-        // TODO: Implement server-side PDF generation using puppeteer or pdfkit
-        return NextResponse.json({
-          data,
-          headers,
-          filename,
-          meta: {
-            reportType: type,
-            generatedAt: new Date().toISOString(),
-            recordCount: data.length,
-            filters: { dateFrom, dateTo, siteId },
+        const pdfBuffer = generatePDF(data, headers, filename, type);
+        return new NextResponse(pdfBuffer, {
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="${filename}.pdf"`,
           },
         });
 
@@ -283,4 +275,208 @@ function generateCSV(data: any[], headers: string[]): string {
   }
 
   return rows.join("\n");
+}
+
+// Helper function to generate Excel XML (SpreadsheetML format)
+function generateExcelXML(data: any[], headers: string[], filename: string, reportType: string): string {
+  const escapeXML = (str: string) => {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
+  const isNumeric = (value: any): boolean => {
+    if (value === null || value === undefined || value === "") return false;
+    if (typeof value === "number") return true;
+    if (typeof value === "string") {
+      return !isNaN(parseFloat(value)) && isFinite(Number(value));
+    }
+    return false;
+  };
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="Header">
+      <Font ss:Bold="1" ss:Size="11"/>
+      <Interior ss:Color="#4472C4" ss:Pattern="Solid"/>
+      <Font ss:Color="#FFFFFF"/>
+      <Alignment ss:Horizontal="Center"/>
+    </Style>
+    <Style ss:ID="Title">
+      <Font ss:Bold="1" ss:Size="14"/>
+    </Style>
+    <Style ss:ID="Date">
+      <NumberFormat ss:Format="yyyy-mm-dd"/>
+    </Style>
+    <Style ss:ID="Currency">
+      <NumberFormat ss:Format="$#,##0.00"/>
+    </Style>
+  </Styles>
+  <Worksheet ss:Name="${escapeXML(reportType.charAt(0).toUpperCase() + reportType.slice(1))} Report">
+    <Table>
+`;
+
+  // Add title row
+  xml += `      <Row>
+        <Cell ss:StyleID="Title"><Data ss:Type="String">${escapeXML(filename.replace(/-/g, ' ').toUpperCase())}</Data></Cell>
+      </Row>
+      <Row>
+        <Cell><Data ss:Type="String">Generated: ${new Date().toLocaleString()}</Data></Cell>
+      </Row>
+      <Row>
+        <Cell><Data ss:Type="String">Total Records: ${data.length}</Data></Cell>
+      </Row>
+      <Row></Row>
+`;
+
+  // Add header row
+  xml += '      <Row>\n';
+  for (const header of headers) {
+    xml += `        <Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXML(header)}</Data></Cell>\n`;
+  }
+  xml += '      </Row>\n';
+
+  // Add data rows
+  for (const row of data) {
+    xml += '      <Row>\n';
+    for (const header of headers) {
+      const value = row[header];
+      if (value === null || value === undefined || value === "") {
+        xml += `        <Cell><Data ss:Type="String"></Data></Cell>\n`;
+      } else if (isNumeric(value)) {
+        const isCurrency = header.toLowerCase().includes('cost') ||
+                          header.toLowerCase().includes('value') ||
+                          header.toLowerCase().includes('price') ||
+                          header.toLowerCase().includes('total');
+        const styleAttr = isCurrency ? ' ss:StyleID="Currency"' : '';
+        xml += `        <Cell${styleAttr}><Data ss:Type="Number">${value}</Data></Cell>\n`;
+      } else {
+        xml += `        <Cell><Data ss:Type="String">${escapeXML(String(value))}</Data></Cell>\n`;
+      }
+    }
+    xml += '      </Row>\n';
+  }
+
+  xml += `    </Table>
+  </Worksheet>
+</Workbook>`;
+
+  return xml;
+}
+
+// Helper function to generate PDF
+function generatePDF(data: any[], headers: string[], filename: string, reportType: string): Buffer {
+  // Generate a simple text-based PDF
+  // PDF 1.4 specification - minimal implementation
+  const title = filename.replace(/-/g, ' ').toUpperCase();
+  const generatedDate = new Date().toLocaleString();
+
+  // Build content lines
+  const contentLines: string[] = [];
+  contentLines.push(title);
+  contentLines.push('');
+  contentLines.push(`Report Type: ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}`);
+  contentLines.push(`Generated: ${generatedDate}`);
+  contentLines.push(`Total Records: ${data.length}`);
+  contentLines.push('');
+  contentLines.push('=' .repeat(80));
+  contentLines.push('');
+
+  // Add headers
+  contentLines.push(headers.join(' | '));
+  contentLines.push('-'.repeat(80));
+
+  // Add data (limit to prevent huge PDFs)
+  const maxRows = Math.min(data.length, 500);
+  for (let i = 0; i < maxRows; i++) {
+    const row = data[i];
+    const values = headers.map(h => {
+      const val = row[h];
+      if (val === null || val === undefined) return '';
+      return String(val).substring(0, 30); // Truncate long values
+    });
+    contentLines.push(values.join(' | '));
+  }
+
+  if (data.length > maxRows) {
+    contentLines.push('');
+    contentLines.push(`... and ${data.length - maxRows} more records (showing first ${maxRows})`);
+  }
+
+  const content = contentLines.join('\n');
+
+  // Build PDF structure
+  const objects: string[] = [];
+  let objectCount = 0;
+  const offsets: number[] = [];
+
+  // Helper to add object
+  const addObject = (content: string): number => {
+    objectCount++;
+    offsets.push(objects.join('').length);
+    objects.push(`${objectCount} 0 obj\n${content}\nendobj\n`);
+    return objectCount;
+  };
+
+  // Object 1: Catalog
+  addObject('<< /Type /Catalog /Pages 2 0 R >>');
+
+  // Object 2: Pages
+  addObject('<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+
+  // Object 3: Page
+  addObject('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>');
+
+  // Object 4: Content stream
+  const escapePdfString = (str: string) => str.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+  // Build text content
+  let streamContent = 'BT\n/F1 10 Tf\n';
+  let y = 750;
+  const lineHeight = 12;
+  const margin = 50;
+
+  for (const line of contentLines) {
+    if (y < 50) break; // Stop if we run out of page space
+    streamContent += `${margin} ${y} Td\n(${escapePdfString(line.substring(0, 100))}) Tj\n`;
+    streamContent += `-${margin} -${lineHeight} Td\n`;
+    y -= lineHeight;
+  }
+  streamContent += 'ET';
+
+  addObject(`<< /Length ${streamContent.length} >>\nstream\n${streamContent}\nendstream`);
+
+  // Object 5: Font
+  addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>');
+
+  // Build final PDF
+  let pdf = '%PDF-1.4\n';
+  pdf += objects.join('');
+
+  // Cross-reference table
+  const xrefOffset = pdf.length;
+  pdf += 'xref\n';
+  pdf += `0 ${objectCount + 1}\n`;
+  pdf += '0000000000 65535 f \n';
+
+  let currentOffset = 9; // After %PDF-1.4\n
+  for (let i = 0; i < objectCount; i++) {
+    pdf += String(currentOffset).padStart(10, '0') + ' 00000 n \n';
+    currentOffset += objects[i].length;
+  }
+
+  // Trailer
+  pdf += 'trailer\n';
+  pdf += `<< /Size ${objectCount + 1} /Root 1 0 R >>\n`;
+  pdf += 'startxref\n';
+  pdf += `${xrefOffset}\n`;
+  pdf += '%%EOF';
+
+  return Buffer.from(pdf, 'utf-8');
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * POST /api/mobile/job/[id]/notes
@@ -10,12 +10,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     const body = await req.json();
     const { content, type } = body;
 
@@ -26,13 +24,13 @@ export async function POST(
     const jobId = params.id;
 
     // Find the production order
-    const productionOrder = await storage.prisma.productionOrder.findFirst({
+    const productionOrder = await storage.productionOrder.findFirst({
       where: {
         OR: [
           { id: jobId },
           { orderNumber: jobId },
         ],
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
     });
 
@@ -41,12 +39,12 @@ export async function POST(
     }
 
     // Create the note
-    const note = await storage.prisma.productionOrderNote.create({
+    const note = await storage.productionOrderNote.create({
       data: {
         productionOrderId: productionOrder.id,
         content,
         noteType: type || 'info',
-        createdById: user.id,
+        createdById: context.user.id,
       },
       include: {
         createdBy: {
@@ -66,10 +64,6 @@ export async function POST(
       type: note.noteType,
     });
   } catch (error) {
-    console.error('Error adding note:', error);
-    return NextResponse.json(
-      { error: 'Failed to add note' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
