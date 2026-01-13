@@ -29,7 +29,7 @@ const sendEmailSchema = z.object({
     "daily-summary",
   ]),
   to: z.string().email().or(z.array(z.string().email())),
-  data: z.record(z.any()),
+  data: z.record(z.string(), z.any()),
 });
 
 const updateSettingsSchema = z.object({

@@ -179,7 +179,7 @@ export async function POST(req: Request) {
     });
 
     // Set session cookie
-    setSessionCookie(result.user.id);
+    await setSessionCookie(result.user.id);
 
     // Audit the registration
     await audit(

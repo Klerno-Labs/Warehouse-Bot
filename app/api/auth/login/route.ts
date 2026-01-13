@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Account is deactivated" }, { status: 403 });
     }
 
-    setSessionCookie(user.id);
+    await setSessionCookie(user.id);
     const sessionUser = await storage.getSessionUser(user.id);
     const sites = await storage.getSitesForUser(user.id);
 

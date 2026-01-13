@@ -49,10 +49,10 @@ function getSecret() {
   return secret;
 }
 
-export function setSessionCookie(userId: string) {
+export async function setSessionCookie(userId: string) {
   const payload: SessionPayload = { userId, exp: Date.now() + SESSION_TTL_MS };
   const token = sign(payload, getSecret());
-  cookies().set(COOKIE_NAME, token, {
+  (await cookies()).set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax", // Allows cookie on top-level navigation while protecting against CSRF
     secure: process.env.NODE_ENV === "production",
@@ -61,8 +61,8 @@ export function setSessionCookie(userId: string) {
   });
 }
 
-export function clearSessionCookie() {
-  cookies().set(COOKIE_NAME, "", { maxAge: 0, path: "/" });
+export async function clearSessionCookie() {
+  (await cookies()).set(COOKIE_NAME, "", { maxAge: 0, path: "/" });
 }
 
 /**
@@ -96,7 +96,7 @@ export async function getSession(req: Request): Promise<{ userId: string; tenant
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
   const payload = verify(token, getSecret());
   if (!payload) return null;
@@ -104,7 +104,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 }
 
 export async function getSessionUserWithRecord() {
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
   const payload = verify(token, getSecret());
   if (!payload) return null;

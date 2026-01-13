@@ -376,15 +376,15 @@ export default function InventoryAnalyticsPage() {
                         outerRadius={100}
                         paddingAngle={5}
                         dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
                       >
                         {categoryChartData.map((_, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(value: number) =>
-                          `$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                        formatter={(value: number | undefined) =>
+                          `$${(value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                         }
                       />
                     </PieChart>
@@ -407,8 +407,8 @@ export default function InventoryAnalyticsPage() {
                       <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                       <YAxis type="category" dataKey="sku" width={80} />
                       <Tooltip
-                        formatter={(value: number) =>
-                          `$${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                        formatter={(value: number | undefined) =>
+                          `$${(value ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                         }
                       />
                       <Bar dataKey="totalValue" fill="#6366f1" radius={[0, 4, 4, 0]} />
