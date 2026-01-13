@@ -7,6 +7,7 @@
 
 import { prisma } from "./prisma";
 import { EmailService } from "./email";
+import { logger } from "./logger";
 
 export type ScheduleFrequency = "HOURLY" | "DAILY" | "WEEKLY" | "MONTHLY" | "CUSTOM";
 
@@ -51,9 +52,11 @@ export class TaskScheduler {
     const nextRunAt = this.calculateNextRun(task.frequency, task.cronExpression);
 
     // In production, save to database
-    console.log("Creating scheduled task:", {
+    logger.info("Creating scheduled task", {
       id: taskId,
-      ...task,
+      name: task.name,
+      type: task.type,
+      frequency: task.frequency,
       nextRunAt,
       tenantId,
     });
@@ -143,18 +146,18 @@ export class TaskScheduler {
    * Run task scheduler loop
    */
   static async runScheduler(): Promise<void> {
-    console.log("[Scheduler] Checking for due tasks...");
+    logger.debug("Checking for due tasks");
 
     const dueTasks = await this.getDueTasks();
 
-    console.log(`[Scheduler] Found ${dueTasks.length} tasks to execute`);
+    logger.info("Scheduler found tasks", { count: dueTasks.length });
 
     for (const task of dueTasks) {
       try {
-        console.log(`[Scheduler] Executing task: ${task.name}`);
+        logger.info("Executing scheduled task", { taskName: task.name, taskId: task.id });
         await this.executeTask(task.id);
       } catch (error) {
-        console.error(`[Scheduler] Task execution failed:`, error);
+        logger.error("Task execution failed", error as Error, { taskName: task.name });
       }
     }
   }
@@ -163,7 +166,7 @@ export class TaskScheduler {
    * Start scheduler with interval
    */
   static startScheduler(intervalMinutes: number = 5): NodeJS.Timeout {
-    console.log(`[Scheduler] Starting with ${intervalMinutes} minute interval`);
+    logger.info("Starting scheduler", { intervalMinutes });
 
     // Run immediately
     this.runScheduler();
@@ -221,7 +224,7 @@ export class TaskScheduler {
   private static async generateScheduledReport(task: ScheduledTask): Promise<any> {
     const { reportType, format, filters } = task.config;
 
-    console.log(`Generating ${reportType} report in ${format} format`);
+    logger.info("Generating scheduled report", { reportType, format });
 
     // Get data based on report type
     const data = await this.getReportData(task.tenantId, reportType, filters);
@@ -256,7 +259,7 @@ export class TaskScheduler {
   private static async performScheduledExport(task: ScheduledTask): Promise<any> {
     const { entityType, format, destination } = task.config;
 
-    console.log(`Exporting ${entityType} to ${format} format`);
+    logger.info("Performing scheduled export", { entityType, format });
 
     // Get data
     const data = await this.getExportData(task.tenantId, entityType);
@@ -278,7 +281,7 @@ export class TaskScheduler {
   private static async performBackup(task: ScheduledTask): Promise<any> {
     const { destination, includeAttachments } = task.config;
 
-    console.log("Performing database backup");
+    logger.info("Performing database backup");
 
     // In production, trigger pg_dump or similar
     const backupFile = `backup_${Date.now()}.sql`;
@@ -295,7 +298,7 @@ export class TaskScheduler {
    * Check alerts as scheduled task
    */
   private static async checkAlerts(task: ScheduledTask): Promise<any> {
-    console.log("Running scheduled alert check");
+    logger.info("Running scheduled alert check");
 
     // Import and run alert service
     const { AlertService } = await import("./alerts");
@@ -314,7 +317,7 @@ export class TaskScheduler {
   private static async performSync(task: ScheduledTask): Promise<any> {
     const { integrationType, direction } = task.config;
 
-    console.log(`Performing ${direction} sync with ${integrationType}`);
+    logger.info("Performing data sync", { direction, integrationType });
 
     // In production, trigger integration sync
     return {
@@ -330,7 +333,7 @@ export class TaskScheduler {
   private static async performCleanup(task: ScheduledTask): Promise<any> {
     const { dataType, retentionDays } = task.config;
 
-    console.log(`Cleaning up ${dataType} older than ${retentionDays} days`);
+    logger.info("Performing data cleanup", { dataType, retentionDays });
 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
@@ -402,7 +405,7 @@ export class TaskScheduler {
     execution: TaskExecution
   ): Promise<void> {
     // In production, update task record
-    console.log("Updated task last run:", taskId, execution.status);
+    logger.debug("Updated task last run", { taskId, status: execution.status });
   }
 
   private static async getReportData(

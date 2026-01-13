@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
-import { SearchService } from "@server/search";
+import { SearchService, type SearchFilter } from "@server/search";
 
 /**
  * Advanced Search API
@@ -34,8 +34,19 @@ export async function GET(req: Request) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
 
-    // Parse filters
-    const filters = filtersParam ? JSON.parse(filtersParam) : [];
+    // Parse filters with validation
+    let filters: SearchFilter[] = [];
+    if (filtersParam) {
+      try {
+        const parsed = JSON.parse(filtersParam);
+        if (!Array.isArray(parsed)) {
+          return NextResponse.json({ error: "Filters must be an array" }, { status: 400 });
+        }
+        filters = parsed as SearchFilter[];
+      } catch {
+        return NextResponse.json({ error: "Invalid filters JSON format" }, { status: 400 });
+      }
+    }
 
     // Parse sort
     let sort;

@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireSiteAccess } from "@app/api/_utils/middleware";
 
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   const { searchParams } = new URL(req.url);
   const siteId = searchParams.get("siteId");
@@ -18,16 +16,15 @@ export async function GET(req: Request) {
   const offset = parseInt(searchParams.get("offset") || "0", 10);
 
   // Get all events for tenant
-  let events = await storage.getInventoryEventsByTenant(session.user.tenantId);
+  let events = await storage.getInventoryEventsByTenant(context.user.tenantId);
 
   // Filter by site access
-  events = events.filter((e) => session.user.siteIds.includes(e.siteId));
+  events = events.filter((e) => context.user.siteIds.includes(e.siteId));
 
   // Apply filters
   if (siteId) {
-    if (!session.user.siteIds.includes(siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const siteCheck = requireSiteAccess(context, siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
     events = events.filter((e) => e.siteId === siteId);
   }
 
@@ -54,10 +51,10 @@ export async function GET(req: Request) {
   events.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // Get items and locations for enrichment
-  const items = await storage.getItemsByTenant(session.user.tenantId);
+  const items = await storage.getItemsByTenant(context.user.tenantId);
   const itemMap = new Map(items.map((i) => [i.id, i]));
-  
-  const locationPromises = session.user.siteIds.map((sid) => storage.getLocationsBySite(sid));
+
+  const locationPromises = context.user.siteIds.map((sid) => storage.getLocationsBySite(sid));
   const locationArrays = await Promise.all(locationPromises);
   const locations = locationArrays.flat();
   const locationMap = new Map(locations.map((l) => [l.id, l]));

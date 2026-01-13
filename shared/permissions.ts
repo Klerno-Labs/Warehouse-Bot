@@ -3,9 +3,10 @@
  * Defines permissions for the 6-tier user system
  */
 
-import { Role } from '@prisma/client';
+// Import Role from local definitions (Prisma client may not be generated)
+import { Role } from './prisma-enums';
 
-// Re-export Role from Prisma for convenience
+// Re-export Role for convenience
 export { Role };
 
 export enum Permission {

@@ -1,33 +1,29 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireRole, requireTenantResource, validateBody, handleApiError } from "@app/api/_utils/middleware";
 import { updateLocationSchema } from "@shared/inventory";
 
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } },
-) {
+): Promise<NextResponse> {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (!["Admin", "Supervisor", "Inventory"].includes(session.user.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const location = await storage.getLocationById(params.id);
-    if (!location || location.tenantId !== session.user.tenantId) {
-      return NextResponse.json({ error: "Location not found" }, { status: 404 });
-    }
-    const payload = updateLocationSchema.parse(await req.json());
+    const tenantCheck = await requireTenantResource(context, location, "Location");
+    if (tenantCheck instanceof NextResponse) return tenantCheck;
+
+    const payload = await validateBody(req, updateLocationSchema);
+    if (payload instanceof NextResponse) return payload;
+
     const updated = await storage.updateLocation(location.id, payload);
     return NextResponse.json(updated);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Invalid request", details: error.errors }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleApiError(error);
   }
 }

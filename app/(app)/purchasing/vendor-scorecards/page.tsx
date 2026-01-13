@@ -56,6 +56,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Supplier {
   id: string;
@@ -527,11 +529,11 @@ export default function VendorScorecardsPage() {
               </Card>
             </>
           ) : (
-            <Card className="py-12">
-              <CardContent className="text-center text-muted-foreground">
-                Select a supplier to view their scorecard
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={Award}
+              title="Select a supplier"
+              description="Choose a supplier from the dropdown to view their performance scorecard."
+            />
           )}
         </TabsContent>
 
@@ -578,11 +580,11 @@ export default function VendorScorecardsPage() {
               </CardContent>
             </Card>
           ) : (
-            <Card className="py-12">
-              <CardContent className="text-center text-muted-foreground">
-                Select a supplier to view their performance trends
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={TrendingUp}
+              title="No trends available"
+              description="Select a supplier to view their 12-month performance trends."
+            />
           )}
         </TabsContent>
 
@@ -660,11 +662,7 @@ export default function VendorScorecardsPage() {
               </Card>
             </>
           ) : (
-            <Card className="py-12">
-              <CardContent className="text-center text-muted-foreground">
-                Loading supplier comparison data...
-              </CardContent>
-            </Card>
+            <InlineLoading message="Loading supplier comparison data..." />
           )}
         </TabsContent>
       </Tabs>

@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "./prisma";
+import { logger } from "./logger";
 
 export interface HealthStatus {
   status: "healthy" | "degraded" | "unhealthy";
@@ -539,12 +540,12 @@ export class PerformanceMonitor {
       const result = await fn();
       const duration = Date.now() - startTime;
 
-      console.log(`[Performance] ${name}: ${duration}ms`);
+      logger.debug(`Performance: ${name}`, { duration });
 
       return result;
     } catch (error) {
       const duration = Date.now() - startTime;
-      console.error(`[Performance] ${name} failed after ${duration}ms:`, error);
+      logger.error(`Performance: ${name} failed`, error as Error, { duration });
       throw error;
     }
   }
@@ -557,7 +558,7 @@ export class PerformanceMonitor {
 
     return () => {
       const duration = Date.now() - startTime;
-      console.log(`[Performance] ${name}: ${duration}ms`);
+      logger.debug(`Performance: ${name}`, { duration });
     };
   }
 
@@ -566,7 +567,7 @@ export class PerformanceMonitor {
    */
   static trackQuery(sql: string, duration: number, threshold: number = 1000): void {
     if (duration > threshold) {
-      console.warn(`[Performance] Slow query (${duration}ms):`, sql.substring(0, 100));
+      logger.warn("Slow query detected", { duration, sql: sql.substring(0, 100) });
     }
   }
 }

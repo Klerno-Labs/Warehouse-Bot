@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { InlineLoading } from "@/components/LoadingSpinner";
 
 type ItemRow = {
   id: string;
@@ -67,7 +68,7 @@ export default function ItemsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-sm text-muted-foreground">Loading items...</div>
+            <InlineLoading message="Loading items..." />
           ) : (
             <div className="rounded-md border">
               <Table>

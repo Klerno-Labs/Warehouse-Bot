@@ -6,6 +6,7 @@
 
 import { prisma } from "./prisma";
 import { Prisma } from "@prisma/client";
+import { logger } from "./logger";
 
 export interface SearchFilter {
   field: string;
@@ -288,7 +289,7 @@ export class SearchService {
     const savedSearchId = `search-${Date.now()}`;
 
     // Store in user preferences or dedicated table
-    console.log("Saving search:", {
+    logger.info("Saving search", {
       id: savedSearchId,
       userId,
       name,
@@ -367,7 +368,7 @@ export class SearchService {
    */
   static async deleteSavedSearch(searchId: string): Promise<boolean> {
     // In a real implementation, would delete from database
-    console.log("Deleting saved search:", searchId);
+    logger.info("Deleting saved search", { searchId });
     return true;
   }
 

@@ -114,9 +114,9 @@ export default function EngineeringDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Engineering Header */}
-      <div className="border-b bg-white dark:bg-slate-900 shadow-sm">
+      <div className="border-b bg-white shadow-sm">
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -229,11 +229,11 @@ export default function EngineeringDashboard() {
                   {inventoryItems.map((item) => (
                     <div
                       key={item.sku}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50:bg-slate-800 transition-colors"
                     >
                       <div className="flex items-center gap-4 flex-1">
-                        <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                          <Package className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                        <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Package className="h-6 w-6 text-blue-600" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import { WorkflowEngine } from "@server/workflows";
+import { logger } from "@server/logger";
 
 /**
  * Workflow Automation API
@@ -308,7 +309,7 @@ export async function POST(req: Request) {
     const newWorkflowId = `workflow-${Date.now()}`;
 
     // In production, save to database
-    console.log("Creating workflow:", { workflowId: newWorkflowId, name, trigger, conditions, actions });
+    logger.info("Creating workflow", { workflowId: newWorkflowId, name, trigger, conditions, actions });
 
     return NextResponse.json({
       success: true,
@@ -336,7 +337,7 @@ export async function PUT(req: Request) {
     const { name, description, enabled, trigger, conditions, actions } = body;
 
     // In production, update workflow in database
-    console.log("Updating workflow:", { workflowId, name, enabled });
+    logger.info("Updating workflow", { workflowId, name, enabled });
 
     return NextResponse.json({
       success: true,
@@ -360,7 +361,7 @@ export async function DELETE(req: Request) {
     }
 
     // In production, delete workflow from database
-    console.log("Deleting workflow:", workflowId);
+    logger.info("Deleting workflow", { workflowId });
 
     return NextResponse.json({
       success: true,

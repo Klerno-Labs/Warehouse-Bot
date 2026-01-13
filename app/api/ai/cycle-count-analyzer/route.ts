@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * POST /api/ai/cycle-count-analyzer
@@ -8,10 +8,8 @@ import { storage } from '@server/storage';
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const body = await req.json();
     const {
@@ -23,31 +21,117 @@ export async function POST(req: NextRequest) {
       countType = 'ABC', // ABC, RANDOM, HIGH_RISK, ALL
     } = body;
 
-    // Get all items with inventory balances - placeholder
-    // TODO: Implement proper query when inventory schema is finalized
-
-    // Return empty analysis for now
-    return NextResponse.json({
-      recommendations: [],
-      summary: {
-        totalItems: 0,
-        totalValue: 0,
-        avgPriorityScore: 0,
-        abcDistribution: { A: 0, B: 0, C: 0 },
+    // Get all items with inventory balances
+    const items = await storage.item.findMany({
+      where: {
+        tenantId: context.user.tenantId,
+        ...(includeCategories && { category: { in: includeCategories } }),
+        ...(excludeCategories && { category: { notIn: excludeCategories } }),
       },
+      include: {
+        balances: {
+          where: locationIds ? { locationId: { in: locationIds } } : undefined,
+          include: {
+            location: true,
+          },
+        },
+        cycleCountLines: {
+          include: {
+            cycleCount: {
+              select: {
+                completedAt: true,
+                status: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 5,
+        },
+        inventoryEvents: {
+          where: {
+            createdAt: {
+              gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // Last 90 days
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 100,
+        },
+        consumptions: {
+          where: {
+            createdAt: {
+              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+            },
+          },
+        },
+        salesOrderLines: {
+          where: {
+            salesOrder: {
+              status: { in: ['CONFIRMED', 'IN_PROGRESS', 'PICKING'] },
+            },
+          },
+        },
+      },
+    });
+
+    // Analyze each item and calculate priority score
+    const analyzedItems = items.map(item => {
+      const analysis = analyzeItemForCycleCount(item, minValue);
+      return {
+        item: {
+          id: item.id,
+          sku: item.sku,
+          name: item.name,
+          category: item.category,
+          baseUom: item.baseUom,
+        },
+        ...analysis,
+      };
+    });
+
+    // Filter based on count type
+    let filteredItems = analyzedItems;
+    if (countType === 'ABC') {
+      // ABC analysis: Focus on high-value items
+      filteredItems = analyzedItems
+        .filter(a => a.abcClass === 'A' || a.abcClass === 'B')
+        .sort((a, b) => b.priorityScore - a.priorityScore);
+    } else if (countType === 'HIGH_RISK') {
+      // Focus on items with highest risk factors
+      filteredItems = analyzedItems
+        .filter(a => a.priorityScore >= 70)
+        .sort((a, b) => b.priorityScore - a.priorityScore);
+    } else if (countType === 'RANDOM') {
+      // Random sampling with weighted probability
+      filteredItems = weightedRandomSample(analyzedItems, maxItems);
+    }
+
+    // Apply minimum value filter if specified
+    if (minValue) {
+      filteredItems = filteredItems.filter(a => a.inventoryValue >= minValue);
+    }
+
+    // Take top N items
+    const recommendations = filteredItems.slice(0, maxItems);
+
+    // Generate summary statistics
+    const summary = generateSummary(recommendations, analyzedItems);
+
+    return NextResponse.json({
+      recommendations,
+      summary,
       analysis: {
-        totalItemsAnalyzed: 0,
-        recommendedForCount: 0,
+        totalItemsAnalyzed: items.length,
+        recommendedForCount: recommendations.length,
         countType,
         timestamp: new Date().toISOString(),
       },
     });
   } catch (error) {
-    console.error('Error in cycle count analyzer:', error);
-    return NextResponse.json(
-      { error: 'Failed to analyze cycle count priorities' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 

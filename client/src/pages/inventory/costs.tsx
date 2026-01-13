@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, TrendingUp, Package, AlertCircle } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { Item } from "@shared/inventory";
 
 type ItemsResponse = {
@@ -251,9 +253,14 @@ export default function CostManagementPage() {
           </div>
 
           {isLoading ? (
-            <div className="py-8 text-center text-muted-foreground">Loading items...</div>
+            <InlineLoading message="Loading items..." />
           ) : items.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">No items found</div>
+            <EmptyState
+              icon={Package}
+              title="No items found"
+              description={searchTerm ? "Try adjusting your search" : "Add items to manage their costs"}
+              compact
+            />
           ) : (
             <>
               <div className="rounded-md border">

@@ -19,6 +19,7 @@ import {
   Save,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { InlineLoading } from "@/components/LoadingSpinner";
 
 interface Permission {
   id: string;
@@ -37,11 +38,11 @@ interface Role {
 }
 
 const PERMISSION_CATEGORIES = {
-  inventory: { label: "Inventory", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
-  production: { label: "Production", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" },
-  sales: { label: "Sales", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
-  admin: { label: "Administration", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
-  analytics: { label: "Analytics", color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+  inventory: { label: "Inventory", color: "bg-blue-100 text-blue-700" },
+  production: { label: "Production", color: "bg-purple-100 text-purple-700" },
+  sales: { label: "Sales", color: "bg-green-100 text-green-700" },
+  admin: { label: "Administration", color: "bg-red-100 text-red-700" },
+  analytics: { label: "Analytics", color: "bg-amber-100 text-amber-700" },
 };
 
 export default function RoleManagement() {
@@ -168,7 +169,11 @@ export default function RoleManagement() {
   };
 
   if (rolesLoading) {
-    return <div className="p-6">Loading...</div>;
+    return (
+      <div className="p-6">
+        <InlineLoading message="Loading roles..." />
+      </div>
+    );
   }
 
   return (

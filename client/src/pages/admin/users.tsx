@@ -25,21 +25,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+import { FormDialog } from "@/components/ui/form-dialog";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface User {
   id: string;
@@ -238,9 +232,8 @@ export default function AdminUsersPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-6">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-96 w-full" />
+      <div className="flex h-96 items-center justify-center p-6">
+        <InlineLoading message="Loading users..." />
       </div>
     );
   }
@@ -306,8 +299,14 @@ export default function AdminUsersPage() {
               <TableBody>
                 {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                      No users found
+                    <TableCell colSpan={5} className="p-0">
+                      <EmptyState
+                        icon={Users}
+                        title={searchQuery ? "No users match your search" : "No users yet"}
+                        description={searchQuery ? "Try adjusting your search terms" : "Add your first user to get started"}
+                        actions={!searchQuery ? [{ label: "Add User", onClick: handleCreate, icon: Plus }] : undefined}
+                        compact
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -376,104 +375,93 @@ export default function AdminUsersPage() {
       </Card>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingUser ? "Edit User" : "Create New User"}</DialogTitle>
-            <DialogDescription>
-              {editingUser
-                ? "Update user information and role assignment"
-                : "Add a new user to your organization"}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name*</Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  placeholder="John"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name*</Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  placeholder="Doe"
-                />
-              </div>
-            </div>
-
+      <FormDialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) {
+            setEditingUser(null);
+            resetForm();
+          }
+        }}
+        title={editingUser ? "Edit User" : "Create New User"}
+        description={
+          editingUser
+            ? "Update user information and role assignment"
+            : "Add a new user to your organization"
+        }
+        onSubmit={handleSubmit}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+        submitLabel={editingUser ? "Update User" : "Create User"}
+        submitDisabled={!formData.firstName || !formData.lastName || !formData.email || (!editingUser && !formData.password)}
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="email">Email*</Label>
+              <Label htmlFor="firstName">First Name *</Label>
               <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="john.doe@example.com"
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                placeholder="John"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">
-                Password{editingUser ? " (leave blank to keep current)" : "*"}
-              </Label>
+              <Label htmlFor="lastName">Last Name *</Label>
               <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder={editingUser ? "Leave blank to keep current" : "••••••••"}
+                id="lastName"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                placeholder="Doe"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="role">Role*</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger id="role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Assign appropriate role based on user responsibilities
-              </p>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsCreateDialogOpen(false);
-                setEditingUser(null);
-                resetForm();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={createMutation.isPending || updateMutation.isPending}
-            >
-              {editingUser ? "Update" : "Create"} User
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <Label htmlFor="email">Email *</Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="john.doe@example.com"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">
+              Password{editingUser ? " (leave blank to keep current)" : " *"}
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder={editingUser ? "Leave blank to keep current" : "••••••••"}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="role">Role *</Label>
+            <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+              <SelectTrigger id="role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLES.map((role) => (
+                  <SelectItem key={role} value={role}>
+                    {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Assign appropriate role based on user responsibilities
+            </p>
+          </div>
+        </div>
+      </FormDialog>
     </div>
   );
 }

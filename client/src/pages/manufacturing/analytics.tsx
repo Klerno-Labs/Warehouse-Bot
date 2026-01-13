@@ -18,7 +18,9 @@ import {
   AlertTriangle,
   Users,
   Calendar,
+  Scan,
 } from "lucide-react";
+import { MetricCard, MetricGrid } from "@/components/dashboard/metric-card";
 import type { Department } from "@shared/job-tracking";
 import { DEPARTMENT_CONFIGS } from "@shared/job-tracking";
 
@@ -123,67 +125,45 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Overall Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Total Completed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{overall.totalCompleted}</div>
-            <p className="text-xs text-muted-foreground mt-1">operations</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Throughput
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{overall.throughput}</div>
-            <p className="text-xs text-muted-foreground mt-1">ops/day</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Avg Cycle Time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-600">
-              {formatTime(overall.avgJobCompletionTime)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">per operation</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              Total Scans
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{overall.totalScans}</div>
-            <p className="text-xs text-muted-foreground mt-1">scan events</p>
-          </CardContent>
-        </Card>
-      </div>
+      <MetricGrid columns={4}>
+        <MetricCard
+          title="Total Completed"
+          value={overall.totalCompleted}
+          subtitle="operations"
+          icon={Activity}
+          animate={false}
+        />
+        <MetricCard
+          title="Throughput"
+          value={overall.throughput}
+          subtitle="ops/day"
+          icon={TrendingUp}
+          variant="primary"
+          animate={false}
+        />
+        <MetricCard
+          title="Avg Cycle Time"
+          value={formatTime(overall.avgJobCompletionTime)}
+          subtitle="per operation"
+          icon={Clock}
+          variant="warning"
+          animate={false}
+        />
+        <MetricCard
+          title="Total Scans"
+          value={overall.totalScans}
+          subtitle="scan events"
+          icon={Scan}
+          variant="success"
+          animate={false}
+        />
+      </MetricGrid>
 
       {/* Bottlenecks Alert */}
       {bottlenecks.length > 0 && (
-        <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+        <Card className="border-amber-500/50 bg-amber-50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+            <CardTitle className="flex items-center gap-2 text-amber-700">
               <AlertTriangle className="h-5 w-5" />
               Identified Bottlenecks
             </CardTitle>
@@ -194,7 +174,7 @@ export default function AnalyticsPage() {
               {bottlenecks.map((bottleneck, idx) => (
                 <div
                   key={bottleneck.department}
-                  className="border rounded-lg p-4 bg-white dark:bg-background"
+                  className="border rounded-lg p-4 bg-white"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold">
@@ -365,11 +345,11 @@ export default function AnalyticsPage() {
                   <div
                     className={`flex items-center justify-center w-10 h-10 rounded-full font-bold ${
                       idx === 0
-                        ? "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400"
+                        ? "bg-amber-100 text-amber-700"
                         : idx === 1
-                        ? "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400"
+                        ? "bg-gray-100 text-gray-700"
                         : idx === 2
-                        ? "bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-400"
+                        ? "bg-orange-100 text-orange-700"
                         : "bg-secondary text-muted-foreground"
                     }`}
                   >

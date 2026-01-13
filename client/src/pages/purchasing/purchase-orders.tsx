@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -19,6 +19,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, Plus, Trash2, FileText, Check, Send, Package } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ConfirmDialog } from "@/components/ui/form-dialog";
 
 type POStatus = "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "SENT" | "PARTIALLY_RECEIVED" | "RECEIVED" | "CANCELLED";
 type UOM = "EA" | "FT" | "YD" | "ROLL";
@@ -102,6 +105,7 @@ export default function PurchaseOrdersPage() {
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
+  const [poToDelete, setPOToDelete] = useState<PurchaseOrder | null>(null);
 
   // Receive form state
   const [receiptNumber, setReceiptNumber] = useState("");
@@ -303,24 +307,15 @@ export default function PurchaseOrdersPage() {
     }
   };
 
-  const handleDelete = async (po: PurchaseOrder) => {
-    if (po.status !== "DRAFT") {
-      toast({
-        title: "Error",
-        description: "Can only delete draft purchase orders",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!confirm(`Delete PO ${po.poNumber}?`)) return;
+  const confirmDelete = async () => {
+    if (!poToDelete) return;
 
     try {
-      await apiRequest("DELETE", `/api/purchasing/purchase-orders/${po.id}`, undefined);
+      await apiRequest("DELETE", `/api/purchasing/purchase-orders/${poToDelete.id}`, undefined);
 
       toast({
         title: "Success",
-        description: `PO ${po.poNumber} deleted`,
+        description: `PO ${poToDelete.poNumber} deleted`,
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/purchasing/purchase-orders"] });
@@ -332,7 +327,21 @@ export default function PurchaseOrdersPage() {
         description: error.message || "Failed to delete purchase order",
         variant: "destructive",
       });
+    } finally {
+      setPOToDelete(null);
     }
+  };
+
+  const handleDelete = (po: PurchaseOrder) => {
+    if (po.status !== "DRAFT") {
+      toast({
+        title: "Error",
+        description: "Can only delete draft purchase orders",
+        variant: "destructive",
+      });
+      return;
+    }
+    setPOToDelete(po);
   };
 
   const openReceiveDialog = (po: PurchaseOrder) => {
@@ -423,12 +432,10 @@ export default function PurchaseOrdersPage() {
           <ShoppingCart className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold">Purchase Orders</h1>
         </div>
+        <Button onClick={() => { resetForm(); setIsCreateOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" /> New Purchase Order
+        </Button>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => { resetForm(); setIsCreateOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> New Purchase Order
-            </Button>
-          </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create Purchase Order</DialogTitle>
@@ -498,9 +505,12 @@ export default function PurchaseOrdersPage() {
                 </div>
 
                 {lines.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border rounded-md">
-                    No line items. Click "Add Line" to start.
-                  </div>
+                  <EmptyState
+                    icon={Package}
+                    title="No line items"
+                    description="Click 'Add Line' to add items to this order."
+                    compact
+                  />
                 ) : (
                   <div className="border rounded-md">
                     <Table>
@@ -658,11 +668,15 @@ export default function PurchaseOrdersPage() {
         </CardHeader>
         <CardContent>
           {poLoading ? (
-            <div className="text-center py-8">Loading purchase orders...</div>
+            <InlineLoading message="Loading purchase orders..." />
           ) : purchaseOrders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No purchase orders found. Create your first purchase order to get started.
-            </div>
+            <EmptyState
+              icon={ShoppingCart}
+              title="No purchase orders"
+              description="Create a purchase order to start procuring inventory."
+              actions={[{ label: "Create PO", onClick: () => setIsCreateDialogOpen(true), icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -972,6 +986,17 @@ export default function PurchaseOrdersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!poToDelete}
+        onOpenChange={(open) => !open && setPOToDelete(null)}
+        title="Delete Purchase Order"
+        description={`Are you sure you want to delete PO ${poToDelete?.poNumber}? This action cannot be undone.`}
+        onConfirm={confirmDelete}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

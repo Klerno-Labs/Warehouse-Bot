@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError, validateBody, createAuditLog } from "@app/api/_utils/middleware";
 
 const updateProductionOrderSchema = z.object({
   status: z
@@ -29,50 +29,42 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-  const order = await storage.getProductionOrderById(params.id);
-  if (!order || order.tenantId !== session.user.tenantId) {
-    return NextResponse.json(
-      { error: "Production order not found" },
-      { status: 404 }
-    );
-  }
+    const rawOrder = await storage.getProductionOrderById(params.id);
+    const order = await requireTenantResource(context, rawOrder, "Production order");
+    if (order instanceof NextResponse) return order;
 
-  return NextResponse.json({ order });
+    return NextResponse.json({ order });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
 
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
     const existing = await storage.getProductionOrderById(params.id);
-    if (!existing || existing.tenantId !== session.user.tenantId) {
-      return NextResponse.json(
-        { error: "Production order not found" },
-        { status: 404 }
-      );
-    }
+    const validatedExisting = await requireTenantResource(context, existing, "Production order");
+    if (validatedExisting instanceof NextResponse) return validatedExisting;
 
     // Cannot edit COMPLETED, CLOSED, or CANCELLED orders
-    if (["COMPLETED", "CLOSED", "CANCELLED"].includes(existing.status)) {
+    if (["COMPLETED", "CLOSED", "CANCELLED"].includes(validatedExisting.status)) {
       return NextResponse.json(
-        { error: `Cannot edit ${existing.status} production orders` },
+        { error: `Cannot edit ${validatedExisting.status} production orders` },
         { status: 400 }
       );
     }
 
-    const body = await req.json();
-    const validatedData = updateProductionOrderSchema.parse(body);
+    const validatedData = await validateBody(req, updateProductionOrderSchema);
+    if (validatedData instanceof NextResponse) return validatedData;
 
     const updateData: any = {};
 
@@ -80,18 +72,18 @@ export async function PUT(
       updateData.status = validatedData.status;
 
       // Track status transitions
-      if (validatedData.status === "RELEASED" && existing.status === "PLANNED") {
-        updateData.releasedByUserId = session.user.id;
+      if (validatedData.status === "RELEASED" && validatedExisting.status === "PLANNED") {
+        updateData.releasedByUserId = context.user.id;
         updateData.releasedAt = new Date();
       }
 
-      if (validatedData.status === "IN_PROGRESS" && !existing.actualStart) {
+      if (validatedData.status === "IN_PROGRESS" && !validatedExisting.actualStart) {
         updateData.actualStart = new Date();
       }
 
       if (validatedData.status === "COMPLETED") {
-        if (!existing.actualStart) {
-          updateData.actualStart = existing.scheduledStart;
+        if (!validatedExisting.actualStart) {
+          updateData.actualStart = validatedExisting.scheduledStart;
         }
         updateData.actualEnd = new Date();
       }
@@ -135,26 +127,17 @@ export async function PUT(
 
     const order = await storage.updateProductionOrder(params.id, updateData);
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "UPDATE",
-      entityType: "ProductionOrder",
-      entityId: order.id,
-      details: `Updated production order ${order.orderNumber}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "UPDATE",
+      "ProductionOrder",
+      order.id,
+      `Updated production order ${order.orderNumber}`
+    );
 
     return NextResponse.json({ order });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error updating production order:", error);
-    return NextResponse.json(
-      { error: "Failed to update production order" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -162,19 +145,13 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const order = await storage.getProductionOrderById(params.id);
-    if (!order || order.tenantId !== session.user.tenantId) {
-      return NextResponse.json(
-        { error: "Production order not found" },
-        { status: 404 }
-      );
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const rawOrder = await storage.getProductionOrderById(params.id);
+    const order = await requireTenantResource(context, rawOrder, "Production order");
+    if (order instanceof NextResponse) return order;
 
     // Only allow deletion of PLANNED orders
     if (order.status !== "PLANNED") {
@@ -197,22 +174,16 @@ export async function DELETE(
 
     await storage.deleteProductionOrder(params.id);
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "DELETE",
-      entityType: "ProductionOrder",
-      entityId: params.id,
-      details: `Deleted production order ${order.orderNumber}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "DELETE",
+      "ProductionOrder",
+      params.id,
+      `Deleted production order ${order.orderNumber}`
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting production order:", error);
-    return NextResponse.json(
-      { error: "Failed to delete production order" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

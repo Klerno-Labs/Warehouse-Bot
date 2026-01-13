@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * GET /api/mobile/job/[id]
@@ -10,22 +10,20 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
+  try {
     const jobId = params.id;
 
     // Fetch production order with all related data
-    const productionOrder = await storage.prisma.productionOrder.findFirst({
+    const productionOrder = await storage.productionOrder.findFirst({
       where: {
         OR: [
           { id: jobId },
           { orderNumber: jobId },
         ],
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       include: {
         item: {
@@ -39,7 +37,7 @@ export async function GET(
           include: {
             components: {
               include: {
-                item: {
+                componentItem: {
                   select: {
                     sku: true,
                     name: true,
@@ -72,9 +70,8 @@ export async function GET(
       return NextResponse.json({ error: 'Job not found' }, { status: 404 });
     }
 
-    // Get job notes from a notes table (if exists) or use placeholder
-    // For now, we'll fetch from productionOrder metadata or create a new notes system
-    const notes = await storage.prisma.productionOrderNote.findMany({
+    // Get job notes
+    const notes = await storage.productionOrderNote.findMany({
       where: {
         productionOrderId: productionOrder.id,
       },
@@ -92,7 +89,7 @@ export async function GET(
     });
 
     // Calculate quantities consumed per component
-    const consumptionsByItem = productionOrder.consumptions.reduce((acc: any, consumption) => {
+    const consumptionsByItem = productionOrder.consumptions.reduce((acc: Record<string, number>, consumption) => {
       if (!acc[consumption.itemId]) {
         acc[consumption.itemId] = 0;
       }
@@ -102,19 +99,19 @@ export async function GET(
 
     // Format components with availability
     const components = productionOrder.bom?.components.map((bomComponent) => {
-      const totalAvailable = bomComponent.item.balances.reduce(
+      const totalAvailable = bomComponent.componentItem.balances.reduce(
         (sum, balance) => sum + balance.qtyBase,
         0
       );
-      const primaryLocation = bomComponent.item.balances[0]?.location?.label || 'Unknown';
-      const qtyNeeded = bomComponent.qtyPer * productionOrder.qtyOrdered;
-      const qtyConsumed = consumptionsByItem[bomComponent.itemId] || 0;
+      const primaryLocation = bomComponent.componentItem.balances[0]?.location?.label || 'Unknown';
+      const qtyNeeded = bomComponent.qtyBase * productionOrder.qtyOrdered;
+      const qtyConsumed = consumptionsByItem[bomComponent.componentItemId] || 0;
       const qtyRemaining = qtyNeeded - qtyConsumed;
 
       return {
         id: bomComponent.id,
-        sku: bomComponent.item.sku,
-        name: bomComponent.item.name,
+        sku: bomComponent.componentItem.sku,
+        name: bomComponent.componentItem.name,
         qtyNeeded: qtyRemaining > 0 ? qtyRemaining : qtyNeeded,
         qtyAvailable: totalAvailable,
         uom: bomComponent.uom,
@@ -125,12 +122,12 @@ export async function GET(
     // Calculate completed quantity
     const qtyCompleted = productionOrder.qtyCompleted || 0;
 
-    // Determine priority based on scheduled end date
-    const scheduledEnd = productionOrder.scheduledEnd ? new Date(productionOrder.scheduledEnd) : null;
+    // Determine priority based on due date
+    const dueDate = productionOrder.dueDate ? new Date(productionOrder.dueDate) : null;
     const now = new Date();
     let priority = 'low';
-    if (scheduledEnd) {
-      const daysUntilDue = Math.ceil((scheduledEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (dueDate) {
+      const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       if (daysUntilDue < 0) priority = 'overdue';
       else if (daysUntilDue <= 1) priority = 'high';
       else if (daysUntilDue <= 3) priority = 'medium';
@@ -145,12 +142,12 @@ export async function GET(
       qtyOrdered: productionOrder.qtyOrdered,
       qtyCompleted,
       status: productionOrder.status,
-      dueDate: productionOrder.scheduledEnd?.toISOString() || null,
+      dueDate: productionOrder.dueDate?.toISOString() || null,
       priority,
       components,
       instructions: productionOrder.notes || 'Follow standard operating procedures for this item.',
-      workstation: 'General Production', // TODO: Add workstation field to schema
-      estimatedTime: 0, // TODO: Add estimatedHours field to schema
+      workstation: productionOrder.workstation || 'General Production',
+      estimatedTime: productionOrder.estimatedHours || 0,
       notes: notes.map((note) => ({
         id: note.id,
         timestamp: note.createdAt.toISOString(),
@@ -162,10 +159,6 @@ export async function GET(
 
     return NextResponse.json(jobData);
   } catch (error) {
-    console.error('Error fetching job data:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch job data' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

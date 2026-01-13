@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { logger } from "./logger";
 
 // Initialize Resend client (requires RESEND_API_KEY environment variable)
 const resend = process.env.RESEND_API_KEY
@@ -45,7 +46,7 @@ export class EmailService {
    */
   static async sendEmail(data: EmailData): Promise<boolean> {
     if (!resend) {
-      console.warn("Email service not configured. Set RESEND_API_KEY environment variable.");
+      logger.warn("Email service not configured. Set RESEND_API_KEY environment variable.");
       return false;
     }
 
@@ -57,10 +58,10 @@ export class EmailService {
         html: data.html,
       });
 
-      console.log(`Email sent successfully to ${data.to}`);
+      logger.info("Email sent successfully", { to: data.to });
       return true;
     } catch (error: any) {
-      console.error("Failed to send email:", error);
+      logger.error("Failed to send email", error);
       return false;
     }
   }

@@ -79,7 +79,7 @@ export function SetupChecklist({ steps, onDismiss, className }: SetupChecklistPr
               href={step.href}
               className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
                 step.completed
-                  ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/20"
+                  ? "border-green-200 bg-green-50"
                   : "border-border hover:border-primary/50 hover:bg-accent"
               }`}
             >
@@ -99,7 +99,7 @@ export function SetupChecklist({ steps, onDismiss, className }: SetupChecklistPr
               <div className="flex-1 min-w-0">
                 <p
                   className={`text-sm font-medium ${
-                    step.completed ? "text-green-700 dark:text-green-300" : ""
+                    step.completed ? "text-green-700" : ""
                   }`}
                 >
                   {step.title}

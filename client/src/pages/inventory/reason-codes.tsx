@@ -16,12 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { InlineLoading } from "@/components/LoadingSpinner";
 import { REASON_TYPES, type ReasonCode } from "@shared/inventory";
 
 export default function InventoryReasonCodesPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: reasons = [] } = useQuery<ReasonCode[]>({
+  const { data: reasons = [], isLoading } = useQuery<ReasonCode[]>({
     queryKey: ["/api/inventory/reason-codes"],
   });
   
@@ -164,40 +165,44 @@ export default function InventoryReasonCodesPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredReasons.length === 0 ? (
+            {isLoading ? (
+              <InlineLoading message="Loading reason codes..." />
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                        No reason codes found
-                      </TableCell>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ) : (
-                    filteredReasons.map((reason) => (
-                      <TableRow key={reason.id}>
-                        <TableCell className="font-medium">{reason.type}</TableCell>
-                        <TableCell>{reason.code}</TableCell>
-                        <TableCell>{reason.description || "-"}</TableCell>
-                        <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => startEdit(reason)}>
-                            Edit
-                          </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredReasons.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                          No reason codes found
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ) : (
+                      filteredReasons.map((reason) => (
+                        <TableRow key={reason.id}>
+                          <TableCell className="font-medium">{reason.type}</TableCell>
+                          <TableCell>{reason.code}</TableCell>
+                          <TableCell>{reason.description || "-"}</TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" onClick={() => startEdit(reason)}>
+                              Edit
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

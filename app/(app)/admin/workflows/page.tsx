@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/form-dialog";
 import {
   Select,
   SelectContent,
@@ -63,6 +64,7 @@ import {
   History,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import { InlineLoading } from "@/components/LoadingSpinner";
 
 interface WorkflowCondition {
   field: string;
@@ -128,6 +130,7 @@ export default function WorkflowsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
   const [activeTab, setActiveTab] = useState("workflows");
+  const [workflowToDelete, setWorkflowToDelete] = useState<Workflow | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -195,17 +198,19 @@ export default function WorkflowsPage() {
     }
   }
 
-  async function deleteWorkflow(id: string) {
-    if (!confirm("Are you sure you want to delete this workflow?")) return;
+  async function deleteWorkflow() {
+    if (!workflowToDelete) return;
     try {
-      const res = await fetch(`/api/workflows?id=${id}`, {
+      const res = await fetch(`/api/workflows?id=${workflowToDelete.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        setWorkflows(workflows.filter((w) => w.id !== id));
+        setWorkflows(workflows.filter((w) => w.id !== workflowToDelete.id));
       }
     } catch (error) {
       console.error("Failed to delete workflow:", error);
+    } finally {
+      setWorkflowToDelete(null);
     }
   }
 
@@ -397,11 +402,7 @@ export default function WorkflowsPage() {
 
         <TabsContent value="workflows" className="space-y-4">
           {loading ? (
-            <Card className="py-12">
-              <CardContent className="text-center text-muted-foreground">
-                Loading workflows...
-              </CardContent>
-            </Card>
+            <InlineLoading message="Loading workflows..." />
           ) : workflows.length === 0 ? (
             <Card className="py-12">
               <CardContent className="text-center text-muted-foreground">
@@ -499,7 +500,7 @@ export default function WorkflowsPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-red-600"
-                              onClick={() => deleteWorkflow(workflow.id)}
+                              onClick={() => setWorkflowToDelete(workflow)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
@@ -576,6 +577,16 @@ export default function WorkflowsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <ConfirmDialog
+        open={!!workflowToDelete}
+        onOpenChange={(open) => !open && setWorkflowToDelete(null)}
+        title="Delete Workflow"
+        description={`Are you sure you want to delete "${workflowToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={deleteWorkflow}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

@@ -41,6 +41,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { InlineLoading } from "@/components/LoadingSpinner";
 
 interface SalesOrder {
   id: string;
@@ -451,7 +452,7 @@ export default function SalesOrdersPage() {
 
       {/* Orders Table */}
       {isLoading ? (
-        <div className="text-center py-12">Loading orders...</div>
+        <InlineLoading message="Loading orders..." />
       ) : orders.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">

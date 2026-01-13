@@ -197,7 +197,7 @@ export default function OperatorDashboard() {
 
         {/* High Priority Alert */}
         {isHighPriority && (
-          <Alert className="border-red-500 bg-red-50 dark:bg-red-950/20">
+          <Alert className="border-red-500 bg-red-50">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-600">
               <strong>High Priority Job:</strong> This order is urgent and needs immediate attention.
@@ -337,7 +337,7 @@ export default function OperatorDashboard() {
             <Button
               variant="outline"
               size="lg"
-              className="w-full h-14 text-lg border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20"
+              className="w-full h-14 text-lg border-green-500 text-green-600 hover:bg-green-50:bg-green-950/20"
               disabled={remainingQty > 0}
             >
               <CheckCircle2 className="h-5 w-5 mr-2" />

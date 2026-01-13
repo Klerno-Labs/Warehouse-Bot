@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuth } from "@/lib/auth-context";
+import { InlineLoading } from "@/components/LoadingSpinner";
 import { EVENT_TYPES, type InventoryEvent, type Item, type Location } from "@shared/inventory";
 
 type EventsResponse = {
@@ -201,7 +202,7 @@ export default function InventoryEventsPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="py-8 text-center text-muted-foreground">Loading...</div>
+              <InlineLoading message="Loading events..." />
             ) : (
               <>
                 <div className="rounded-md border">

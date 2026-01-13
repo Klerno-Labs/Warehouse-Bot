@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@server/prisma";
+import { logger } from "@server/logger";
 
 /**
  * Usage tracking and limit enforcement for SaaS tenants
@@ -24,7 +25,7 @@ export async function trackApiCall(tenantId: string): Promise<void> {
     }
   } catch (error) {
     // Don't fail the request if tracking fails
-    console.error("Error tracking API call:", error);
+    logger.warn("Error tracking API call", { error: String(error) });
   }
 }
 

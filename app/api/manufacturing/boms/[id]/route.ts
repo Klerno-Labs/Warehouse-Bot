@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError, validateBody, createAuditLog } from "@app/api/_utils/middleware";
 
 const updateBOMSchema = z.object({
   description: z.string().optional(),
@@ -15,44 +15,42 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-  const bom = await storage.getBOMById(params.id);
-  if (!bom || bom.tenantId !== session.user.tenantId) {
-    return NextResponse.json({ error: "BOM not found" }, { status: 404 });
-  }
+    const rawBom = await storage.getBOMById(params.id);
+    const bom = await requireTenantResource(context, rawBom, "BOM");
+    if (bom instanceof NextResponse) return bom;
 
-  return NextResponse.json({ bom });
+    return NextResponse.json({ bom });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
 
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
     const existing = await storage.getBOMById(params.id);
-    if (!existing || existing.tenantId !== session.user.tenantId) {
-      return NextResponse.json({ error: "BOM not found" }, { status: 404 });
-    }
+    const validatedExisting = await requireTenantResource(context, existing, "BOM");
+    if (validatedExisting instanceof NextResponse) return validatedExisting;
 
     // Cannot edit ACTIVE or SUPERSEDED BOMs
-    if (existing.status === "ACTIVE" || existing.status === "SUPERSEDED") {
+    if (validatedExisting.status === "ACTIVE" || validatedExisting.status === "SUPERSEDED") {
       return NextResponse.json(
         { error: "Cannot edit ACTIVE or SUPERSEDED BOMs. Create a new version instead." },
         { status: 400 }
       );
     }
 
-    const body = await req.json();
-    const validatedData = updateBOMSchema.parse(body);
+    const validatedData = await validateBody(req, updateBOMSchema);
+    if (validatedData instanceof NextResponse) return validatedData;
 
     const updateData: any = {};
 
@@ -63,7 +61,7 @@ export async function PUT(
     if (validatedData.status) {
       updateData.status = validatedData.status;
       if (validatedData.status === "ACTIVE") {
-        updateData.approvedByUserId = session.user.id;
+        updateData.approvedByUserId = context.user.id;
         updateData.approvedAt = new Date();
       }
     }
@@ -82,23 +80,17 @@ export async function PUT(
 
     const bom = await storage.updateBOM(params.id, updateData);
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "UPDATE",
-      entityType: "BillOfMaterial",
-      entityId: bom.id,
-      details: `Updated BOM ${bom.bomNumber} v${bom.version}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "UPDATE",
+      "BillOfMaterial",
+      bom.id,
+      `Updated BOM ${bom.bomNumber} v${bom.version}`
+    );
 
     return NextResponse.json({ bom });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error updating BOM:", error);
-    return NextResponse.json({ error: "Failed to update BOM" }, { status: 500 });
+    return handleApiError(error);
   }
 }
 
@@ -106,16 +98,13 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const bom = await storage.getBOMById(params.id);
-    if (!bom || bom.tenantId !== session.user.tenantId) {
-      return NextResponse.json({ error: "BOM not found" }, { status: 404 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const rawBom = await storage.getBOMById(params.id);
+    const bom = await requireTenantResource(context, rawBom, "BOM");
+    if (bom instanceof NextResponse) return bom;
 
     // Only allow deletion of DRAFT BOMs
     if (bom.status !== "DRAFT") {
@@ -135,19 +124,16 @@ export async function DELETE(
 
     await storage.deleteBOM(params.id);
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "DELETE",
-      entityType: "BillOfMaterial",
-      entityId: params.id,
-      details: `Deleted BOM ${bom.bomNumber} v${bom.version}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "DELETE",
+      "BillOfMaterial",
+      params.id,
+      `Deleted BOM ${bom.bomNumber} v${bom.version}`
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting BOM:", error);
-    return NextResponse.json({ error: "Failed to delete BOM" }, { status: 500 });
+    return handleApiError(error);
   }
 }

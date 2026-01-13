@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/form-dialog";
 import {
   Select,
   SelectContent,
@@ -93,6 +94,7 @@ export function WorkflowBuilder() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [workflowToDelete, setWorkflowToDelete] = useState<Workflow | null>(null);
 
   useEffect(() => {
     loadWorkflows();
@@ -164,11 +166,11 @@ export function WorkflowBuilder() {
     }
   };
 
-  const deleteWorkflow = async (workflowId: string) => {
-    if (!confirm("Are you sure you want to delete this workflow?")) return;
+  const deleteWorkflow = async () => {
+    if (!workflowToDelete) return;
 
     try {
-      const response = await fetch(`/api/workflows?id=${workflowId}`, {
+      const response = await fetch(`/api/workflows?id=${workflowToDelete.id}`, {
         method: "DELETE",
       });
 
@@ -185,6 +187,8 @@ export function WorkflowBuilder() {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setWorkflowToDelete(null);
     }
   };
 
@@ -351,7 +355,7 @@ export function WorkflowBuilder() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => deleteWorkflow(workflow.id)}
+                        onClick={() => setWorkflowToDelete(workflow)}
                         className="text-red-600 hover:text-red-700"
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
@@ -473,6 +477,17 @@ export function WorkflowBuilder() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Workflow Confirmation */}
+      <ConfirmDialog
+        open={!!workflowToDelete}
+        onOpenChange={(open) => !open && setWorkflowToDelete(null)}
+        title="Delete Workflow"
+        description={`Are you sure you want to delete the workflow "${workflowToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={deleteWorkflow}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

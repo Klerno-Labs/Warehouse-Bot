@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserWithRecord } from "./session";
 import { storage } from "@server/storage";
+import { logger } from "@server/logger";
 import { z } from "zod";
 
 // ============================================================================
@@ -9,7 +10,7 @@ import { z } from "zod";
 // patterns across 35+ API routes into reusable functions
 // ============================================================================
 
-export type UserRole = "Admin" | "Supervisor" | "Inventory" | "Manufacturing" | "Purchasing" | "Operator" | "Viewer";
+export type UserRole = "Admin" | "Supervisor" | "Inventory" | "Manufacturing" | "Purchasing" | "Sales" | "Operator" | "Viewer";
 
 export type AuthenticatedContext = {
   user: {
@@ -219,12 +220,12 @@ export async function requireTenantResource<T extends { tenantId: string }>(
  * Replaces 31+ identical try-catch error handling blocks
  */
 export function handleApiError(error: unknown): NextResponse {
-  console.error("API Error:", error);
+  logger.error("API Error", error instanceof Error ? error : new Error(String(error)));
 
   // Zod validation errors
   if (error instanceof z.ZodError) {
     return NextResponse.json(
-      { error: "Invalid request", details: error.errors },
+      { error: "Invalid request", details: error.issues },
       { status: 400 }
     );
   }
@@ -273,7 +274,7 @@ export async function validateBody<T>(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Invalid request body", details: error.errors },
+        { error: "Invalid request body", details: error.issues },
         { status: 400 }
       );
     }

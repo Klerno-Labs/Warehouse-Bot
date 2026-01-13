@@ -69,21 +69,21 @@ const SEVERITY_CONFIG = {
   critical: {
     icon: AlertTriangle,
     color: "text-red-600",
-    bg: "bg-red-100",
+    bg: "bg-red-50",
     border: "border-red-300",
     label: "Critical",
   },
   warning: {
     icon: AlertCircle,
-    color: "text-orange-600",
-    bg: "bg-orange-100",
-    border: "border-orange-300",
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+    border: "border-amber-300",
     label: "Warning",
   },
   info: {
     icon: Info,
     color: "text-blue-600",
-    bg: "bg-blue-100",
+    bg: "bg-blue-50",
     border: "border-blue-300",
     label: "Info",
   },
@@ -367,8 +367,8 @@ export function AlertsDashboard() {
             <div className="text-center py-8 text-muted-foreground">Loading alerts...</div>
           ) : filteredAlerts.length === 0 ? (
             <div className="text-center py-12">
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-              <div className="text-xl font-semibold text-green-600 mb-2">All Clear!</div>
+              <CheckCircle className="h-16 w-16 text-emerald-600 mx-auto mb-4" />
+              <div className="text-xl font-semibold text-emerald-600 mb-2">All Clear!</div>
               <div className="text-muted-foreground">No active alerts at this time</div>
             </div>
           ) : (

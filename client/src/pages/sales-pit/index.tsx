@@ -107,9 +107,9 @@ export default function SalesPit() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       {/* Sales Pit Header */}
-      <div className="border-b bg-white dark:bg-slate-900 shadow-sm">
+      <div className="border-b bg-white shadow-sm">
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -240,7 +240,7 @@ export default function SalesPit() {
                     {recentOrders.map((order) => (
                       <div
                         key={order.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50:bg-slate-800 transition-colors cursor-pointer"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">

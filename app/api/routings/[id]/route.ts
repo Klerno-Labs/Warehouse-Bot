@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, requireRole, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * PATCH /api/routings/[id]
@@ -11,21 +11,18 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin' && user.role !== 'Supervisor') {
-      return NextResponse.json({ error: 'Admin or Supervisor access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor']);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const { id } = params;
     const body = await req.json();
     const { name, description, itemId, isDefault, steps } = body;
 
     // Verify routing belongs to tenant
-    const existingRouting = await storage.prisma.productionRouting.findUnique({
+    const existingRouting = await storage.productionRouting.findUnique({
       where: { id },
       include: { steps: true },
     });
@@ -34,15 +31,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Routing not found' }, { status: 404 });
     }
 
-    if (existingRouting.tenantId !== user.tenantId) {
+    if (existingRouting.tenantId !== context.user.tenantId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // If setting as default, unset other defaults
     if (isDefault && !existingRouting.isDefault) {
-      await storage.prisma.productionRouting.updateMany({
+      await storage.productionRouting.updateMany({
         where: {
-          tenantId: user.tenantId,
+          tenantId: context.user.tenantId,
           isDefault: true,
           id: { not: id },
         },
@@ -53,7 +50,7 @@ export async function PATCH(
     }
 
     // Update routing with steps
-    const routing = await storage.prisma.productionRouting.update({
+    const routing = await storage.productionRouting.update({
       where: { id },
       data: {
         name: name || existingRouting.name,
@@ -87,11 +84,7 @@ export async function PATCH(
 
     return NextResponse.json({ routing });
   } catch (error) {
-    console.error('Error updating routing:', error);
-    return NextResponse.json(
-      { error: 'Failed to update routing' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -104,19 +97,16 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin' && user.role !== 'Supervisor') {
-      return NextResponse.json({ error: 'Admin or Supervisor access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ['Admin', 'Supervisor']);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const { id } = params;
 
     // Verify routing belongs to tenant
-    const routing = await storage.prisma.productionRouting.findUnique({
+    const routing = await storage.productionRouting.findUnique({
       where: { id },
       include: {
         _count: {
@@ -131,7 +121,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Routing not found' }, { status: 404 });
     }
 
-    if (routing.tenantId !== user.tenantId) {
+    if (routing.tenantId !== context.user.tenantId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -144,16 +134,12 @@ export async function DELETE(
     }
 
     // Delete routing (steps will cascade delete due to schema)
-    await storage.prisma.productionRouting.delete({
+    await storage.productionRouting.delete({
       where: { id },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting routing:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete routing' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

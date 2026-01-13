@@ -1,40 +1,11 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@server/prisma";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
-
-const createCustomerSchema = z.object({
-  code: z.string().min(1),
-  name: z.string().min(1),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  // Billing Address
-  billingAddress1: z.string().optional(),
-  billingAddress2: z.string().optional(),
-  billingCity: z.string().optional(),
-  billingState: z.string().optional(),
-  billingZip: z.string().optional(),
-  billingCountry: z.string().default("US"),
-  // Shipping Address
-  shippingAddress1: z.string().optional(),
-  shippingAddress2: z.string().optional(),
-  shippingCity: z.string().optional(),
-  shippingState: z.string().optional(),
-  shippingZip: z.string().optional(),
-  shippingCountry: z.string().default("US"),
-  // Terms
-  paymentTerms: z.string().optional(),
-  creditLimit: z.number().min(0).optional(),
-  taxExempt: z.boolean().default(false),
-  taxId: z.string().optional(),
-  notes: z.string().optional(),
-});
+import { requireAuth, requireRole, validateBody, handleApiError } from "@app/api/_utils/middleware";
+import { createCustomerSchema } from "@shared/sales";
 
 export async function GET(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search");
@@ -42,7 +13,7 @@ export async function GET(req: Request) {
 
   const customers = await prisma.customer.findMany({
     where: {
-      tenantId: session.user.tenantId,
+      tenantId: context.user.tenantId,
       ...(search && {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
@@ -64,24 +35,20 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const context = await requireAuth();
+  if (context instanceof NextResponse) return context;
 
-  // Check permissions
-  if (!["Admin", "Supervisor", "Sales"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const roleCheck = requireRole(context, ["Admin", "Supervisor", "Sales"]);
+  if (roleCheck instanceof NextResponse) return roleCheck;
 
   try {
-    const body = await req.json();
-    const data = createCustomerSchema.parse(body);
+    const data = await validateBody(req, createCustomerSchema);
+    if (data instanceof NextResponse) return data;
 
     // Check for duplicate customer code
     const existing = await prisma.customer.findFirst({
       where: {
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
         code: data.code,
       },
     });
@@ -95,20 +62,13 @@ export async function POST(req: Request) {
 
     const customer = await prisma.customer.create({
       data: {
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
         ...data,
       },
     });
 
     return NextResponse.json({ customer }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error creating customer:", error);
-    return NextResponse.json(
-      { error: "Failed to create customer" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

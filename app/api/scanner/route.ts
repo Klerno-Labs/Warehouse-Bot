@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
-import { 
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
+import {
   ScannerService,
   createAMLScanner,
   createScannerFromPreset,
@@ -25,18 +25,16 @@ const BatchParseSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const body = await request.json();
-    
+
     // Check if batch parse
     const batchParsed = BatchParseSchema.safeParse(body);
     if (batchParsed.success) {
       const { barcodes, scannerPreset } = batchParsed.data;
-      const scanner = scannerPreset 
+      const scanner = scannerPreset
         ? createScannerFromPreset(scannerPreset)
         : createAMLScanner();
 
@@ -70,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { barcode, scannerPreset } = parsed.data;
-    const scanner = scannerPreset 
+    const scanner = scannerPreset
       ? createScannerFromPreset(scannerPreset)
       : createAMLScanner();
 
@@ -87,11 +85,7 @@ export async function POST(request: NextRequest) {
       gs1Data: parsedData.gs1Data,
     });
   } catch (error) {
-    console.error("Scanner parse error:", error);
-    return NextResponse.json(
-      { error: "Failed to parse barcode" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -101,10 +95,8 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const amlPresets = Object.entries(AML_SCANNER_PRESETS).map(([name, config]) => ({
       name,
@@ -131,10 +123,6 @@ export async function GET(request: NextRequest) {
       supportedTypes: ["ITEM", "JOB", "LOCATION", "LOT", "SERIAL", "PO", "SHIPMENT"],
     });
   } catch (error) {
-    console.error("Error fetching scanner presets:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch presets" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

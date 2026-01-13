@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { requireAuth, handleApiError } from '@app/api/_utils/middleware';
+import storage from '@/server/storage';
 
 /**
  * POST /api/ai/inventory-assistant
@@ -8,10 +8,8 @@ import { storage } from '@server/storage';
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const body = await req.json();
     const { itemId, locationId, expectedQty, actualQty, description } = body;
@@ -25,30 +23,30 @@ export async function POST(req: NextRequest) {
 
     const discrepancy = expectedQty - actualQty;
 
-    // Get item details - placeholder
-    // TODO: Implement proper inventory query when schema is finalized
-
-    return NextResponse.json({
-      discrepancy,
-      analysis: [],
-      suggestions: [],
-      confidence: 0,
+    // Get item details
+    const item = await storage.item.findUnique({
+      where: { id: itemId },
+      include: {
+        balances: {
+          where: locationId ? { locationId } : undefined,
+          include: {
+            location: true,
+          },
+        },
+      },
     });
 
-  } catch (error) {
-    console.error('Error in inventory assistant:', error);
-    return NextResponse.json(
-      { error: 'Failed to analyze inventory discrepancy' },
-      { status: 500 }
-    );
-  }
-}
+    if (!item) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    }
 
-// Rest of file disabled - helper functions not needed for placeholder
-/*
-    const recentEvents: any = {
+    // Get recent inventory events (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentEvents = await storage.inventoryEvent.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         itemId,
         ...(locationId && {
           OR: [
@@ -76,7 +74,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Get recent production consumption
-    const recentConsumptions = await storage.prisma.productionConsumption.findMany({
+    const recentConsumptions = await storage.productionConsumption.findMany({
       where: {
         itemId,
         ...(locationId && { fromLocationId: locationId }),
@@ -97,7 +95,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Get recent cycle counts
-    const recentCycleCounts = await storage.prisma.cycleCountLine.findMany({
+    const recentCycleCounts = await storage.cycleCountLine.findMany({
       where: {
         itemId,
         ...(locationId && { locationId }),
@@ -122,7 +120,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Get recent sales shipments
-    const recentShipments = await storage.prisma.shipmentLine.findMany({
+    const recentShipments = await storage.shipmentLine.findMany({
       where: {
         itemId,
         shipment: {
@@ -150,7 +148,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Get recent receipts
-    const recentReceipts = await storage.prisma.receiptLine.findMany({
+    const recentReceipts = await storage.receiptLine.findMany({
       where: {
         itemId,
         createdAt: { gte: thirtyDaysAgo },
@@ -240,11 +238,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error in inventory assistant:', error);
-    return NextResponse.json(
-      { error: 'Failed to analyze inventory discrepancy' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -491,4 +485,3 @@ function generateNextSteps(causes: any[], isMissing: boolean, variance: number) 
 
   return steps;
 }
-*/

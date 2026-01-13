@@ -1,34 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
+import { NextResponse } from "next/server";
+import storage from "@/server/storage";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 
 /**
  * GET /api/departments
  * List all custom departments for tenant
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const departments = await storage.prisma.customDepartment.findMany({
+    const departments = await storage.customDepartment.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       orderBy: {
-        order: 'asc',
+        order: "asc",
       },
     });
 
     return NextResponse.json({ departments });
   } catch (error) {
-    console.error('Error fetching departments:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch departments' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -36,16 +30,13 @@ export async function GET(req: NextRequest) {
  * POST /api/departments
  * Create a new custom department
  */
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    if (user.role !== 'Admin' && user.role !== 'Supervisor') {
-      return NextResponse.json({ error: 'Admin or Supervisor access required' }, { status: 403 });
-    }
+    const roleCheck = requireRole(context, ["Admin", "Supervisor"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await req.json();
     const {
@@ -62,16 +53,16 @@ export async function POST(req: NextRequest) {
     // Validate required fields
     if (!name || !code) {
       return NextResponse.json(
-        { error: 'Name and code are required' },
+        { error: "Name and code are required" },
         { status: 400 }
       );
     }
 
     // Check if code already exists
-    const existing = await storage.prisma.customDepartment.findUnique({
+    const existing = await storage.customDepartment.findUnique({
       where: {
         tenantId_code: {
-          tenantId: user.tenantId,
+          tenantId: context.user.tenantId,
           code: code.toUpperCase(),
         },
       },
@@ -79,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     if (existing) {
       return NextResponse.json(
-        { error: 'Department code already exists' },
+        { error: "Department code already exists" },
         { status: 400 }
       );
     }
@@ -87,19 +78,19 @@ export async function POST(req: NextRequest) {
     // Get max order if not provided
     let departmentOrder = order;
     if (departmentOrder === undefined) {
-      const maxOrderDept = await storage.prisma.customDepartment.findFirst({
-        where: { tenantId: user.tenantId },
-        orderBy: { order: 'desc' },
+      const maxOrderDept = await storage.customDepartment.findFirst({
+        where: { tenantId: context.user.tenantId },
+        orderBy: { order: "desc" },
       });
       departmentOrder = (maxOrderDept?.order || 0) + 1;
     }
 
-    const department = await storage.prisma.customDepartment.create({
+    const department = await storage.customDepartment.create({
       data: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
         name,
         code: code.toUpperCase(),
-        color: color || '#3b82f6',
+        color: color || "#3b82f6",
         icon,
         allowConcurrent: allowConcurrent ?? true,
         requireQC: requireQC ?? false,
@@ -110,10 +101,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ department }, { status: 201 });
   } catch (error) {
-    console.error('Error creating department:', error);
-    return NextResponse.json(
-      { error: 'Failed to create department' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

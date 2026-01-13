@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@server/prisma";
 import { SubscriptionStatus } from "@prisma/client";
+import { logger } from "@server/logger";
 
 // Initialize Stripe
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
+    logger.error("Webhook signature verification failed", err as Error);
     return NextResponse.json(
       { error: "Invalid signature" },
       { status: 400 }
@@ -74,12 +75,12 @@ export async function POST(req: NextRequest) {
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        logger.debug("Unhandled Stripe event type", { eventType: event.type });
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Error processing webhook:", error);
+    logger.error("Error processing webhook", error as Error);
     return NextResponse.json(
       { error: "Webhook processing failed" },
       { status: 500 }
@@ -92,7 +93,7 @@ async function handleCheckoutCompleted(session: any) {
   const planId = session.metadata?.planId;
 
   if (!tenantId || !planId) {
-    console.error("Missing tenantId or planId in checkout session metadata");
+    logger.error("Missing tenantId or planId in checkout session metadata");
     return;
   }
 
@@ -114,7 +115,7 @@ async function handleCheckoutCompleted(session: any) {
     },
   });
 
-  console.log(`Subscription activated for tenant ${tenantId}`);
+  logger.info("Subscription activated", { tenantId });
 }
 
 async function handleSubscriptionUpdated(subscription: any) {
@@ -125,7 +126,7 @@ async function handleSubscriptionUpdated(subscription: any) {
       where: { stripeSubscriptionId: subscription.id },
     });
     if (!existingSub) {
-      console.error("Could not find subscription for Stripe subscription:", subscription.id);
+      logger.error("Could not find subscription for Stripe subscription", undefined, { subscriptionId: subscription.id });
       return;
     }
   }
@@ -151,7 +152,7 @@ async function handleSubscriptionUpdated(subscription: any) {
     },
   });
 
-  console.log(`Subscription ${subscription.id} updated to status ${subscription.status}`);
+  logger.info("Subscription updated", { subscriptionId: subscription.id, status: subscription.status });
 }
 
 async function handleSubscriptionDeleted(subscription: any) {
@@ -161,7 +162,7 @@ async function handleSubscriptionDeleted(subscription: any) {
   });
 
   if (!existingSub) {
-    console.error("Could not find subscription for deletion:", subscription.id);
+    logger.error("Could not find subscription for deletion", undefined, { subscriptionId: subscription.id });
     return;
   }
 
@@ -190,7 +191,7 @@ async function handleSubscriptionDeleted(subscription: any) {
     });
   }
 
-  console.log(`Subscription ${subscription.id} deleted, tenant downgraded to free`);
+  logger.info("Subscription deleted, tenant downgraded to free", { subscriptionId: subscription.id });
 }
 
 async function handleInvoicePaid(invoice: any) {
@@ -202,7 +203,7 @@ async function handleInvoicePaid(invoice: any) {
   });
 
   if (!subscription) {
-    console.error("Could not find subscription for invoice:", invoice.id);
+    logger.error("Could not find subscription for invoice", undefined, { invoiceId: invoice.id });
     return;
   }
 
@@ -228,7 +229,7 @@ async function handleInvoicePaid(invoice: any) {
     },
   });
 
-  console.log(`Invoice ${invoice.id} recorded as paid`);
+  logger.info("Invoice recorded as paid", { invoiceId: invoice.id });
 }
 
 async function handleInvoicePaymentFailed(invoice: any) {
@@ -264,5 +265,5 @@ async function handleInvoicePaymentFailed(invoice: any) {
     data: { status: "PAST_DUE" },
   });
 
-  console.log(`Invoice ${invoice.id} payment failed`);
+  logger.warn("Invoice payment failed", { invoiceId: invoice.id });
 }

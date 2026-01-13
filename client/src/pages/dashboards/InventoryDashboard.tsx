@@ -291,10 +291,10 @@ export default function InventoryDashboard() {
                       ADJUST: ClipboardCheck,
                     };
                     const colors = {
-                      RECEIVE: "text-green-600 bg-green-100 dark:bg-green-900/30",
-                      ISSUE: "text-blue-600 bg-blue-100 dark:bg-blue-900/30",
-                      MOVE: "text-purple-600 bg-purple-100 dark:bg-purple-900/30",
-                      ADJUST: "text-amber-600 bg-amber-100 dark:bg-amber-900/30",
+                      RECEIVE: "text-green-600 bg-green-100",
+                      ISSUE: "text-blue-600 bg-blue-100",
+                      MOVE: "text-purple-600 bg-purple-100",
+                      ADJUST: "text-amber-600 bg-amber-100",
                     };
                     const Icon = icons[movement.type];
 

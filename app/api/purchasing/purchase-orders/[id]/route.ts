@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import { requireAuth, requireTenantResource, handleApiError, validateBody, createAuditLog } from "@app/api/_utils/middleware";
 
 const updatePOSchema = z.object({
   status: z.enum(["DRAFT", "PENDING_APPROVAL", "APPROVED", "SENT", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"]).optional(),
@@ -15,43 +15,41 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-  const purchaseOrder = await storage.getPurchaseOrderById(params.id);
-  if (!purchaseOrder || purchaseOrder.tenantId !== session.user.tenantId) {
-    return NextResponse.json({ error: "Purchase order not found" }, { status: 404 });
-  }
+    const rawPurchaseOrder = await storage.getPurchaseOrderById(params.id);
+    const purchaseOrder = await requireTenantResource(context, rawPurchaseOrder, "Purchase order");
+    if (purchaseOrder instanceof NextResponse) return purchaseOrder;
 
-  return NextResponse.json({ purchaseOrder });
+    return NextResponse.json({ purchaseOrder });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
 
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const existing = await storage.getPurchaseOrderById(params.id);
-    if (!existing || existing.tenantId !== session.user.tenantId) {
-      return NextResponse.json({ error: "Purchase order not found" }, { status: 404 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
-    const body = await req.json();
-    const validatedData = updatePOSchema.parse(body);
+    const existing = await storage.getPurchaseOrderById(params.id);
+    const validatedExisting = await requireTenantResource(context, existing, "Purchase order");
+    if (validatedExisting instanceof NextResponse) return validatedExisting;
+
+    const validatedData = await validateBody(req, updatePOSchema);
+    if (validatedData instanceof NextResponse) return validatedData;
 
     const updateData: any = {};
 
     if (validatedData.status) {
       updateData.status = validatedData.status;
       if (validatedData.status === "APPROVED") {
-        updateData.approvedByUserId = session.user.id;
+        updateData.approvedByUserId = context.user.id;
         updateData.approvedAt = new Date();
       } else if (validatedData.status === "SENT") {
         updateData.sentAt = new Date();
@@ -67,35 +65,26 @@ export async function PUT(
     }
 
     if (validatedData.tax !== undefined || validatedData.shipping !== undefined) {
-      const tax = validatedData.tax ?? existing.tax;
-      const shipping = validatedData.shipping ?? existing.shipping;
+      const tax = validatedData.tax ?? validatedExisting.tax;
+      const shipping = validatedData.shipping ?? validatedExisting.shipping;
       updateData.tax = tax;
       updateData.shipping = shipping;
-      updateData.total = existing.subtotal + tax + shipping;
+      updateData.total = validatedExisting.subtotal + tax + shipping;
     }
 
     const purchaseOrder = await storage.updatePurchaseOrder(params.id, updateData);
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "UPDATE",
-      entityType: "PurchaseOrder",
-      entityId: purchaseOrder.id,
-      details: `Updated PO ${purchaseOrder.poNumber}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "UPDATE",
+      "PurchaseOrder",
+      purchaseOrder.id,
+      `Updated PO ${purchaseOrder.poNumber}`
+    );
 
     return NextResponse.json({ purchaseOrder });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
-    }
-    console.error("Error updating purchase order:", error);
-    return NextResponse.json(
-      { error: "Failed to update purchase order" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -103,16 +92,13 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  const session = await getSessionUserWithRecord();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const purchaseOrder = await storage.getPurchaseOrderById(params.id);
-    if (!purchaseOrder || purchaseOrder.tenantId !== session.user.tenantId) {
-      return NextResponse.json({ error: "Purchase order not found" }, { status: 404 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const rawPurchaseOrder = await storage.getPurchaseOrderById(params.id);
+    const purchaseOrder = await requireTenantResource(context, rawPurchaseOrder, "Purchase order");
+    if (purchaseOrder instanceof NextResponse) return purchaseOrder;
 
     // Only allow deletion of draft POs
     if (purchaseOrder.status !== "DRAFT") {
@@ -124,22 +110,16 @@ export async function DELETE(
 
     await storage.deletePurchaseOrder(params.id);
 
-    await storage.createAuditEvent({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      action: "DELETE",
-      entityType: "PurchaseOrder",
-      entityId: params.id,
-      details: `Deleted PO ${purchaseOrder.poNumber}`,
-      ipAddress: null,
-    });
+    await createAuditLog(
+      context,
+      "DELETE",
+      "PurchaseOrder",
+      params.id,
+      `Deleted PO ${purchaseOrder.poNumber}`
+    );
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting purchase order:", error);
-    return NextResponse.json(
-      { error: "Failed to delete purchase order" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

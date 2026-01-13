@@ -1,22 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/use-toast";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -26,36 +16,41 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Building2, Plus, Edit, Trash2, Users } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CreateEditDialog, DeleteDialog } from "@/components/ui/form-dialog";
+import { useCRUD, filterBySearch } from "@/hooks/use-crud";
+
+interface Department {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  _count?: { users: number };
+}
 
 /**
  * Department Management - For Executives
  * Create and manage departments within the organization
+ *
+ * Refactored to use reusable useCRUD hook and FormDialog components
  */
 export default function DepartmentManagement() {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const [isCreating, setIsCreating] = useState(false);
-  const [editingDept, setEditingDept] = useState<any>(null);
+  // Form state
   const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [code, setCode] = useState("");
+  const [description, setDescription] = useState("");
 
-  // Fetch departments
-  const { data: deptData, isLoading } = useQuery({
+  // CRUD operations via hook
+  const crud = useCRUD<Department>({
     queryKey: ["/api/admin/departments"],
     queryFn: async () => {
       const res = await fetch("/api/admin/departments");
       if (!res.ok) throw new Error("Failed to fetch departments");
-      return res.json();
+      const data = await res.json();
+      return data.departments || [];
     },
-  });
-
-  const departments = deptData?.departments || [];
-
-  // Create department mutation
-  const createDeptMutation = useMutation({
-    mutationFn: async (data: { name: string; code: string; description?: string }) => {
+    createFn: async (data) => {
       const res = await fetch("/api/admin/departments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,27 +62,7 @@ export default function DepartmentManagement() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/departments"] });
-      toast({
-        title: "Success",
-        description: "Department created successfully",
-      });
-      resetForm();
-      setIsCreating(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Update department mutation
-  const updateDeptMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+    updateFn: async (id, data) => {
       const res = await fetch(`/api/admin/departments/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -96,83 +71,53 @@ export default function DepartmentManagement() {
       if (!res.ok) throw new Error("Failed to update department");
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/departments"] });
-      toast({
-        title: "Success",
-        description: "Department updated successfully",
-      });
-      resetForm();
-      setEditingDept(null);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete department mutation
-  const deleteDeptMutation = useMutation({
-    mutationFn: async (id: string) => {
+    deleteFn: async (id) => {
       const res = await fetch(`/api/admin/departments/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete department");
-      return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/departments"] });
-      toast({
-        title: "Success",
-        description: "Department deleted successfully",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    entityName: "Department",
+    getId: (dept) => dept.id,
+    getName: (dept) => dept.name,
   });
 
-  const resetForm = () => {
-    setName("");
-    setCode("");
-    setDescription("");
-  };
-
-  const handleCreate = () => {
-    createDeptMutation.mutate({ name, code, description });
-  };
-
-  const handleUpdate = () => {
-    if (editingDept) {
-      updateDeptMutation.mutate({
-        id: editingDept.id,
-        data: { name, description },
-      });
+  // Reset form when dialogs close
+  useEffect(() => {
+    if (!crud.isCreateOpen && !crud.isEditOpen) {
+      setName("");
+      setCode("");
+      setDescription("");
     }
-  };
+  }, [crud.isCreateOpen, crud.isEditOpen]);
 
-  const handleEdit = (dept: any) => {
-    setEditingDept(dept);
-    setName(dept.name);
-    setCode(dept.code);
-    setDescription(dept.description || "");
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this department? This cannot be undone.")) {
-      deleteDeptMutation.mutate(id);
+  // Populate form when editing
+  useEffect(() => {
+    if (crud.editingItem) {
+      setName(crud.editingItem.name);
+      setCode(crud.editingItem.code);
+      setDescription(crud.editingItem.description || "");
     }
+  }, [crud.editingItem]);
+
+  const handleCreate = async () => {
+    await crud.create({ name, code, description });
   };
+
+  const handleUpdate = async () => {
+    await crud.update({ name, description });
+  };
+
+  // Filter departments by search
+  const filteredDepartments = filterBySearch(
+    crud.items,
+    crud.searchQuery,
+    ["name", "code", "description"]
+  );
 
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -183,7 +128,7 @@ export default function DepartmentManagement() {
             Create and organize departments for your organization
           </p>
         </div>
-        <Button onClick={() => setIsCreating(true)}>
+        <Button onClick={crud.openCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Create Department
         </Button>
@@ -194,16 +139,20 @@ export default function DepartmentManagement() {
         <CardHeader>
           <CardTitle>Departments</CardTitle>
           <CardDescription>
-            {departments.length} department{departments.length !== 1 ? 's' : ''} in your organization
+            {crud.items.length} department{crud.items.length !== 1 ? "s" : ""} in your organization
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading departments...</div>
-          ) : departments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No departments created yet. Create your first department to get started.
-            </div>
+          {crud.isLoading ? (
+            <InlineLoading message="Loading departments..." />
+          ) : crud.items.length === 0 ? (
+            <EmptyState
+              icon={Building2}
+              title="No departments yet"
+              description="Create departments to organize your team."
+              actions={[{ label: "Create Department", onClick: crud.openCreate, icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -216,7 +165,7 @@ export default function DepartmentManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {departments.map((dept: any) => (
+                {filteredDepartments.map((dept) => (
                   <TableRow key={dept.id}>
                     <TableCell className="font-medium">{dept.name}</TableCell>
                     <TableCell>
@@ -236,7 +185,7 @@ export default function DepartmentManagement() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleEdit(dept)}
+                          onClick={() => crud.openEdit(dept)}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -244,8 +193,8 @@ export default function DepartmentManagement() {
                           variant="ghost"
                           size="icon"
                           className="text-red-600"
-                          onClick={() => handleDelete(dept.id)}
-                          disabled={dept._count?.users > 0}
+                          onClick={() => crud.openDelete(dept)}
+                          disabled={(dept._count?.users || 0) > 0}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -259,121 +208,67 @@ export default function DepartmentManagement() {
         </CardContent>
       </Card>
 
-      {/* Create Department Dialog */}
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Create New Department
-            </DialogTitle>
-            <DialogDescription>
-              Add a new department to organize your workforce
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Department Name *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Assembly, Welding, Quality Control"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Department Code *</Label>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                placeholder="e.g., assembly, welding, qc"
-              />
-              <p className="text-xs text-muted-foreground">
-                Unique identifier (lowercase, no spaces)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of this department..."
-                rows={3}
-              />
-            </div>
+      {/* Create/Edit Dialog */}
+      <CreateEditDialog
+        open={crud.isCreateOpen || crud.isEditOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            crud.closeCreate();
+            crud.closeEdit();
+          }
+        }}
+        entityName="Department"
+        editingItem={crud.editingItem}
+        onSubmit={crud.editingItem ? handleUpdate : handleCreate}
+        isSubmitting={crud.isCreating || crud.isUpdating}
+        submitDisabled={!name || (!crud.editingItem && !code)}
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Department Name *</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Assembly, Welding, Quality Control"
+            />
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setIsCreating(false); resetForm(); }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={!name || !code || createDeptMutation.isPending}
-            >
-              {createDeptMutation.isPending ? "Creating..." : "Create Department"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Department Dialog */}
-      <Dialog open={!!editingDept} onOpenChange={(open) => !open && setEditingDept(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit className="h-5 w-5" />
-              Edit Department
-            </DialogTitle>
-            <DialogDescription>
-              Update department information
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Department Name *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Assembly, Welding, Quality Control"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Department Code</Label>
-              <Input value={code} disabled className="bg-muted" />
-              <p className="text-xs text-muted-foreground">
-                Code cannot be changed after creation
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Brief description of this department..."
-                rows={3}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Department Code {crud.editingItem ? "" : "*"}</Label>
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toLowerCase().replace(/\s+/g, "_"))}
+              placeholder="e.g., assembly, welding, qc"
+              disabled={!!crud.editingItem}
+              className={crud.editingItem ? "bg-muted" : ""}
+            />
+            <p className="text-xs text-muted-foreground">
+              {crud.editingItem
+                ? "Code cannot be changed after creation"
+                : "Unique identifier (lowercase, no spaces)"}
+            </p>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setEditingDept(null); resetForm(); }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdate}
-              disabled={!name || updateDeptMutation.isPending}
-            >
-              {updateDeptMutation.isPending ? "Updating..." : "Update Department"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <Label>Description</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description of this department..."
+              rows={3}
+            />
+          </div>
+        </div>
+      </CreateEditDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteDialog
+        open={crud.isDeleteOpen}
+        onOpenChange={crud.closeDelete}
+        itemName={crud.deletingItem?.name || ""}
+        onDelete={crud.remove}
+        isDeleting={crud.isDeleting}
+      />
     </div>
   );
 }

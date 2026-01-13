@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -18,6 +17,9 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Plus, Pencil, Trash2 } from "lucide-react";
+import { FormDialog, ConfirmDialog } from "@/components/ui/form-dialog";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type Supplier = {
   id: string;
@@ -55,6 +57,7 @@ export default function SuppliersPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(null);
 
   // Form state
   const [code, setCode] = useState("");
@@ -214,13 +217,11 @@ export default function SuppliersPage() {
     }
   };
 
-  const handleDelete = async (supplier: Supplier) => {
-    if (!confirm(`Are you sure you want to delete supplier "${supplier.name}"?`)) {
-      return;
-    }
+  const handleDelete = async () => {
+    if (!supplierToDelete) return;
 
     try {
-      await apiRequest("DELETE", `/api/purchasing/suppliers/${supplier.id}`);
+      await apiRequest("DELETE", `/api/purchasing/suppliers/${supplierToDelete.id}`);
 
       toast({
         title: "Success",
@@ -234,6 +235,8 @@ export default function SuppliersPage() {
         description: error.message || "Failed to delete supplier",
         variant: "destructive",
       });
+    } finally {
+      setSupplierToDelete(null);
     }
   };
 
@@ -405,28 +408,10 @@ export default function SuppliersPage() {
             <CardTitle className="text-sm font-medium">
               Supplier List ({suppliers.length} suppliers)
             </CardTitle>
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={resetForm}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  New Supplier
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create Supplier</DialogTitle>
-                </DialogHeader>
-                <SupplierForm />
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleCreate} disabled={isSaving}>
-                    {isSaving ? "Creating..." : "Create Supplier"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => { resetForm(); setIsCreateOpen(true); }}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Supplier
+            </Button>
           </div>
           <div className="mt-3 flex items-center gap-3">
             <Input
@@ -449,11 +434,15 @@ export default function SuppliersPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="py-8 text-center text-muted-foreground">Loading...</div>
+            <InlineLoading message="Loading suppliers..." />
           ) : suppliers.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              No suppliers found. Create your first supplier to get started.
-            </div>
+            <EmptyState
+              icon={Building2}
+              title={searchTerm ? "No suppliers match your search" : "No suppliers yet"}
+              description={searchTerm ? "Try adjusting your search terms" : "Create your first supplier to get started"}
+              actions={!searchTerm ? [{ label: "New Supplier", onClick: () => { resetForm(); setIsCreateOpen(true); }, icon: Plus }] : undefined}
+              compact
+            />
           ) : (
             <div className="rounded-md border">
               <Table>
@@ -497,7 +486,7 @@ export default function SuppliersPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(supplier)}
+                            onClick={() => setSupplierToDelete(supplier)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -512,23 +501,46 @@ export default function SuppliersPage() {
         </CardContent>
       </Card>
 
+      {/* Create Dialog */}
+      <FormDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        title="Create Supplier"
+        description="Add a new supplier to your system"
+        onSubmit={handleCreate}
+        isSubmitting={isSaving}
+        submitLabel="Create Supplier"
+        submitDisabled={!code.trim() || !name.trim()}
+        size="lg"
+      >
+        <SupplierForm />
+      </FormDialog>
+
       {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Supplier</DialogTitle>
-          </DialogHeader>
-          <SupplierForm />
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdate} disabled={isSaving}>
-              {isSaving ? "Updating..." : "Update Supplier"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <FormDialog
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        title="Edit Supplier"
+        description="Update supplier information"
+        onSubmit={handleUpdate}
+        isSubmitting={isSaving}
+        submitLabel="Update Supplier"
+        submitDisabled={!code.trim() || !name.trim()}
+        size="lg"
+      >
+        <SupplierForm />
+      </FormDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!supplierToDelete}
+        onOpenChange={(open) => !open && setSupplierToDelete(null)}
+        title="Delete Supplier"
+        description={`Are you sure you want to delete supplier "${supplierToDelete?.name}"? This action cannot be undone.`}
+        onConfirm={handleDelete}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

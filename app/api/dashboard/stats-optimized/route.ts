@@ -12,24 +12,22 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireAuth } from "@app/api/_utils/middleware";
+import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
 import { storage } from "@server/storage";
 import { logger, RequestTimer } from "@server/logger";
 import type { InventoryEvent } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+export async function GET() {
   const timer = new RequestTimer();
-  const context = await requireAuth();
-
-  if (context instanceof NextResponse) {
-    return context;
-  }
-
-  const { tenantId, siteIds } = context.user;
 
   try {
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
+
+    const { tenantId, siteIds } = context.user;
+
     logger.info("Dashboard stats request", {
       tenantId,
       userId: context.user.id,
@@ -295,19 +293,8 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(response);
-  } catch (error: any) {
-    logger.error("Dashboard stats error", error, {
-      tenantId,
-      duration: timer.elapsed(),
-    });
-
-    return NextResponse.json(
-      {
-        error: "Failed to fetch dashboard statistics",
-        details: process.env.NODE_ENV === "development" ? error.message : undefined,
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 

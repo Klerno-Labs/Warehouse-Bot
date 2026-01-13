@@ -181,8 +181,8 @@ const PRIMARY_ACTIONS = [
     icon: ArrowDownToLine,
     href: "/purchasing/receipts/new",
     color: "bg-green-600 hover:bg-green-700",
-    iconBg: "bg-green-100 dark:bg-green-900/30",
-    iconColor: "text-green-600 dark:text-green-400",
+    iconBg: "bg-green-100",
+    iconColor: "text-green-600",
   },
   {
     id: "issue",
@@ -191,8 +191,8 @@ const PRIMARY_ACTIONS = [
     icon: ArrowUpFromLine,
     href: "/modules/inventory?action=issue",
     color: "bg-blue-600 hover:bg-blue-700",
-    iconBg: "bg-blue-100 dark:bg-blue-900/30",
-    iconColor: "text-blue-600 dark:text-blue-400",
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
   },
   {
     id: "job",
@@ -201,8 +201,8 @@ const PRIMARY_ACTIONS = [
     icon: Play,
     href: "/mobile/job-scanner",
     color: "bg-purple-600 hover:bg-purple-700",
-    iconBg: "bg-purple-100 dark:bg-purple-900/30",
-    iconColor: "text-purple-600 dark:text-purple-400",
+    iconBg: "bg-purple-100",
+    iconColor: "text-purple-600",
   },
 ];
 
@@ -397,7 +397,7 @@ function DefaultDashboardContent() {
                 <AlertTriangle className="h-5 w-5 text-amber-500" />
               </div>
               <div>
-                <p className="font-semibold text-amber-600 dark:text-amber-400">
+                <p className="font-semibold text-amber-600">
                   {totalAlerts} item{totalAlerts !== 1 ? "s" : ""} need{totalAlerts === 1 ? "s" : ""} attention
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -588,18 +588,18 @@ function DefaultDashboardContent() {
                     <div
                       className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                         activity.type === "success"
-                          ? "bg-green-100 dark:bg-green-900/30"
+                          ? "bg-green-100"
                           : activity.type === "warning"
-                          ? "bg-amber-100 dark:bg-amber-900/30"
-                          : "bg-blue-100 dark:bg-blue-900/30"
+                          ? "bg-amber-100"
+                          : "bg-blue-100"
                       }`}
                     >
                       {activity.type === "success" ? (
-                        <ArrowDownToLine className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <ArrowDownToLine className="h-4 w-4 text-green-600" />
                       ) : activity.type === "warning" ? (
-                        <RefreshCw className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                        <RefreshCw className="h-4 w-4 text-amber-600" />
                       ) : (
-                        <ArrowRightLeft className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <ArrowRightLeft className="h-4 w-4 text-blue-600" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -638,10 +638,10 @@ function DefaultDashboardContent() {
           <CardContent>
             {totalAlerts === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mb-3">
-                  <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 mb-3">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
                 </div>
-                <p className="text-sm font-medium text-green-600 dark:text-green-400">All Clear!</p>
+                <p className="text-sm font-medium text-green-600">All Clear!</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   No issues require your attention
                 </p>
@@ -794,7 +794,7 @@ function DefaultDashboardContent() {
                     <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                    <p className="text-sm font-semibold text-amber-600">
                       {item.currentStock} units
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -860,9 +860,9 @@ function MetricCard({
   trend?: { direction: "up" | "down" | "neutral"; value: number; label: string };
 }) {
   const statusColors = {
-    good: "text-green-600 dark:text-green-400",
-    warning: "text-amber-600 dark:text-amber-400",
-    critical: "text-red-600 dark:text-red-400",
+    good: "text-green-600",
+    warning: "text-amber-600",
+    critical: "text-red-600",
     neutral: "text-muted-foreground",
   };
 
@@ -930,9 +930,9 @@ function AlertRow({
   severity: "critical" | "warning" | "info";
 }) {
   const bgColors = {
-    critical: "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900",
-    warning: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900",
-    info: "bg-gray-50 dark:bg-gray-950/20 border-gray-200 dark:border-gray-800",
+    critical: "bg-red-50 border-red-200",
+    warning: "bg-amber-50 border-amber-200",
+    info: "bg-gray-50 border-gray-200",
   };
 
   return (
@@ -997,10 +997,10 @@ function AgingRow({
   status: "good" | "ok" | "warning" | "critical";
 }) {
   const statusColors = {
-    good: "text-green-600 dark:text-green-400",
+    good: "text-green-600",
     ok: "text-foreground",
-    warning: "text-amber-600 dark:text-amber-400",
-    critical: "text-red-600 dark:text-red-400",
+    warning: "text-amber-600",
+    critical: "text-red-600",
   };
 
   return (

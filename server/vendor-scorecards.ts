@@ -160,6 +160,14 @@ export class VendorScorecardService {
     let accurateLeadTimes = 0;
     let totalLeadTimes = 0;
 
+    // Fill rate tracking (qty received vs qty ordered)
+    let totalQtyOrdered = 0;
+    let totalQtyReceived = 0;
+
+    // Order accuracy tracking (lines with correct quantities)
+    let totalLines = 0;
+    let accurateLines = 0;
+
     for (const order of orders) {
       if (order.status === "RECEIVED") {
         totalDelivered++;
@@ -182,16 +190,41 @@ export class VendorScorecardService {
           }
           totalLeadTimes++;
         }
+
+        // Calculate fill rate and order accuracy from lines
+        for (const line of order.lines) {
+          const qtyOrdered = line.qtyOrdered || 0;
+          const qtyReceived = line.qtyReceived || line.qtyOrdered || 0;
+
+          totalQtyOrdered += qtyOrdered;
+          totalQtyReceived += qtyReceived;
+          totalLines++;
+
+          // Line is accurate if received qty matches ordered qty (within 1% tolerance)
+          if (qtyOrdered > 0 && Math.abs(qtyReceived - qtyOrdered) / qtyOrdered <= 0.01) {
+            accurateLines++;
+          }
+        }
       }
     }
 
+    // Calculate fill rate (what percentage of ordered qty was received)
+    const fillRate = totalQtyOrdered > 0 ? (totalQtyReceived / totalQtyOrdered) * 100 : 0;
+
+    // Calculate order accuracy (percentage of lines with correct quantities)
+    const orderAccuracy = totalLines > 0 ? (accurateLines / totalLines) * 100 : 0;
+
+    // Quality rate approximated from fill rate and accuracy (no separate quality records)
+    // In a full implementation, this would query inspection/quality records
+    const qualityRate = totalDelivered > 0 ? Math.min(100, (fillRate + orderAccuracy) / 2) : 0;
+
     return {
       onTimeDeliveryRate: totalDelivered > 0 ? (onTimeDeliveries / totalDelivered) * 100 : 0,
-      qualityRate: 95.5, // Mock - would calculate from quality records
-      fillRate: 98.2, // Mock - would calculate from line fulfillment
+      qualityRate: Math.round(qualityRate * 10) / 10,
+      fillRate: Math.round(Math.min(100, fillRate) * 10) / 10,
       leadTimeAccuracy: totalLeadTimes > 0 ? (accurateLeadTimes / totalLeadTimes) * 100 : 0,
-      responseTime: 4.5, // Mock - hours to respond to inquiries
-      orderAccuracy: 97.3, // Mock - would calculate from discrepancies
+      responseTime: 0, // Would require separate inquiry tracking system
+      orderAccuracy: Math.round(orderAccuracy * 10) / 10,
     };
   }
 
@@ -210,24 +243,47 @@ export class VendorScorecardService {
 
     let totalSpend = 0;
     let totalQuantity = 0;
-    let totalItems = 0;
+    let totalShippingCost = 0;
+
+    // Track price variance between quoted (expected) and actual unit costs
+    let totalVarianceAmount = 0;
+    let totalExpectedCost = 0;
 
     for (const order of orders) {
       if (order.status === "RECEIVED") {
+        // Add shipping cost if available on order
+        if (order.shippingCost) {
+          totalShippingCost += order.shippingCost;
+        }
+
         for (const line of order.lines) {
-          const lineTotal = line.qtyOrdered * line.unitCost;
+          const actualCost = line.unitCost || 0;
+          const qtyOrdered = line.qtyOrdered || 0;
+          const lineTotal = qtyOrdered * actualCost;
+
           totalSpend += lineTotal;
-          totalQuantity += line.qtyOrdered;
-          totalItems++;
+          totalQuantity += qtyOrdered;
+
+          // Calculate price variance if we have expected cost from item
+          if (line.item?.costBase && qtyOrdered > 0) {
+            const expectedLineTotal = qtyOrdered * line.item.costBase;
+            totalExpectedCost += expectedLineTotal;
+            totalVarianceAmount += Math.abs(lineTotal - expectedLineTotal);
+          }
         }
       }
     }
 
+    // Price variance as percentage difference from expected
+    const priceVariance = totalExpectedCost > 0
+      ? (totalVarianceAmount / totalExpectedCost) * 100
+      : 0;
+
     return {
-      averageUnitCost: totalQuantity > 0 ? totalSpend / totalQuantity : 0,
-      totalSpend,
-      priceVariance: 2.3, // Mock - percentage variance from quoted prices
-      shippingCost: totalSpend * 0.05, // Mock - 5% of total spend
+      averageUnitCost: totalQuantity > 0 ? Math.round((totalSpend / totalQuantity) * 100) / 100 : 0,
+      totalSpend: Math.round(totalSpend * 100) / 100,
+      priceVariance: Math.round(priceVariance * 10) / 10,
+      shippingCost: Math.round(totalShippingCost * 100) / 100,
     };
   }
 
@@ -267,12 +323,79 @@ export class VendorScorecardService {
     startDate: Date,
     endDate: Date
   ): Promise<VendorMetrics["quality"]> {
-    // In production, would query quality records, returns, inspections
+    // Get supplier details for certifications
+    const supplier = await prisma.supplier.findUnique({
+      where: { id: supplierId },
+      select: { notes: true },
+    });
+
+    // Query purchase orders to calculate defect and return rates
+    const orders = await prisma.purchaseOrder.findMany({
+      where: {
+        supplierId,
+        tenantId,
+        status: "RECEIVED",
+        orderDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        lines: true,
+      },
+    });
+
+    let totalQtyReceived = 0;
+    let totalQtyRejected = 0;
+    let totalQtyReturned = 0;
+    let totalLinesCompliant = 0;
+    let totalLines = 0;
+
+    for (const order of orders) {
+      for (const line of order.lines) {
+        const qtyReceived = line.qtyReceived || line.qtyOrdered || 0;
+        const qtyRejected = (line as any).qtyRejected || 0;
+        const qtyReturned = (line as any).qtyReturned || 0;
+
+        totalQtyReceived += qtyReceived;
+        totalQtyRejected += qtyRejected;
+        totalQtyReturned += qtyReturned;
+        totalLines++;
+
+        // Line is compliant if no rejections and received qty matches ordered
+        if (qtyRejected === 0 && qtyReceived >= (line.qtyOrdered || 0)) {
+          totalLinesCompliant++;
+        }
+      }
+    }
+
+    // Calculate rates
+    const defectRate = totalQtyReceived > 0
+      ? (totalQtyRejected / totalQtyReceived) * 100
+      : 0;
+
+    const returnRate = totalQtyReceived > 0
+      ? (totalQtyReturned / totalQtyReceived) * 100
+      : 0;
+
+    const complianceRate = totalLines > 0
+      ? (totalLinesCompliant / totalLines) * 100
+      : 100; // Default to 100% if no data
+
+    // Extract certifications from supplier notes (comma-separated list)
+    const certifications: string[] = [];
+    if (supplier?.notes) {
+      const certMatch = supplier.notes.match(/certifications?:\s*([^.]+)/i);
+      if (certMatch) {
+        certifications.push(...certMatch[1].split(",").map(c => c.trim()).filter(Boolean));
+      }
+    }
+
     return {
-      defectRate: 1.8, // Percentage of defective items
-      returnRate: 0.5, // Percentage of items returned
-      complianceRate: 99.2, // Compliance with specifications
-      certifications: ["ISO 9001", "ISO 14001", "AS9100"], // Quality certifications
+      defectRate: Math.round(defectRate * 10) / 10,
+      returnRate: Math.round(returnRate * 10) / 10,
+      complianceRate: Math.round(complianceRate * 10) / 10,
+      certifications,
     };
   }
 

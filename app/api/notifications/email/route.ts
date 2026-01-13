@@ -29,7 +29,7 @@ const sendEmailSchema = z.object({
     "daily-summary",
   ]),
   to: z.string().email().or(z.array(z.string().email())),
-  data: z.record(z.any()),
+  data: z.record(z.string(), z.any()),
 });
 
 const updateSettingsSchema = z.object({
@@ -137,23 +137,37 @@ export async function POST(req: Request) {
   }
 }
 
+// Default email notification settings
+const defaultEmailSettings = {
+  emailNotifications: true,
+  lowStockAlerts: true,
+  outOfStockAlerts: true,
+  jobNotifications: true,
+  cycleCountNotifications: true,
+  qualityIssueNotifications: true,
+  dailySummary: false,
+};
+
 // Get email notification settings
 export async function GET(req: Request) {
   try {
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    // For now, return default settings
-    // TODO: Store these in user preferences table
+    // Fetch user preferences from database
+    const user = await prisma.user.findUnique({
+      where: { id: context.user.id },
+      select: { preferences: true, email: true },
+    });
+
+    const storedPrefs = (user?.preferences as Record<string, any>) || {};
+    const emailSettings = storedPrefs.emailNotifications || {};
+
+    // Merge with defaults
     const settings = {
-      emailNotifications: true,
-      lowStockAlerts: true,
-      outOfStockAlerts: true,
-      jobNotifications: true,
-      cycleCountNotifications: true,
-      qualityIssueNotifications: true,
-      dailySummary: false,
-      email: context.user.email,
+      ...defaultEmailSettings,
+      ...emailSettings,
+      email: user?.email || context.user.email,
     };
 
     return NextResponse.json(settings);
@@ -171,9 +185,28 @@ export async function PATCH(req: Request) {
     const validatedData = await validateBody(req, updateSettingsSchema);
     if (validatedData instanceof NextResponse) return validatedData;
 
-    // TODO: Store settings in user preferences table
-    // For now, just return success
-    console.log(`Updated email settings for user ${context.user.id}:`, validatedData);
+    // Get current preferences
+    const user = await prisma.user.findUnique({
+      where: { id: context.user.id },
+      select: { preferences: true },
+    });
+
+    const currentPrefs = (user?.preferences as Record<string, any>) || {};
+
+    // Update email notification settings within preferences
+    const updatedPrefs = {
+      ...currentPrefs,
+      emailNotifications: {
+        ...(currentPrefs.emailNotifications || {}),
+        ...validatedData,
+      },
+    };
+
+    // Store in database
+    await prisma.user.update({
+      where: { id: context.user.id },
+      data: { preferences: updatedPrefs },
+    });
 
     return NextResponse.json({
       success: true,

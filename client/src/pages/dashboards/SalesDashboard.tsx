@@ -430,7 +430,7 @@ export default function SalesDashboard() {
                     <Progress value={((metrics?.inTransit || 0) / ((metrics?.ordersShipped || 1))) * 100} className="h-2" />
                   </div>
 
-                  <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-900">
+                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
                     <div>
                       <p className="text-sm text-muted-foreground">On-Time Delivery Rate</p>
                       <p className="text-2xl font-bold text-green-600">{metrics?.pickRate || 0}%</p>

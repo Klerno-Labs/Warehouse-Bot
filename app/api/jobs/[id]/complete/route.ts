@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { storage } from "@server/storage";
-import { getSessionUserWithRecord } from "@app/api/_utils/session";
+import {
+  requireAuth,
+  requireTenantResource,
+  requireSiteAccess,
+  validateBody,
+  handleApiError,
+} from "@app/api/_utils/middleware";
 import { completeJobLineSchema } from "@shared/jobs";
 
 interface RouteParams {
@@ -10,21 +15,17 @@ interface RouteParams {
 
 export async function POST(req: Request, { params }: RouteParams) {
   try {
-    const session = await getSessionUserWithRecord();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     const { id } = await params;
-    const job = await storage.getJobById(id);
+    const rawJob = await storage.getJobById(id);
 
-    if (!job || job.tenantId !== session.user.tenantId) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 });
-    }
+    const job = await requireTenantResource(context, rawJob, "Job");
+    if (job instanceof NextResponse) return job;
 
-    if (!session.user.siteIds.includes(job.siteId)) {
-      return NextResponse.json({ error: "Site access denied" }, { status: 403 });
-    }
+    const siteCheck = requireSiteAccess(context, job.siteId);
+    if (siteCheck instanceof NextResponse) return siteCheck;
 
     if (job.status !== "IN_PROGRESS") {
       return NextResponse.json(
@@ -33,7 +34,9 @@ export async function POST(req: Request, { params }: RouteParams) {
       );
     }
 
-    const payload = completeJobLineSchema.parse(await req.json());
+    const payload = await validateBody(req, completeJobLineSchema);
+    if (payload instanceof NextResponse) return payload;
+
     const line = await storage.getJobLineById(payload.lineId);
 
     if (!line || line.jobId !== id) {
@@ -54,7 +57,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     const updated = await storage.updateJobLine(payload.lineId, {
       qtyCompleted: payload.qtyCompleted,
       status: newStatus,
-      completedByUserId: session.user.id,
+      completedByUserId: context.user.id,
       completedAt: new Date(),
       notes: payload.notes || line.notes,
     });
@@ -63,10 +66,10 @@ export async function POST(req: Request, { params }: RouteParams) {
     if (job.type === "TRANSFER" && isFullyCompleted && line.fromLocationId && line.toLocationId && line.itemId) {
       // Get item for UOM
       const item = await storage.getItemById(line.itemId);
-      
+
       // Create transfer event (using MOVE event type)
       await storage.createInventoryEvent({
-        tenantId: session.user.tenantId,
+        tenantId: context.user.tenantId,
         siteId: job.siteId,
         eventType: "MOVE",
         itemId: line.itemId,
@@ -78,14 +81,14 @@ export async function POST(req: Request, { params }: RouteParams) {
         referenceId: job.id,
         reasonCodeId: null,
         notes: `Transfer job ${job.jobNumber}`,
-        createdByUserId: session.user.id,
+        createdByUserId: context.user.id,
         workcellId: job.workcellId,
         deviceId: null,
       });
 
       // Update balances
       const fromBalance = await storage.getInventoryBalance(
-        session.user.tenantId,
+        context.user.tenantId,
         line.itemId,
         line.fromLocationId!
       );
@@ -100,7 +103,7 @@ export async function POST(req: Request, { params }: RouteParams) {
       }
 
       const toBalance = await storage.getInventoryBalance(
-        session.user.tenantId,
+        context.user.tenantId,
         line.itemId,
         line.toLocationId!
       );
@@ -114,7 +117,7 @@ export async function POST(req: Request, { params }: RouteParams) {
         });
       } else {
         await storage.upsertInventoryBalance({
-          tenantId: session.user.tenantId,
+          tenantId: context.user.tenantId,
           siteId: job.siteId,
           itemId: line.itemId,
           locationId: line.toLocationId,
@@ -125,13 +128,6 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: "Invalid request", details: error.errors },
-        { status: 400 }
-      );
-    }
-    console.error("Error completing job line:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return handleApiError(error);
   }
 }

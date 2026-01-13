@@ -271,7 +271,7 @@ export default function ProductionBoardPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                     {job.currentDepartment && (
-                      <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg">
+                      <div className="bg-blue-50 p-3 rounded-lg">
                         <div className="text-xs text-muted-foreground mb-1">Current</div>
                         <div className="font-semibold">
                           {DEPARTMENT_CONFIGS[job.currentDepartment].displayName}
@@ -296,7 +296,7 @@ export default function ProductionBoardPage() {
                     )}
 
                     {job.nextDepartment && (
-                      <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg">
+                      <div className="bg-amber-50 p-3 rounded-lg">
                         <div className="text-xs text-muted-foreground mb-1">Next Up</div>
                         <div className="font-semibold">
                           {DEPARTMENT_CONFIGS[job.nextDepartment].displayName}
@@ -308,7 +308,7 @@ export default function ProductionBoardPage() {
                     )}
 
                     {!job.currentDepartment && !job.nextDepartment && (
-                      <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg col-span-2">
+                      <div className="bg-green-50 p-3 rounded-lg col-span-2">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="h-4 w-4 text-green-600" />
                           <span className="font-semibold text-green-600">All Operations Complete</span>

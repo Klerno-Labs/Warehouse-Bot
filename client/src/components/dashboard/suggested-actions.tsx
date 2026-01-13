@@ -106,8 +106,8 @@ export function SuggestedActions() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-6 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mb-4">
-              <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 mb-4">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
             <p className="text-sm text-muted-foreground">
               Your operations are running smoothly. Check back later for new recommendations.
@@ -175,24 +175,24 @@ function SuggestionCard({ suggestion, prominent = false }: { suggestion: Suggest
   const priorityConfig = {
     critical: {
       badge: 'destructive' as const,
-      bgColor: 'bg-red-50 dark:bg-red-950/20',
-      borderColor: 'border-red-200 dark:border-red-900',
-      iconBg: 'bg-red-100 dark:bg-red-900/30',
-      iconColor: 'text-red-600 dark:text-red-400',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      iconBg: 'bg-red-100',
+      iconColor: 'text-red-600',
     },
     high: {
       badge: 'default' as const,
-      bgColor: 'bg-orange-50 dark:bg-orange-950/20',
-      borderColor: 'border-orange-200 dark:border-orange-900',
-      iconBg: 'bg-orange-100 dark:bg-orange-900/30',
-      iconColor: 'text-orange-600 dark:text-orange-400',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+      iconBg: 'bg-orange-100',
+      iconColor: 'text-orange-600',
     },
     medium: {
       badge: 'secondary' as const,
-      bgColor: 'bg-blue-50 dark:bg-blue-950/20',
-      borderColor: 'border-blue-200 dark:border-blue-900',
-      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
-      iconColor: 'text-blue-600 dark:text-blue-400',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-600',
     },
     low: {
       badge: 'outline' as const,

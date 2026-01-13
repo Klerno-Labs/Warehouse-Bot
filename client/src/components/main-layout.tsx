@@ -2,7 +2,6 @@ import { Menu, Search, Bell, HelpCircle, Command } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { CompanySwitcher } from "@/components/company-switcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useBranding } from "@/hooks/useBranding";
 
 const breadcrumbLabels: Record<string, string> = {
+  // Core modules
   modules: "Modules",
   admin: "Administration",
   manufacturing: "Manufacturing",
@@ -33,24 +33,59 @@ const breadcrumbLabels: Record<string, string> = {
   inventory: "Inventory",
   jobs: "Jobs",
   purchasing: "Purchasing",
+  sales: "Sales",
+
+  // Operations
   "cycle-counts": "Cycle Counts",
   maintenance: "Maintenance",
-  "sales-atp": "Sales ATP",
-  dashboards: "Dashboards",
-  users: "Users",
-  facilities: "Facilities",
-  audit: "Audit Log",
-  settings: "Settings",
+  "job-scanner": "Job Scanner",
+
+  // Purchasing
+  "purchase-orders": "Purchase Orders",
+  receipts: "Receipts",
+  suppliers: "Suppliers",
+
+  // Sales
+  "sales-pit": "Sales Pit",
+  customers: "Customers",
+  orders: "Orders",
+  shipments: "Shipments",
+
+  // Manufacturing
+  "production-board": "Production Board",
+  "production-orders": "Production Orders",
+  boms: "Bills of Materials",
+  "component-tracking": "Component Tracking",
+
+  // Inventory
   items: "Items",
   locations: "Locations",
   balances: "Balances",
   events: "Events",
+  costs: "Costs",
+  alerts: "Alerts",
+  reports: "Reports",
   "reason-codes": "Reason Codes",
-  "production-board": "Production Board",
-  "job-scanner": "Job Scanner",
-  analytics: "Analytics",
-  "component-tracking": "Component Tracking",
+  forecasting: "Forecasting",
+
+  // Admin
+  users: "Users",
+  facilities: "Facilities",
+  audit: "Audit Log",
+  settings: "Settings",
   "dba-import": "DBA Import",
+  "custom-roles": "Custom Roles",
+  departments: "Departments",
+  "department-users": "Department Users",
+  badges: "Badge Management",
+  roles: "Roles",
+
+  // Special
+  engineering: "Engineering",
+  "super-admin": "Super Admin",
+  analytics: "Analytics",
+  dashboards: "Dashboards",
+  help: "Help & Support",
 };
 
 export function MainLayout({ children }: { children?: React.ReactNode }) {
@@ -163,7 +198,6 @@ export function MainLayout({ children }: { children?: React.ReactNode }) {
               <Button variant="ghost" size="icon" className="hover:bg-accent hover:text-accent-foreground" data-testid="button-notifications">
                 <Bell className="h-5 w-5" />
               </Button>
-              <ThemeToggle />
             </div>
           </header>
 

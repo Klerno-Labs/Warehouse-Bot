@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, handleApiError } from "@app/api/_utils/middleware";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 import { 
   DBAImportService,
   createDBAImportService,
@@ -26,13 +26,8 @@ export async function POST(request: NextRequest) {
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    // Check admin/manager role
-    if (!['ADMIN', 'MANAGER'].includes(context.user.role)) {
-      return NextResponse.json(
-        { error: "Insufficient permissions for DBA import" },
-        { status: 403 }
-      );
-    }
+    const roleCheck = requireRole(context, ["Admin", "Supervisor"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const body = await request.json();
     const parsed = ImportRequestSchema.safeParse(body);

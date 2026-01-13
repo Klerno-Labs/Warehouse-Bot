@@ -27,6 +27,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { RefreshCw, Plus, Play, CheckCircle, XCircle, Eye, ClipboardCheck } from "lucide-react";
+import { InlineLoading } from "@/components/LoadingSpinner";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CycleCount, CycleCountLine, CycleCountStatus, CycleCountType } from "@shared/cycle-counts";
 import { CYCLE_COUNT_STATUS, CYCLE_COUNT_TYPE } from "@shared/cycle-counts";
 import type { Location, Item } from "@shared/inventory";
@@ -42,10 +44,10 @@ type CycleCountWithDetails = CycleCount & {
 };
 
 const STATUS_COLORS: Record<CycleCountStatus, string> = {
-  SCHEDULED: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-  IN_PROGRESS: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
-  COMPLETED: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-  CANCELLED: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+  SCHEDULED: "bg-blue-100 text-blue-800",
+  IN_PROGRESS: "bg-yellow-100 text-yellow-800",
+  COMPLETED: "bg-green-100 text-green-800",
+  CANCELLED: "bg-gray-100 text-gray-800",
 };
 
 export default function CycleCountsPage() {
@@ -222,9 +224,15 @@ export default function CycleCountsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-muted-foreground">Loading...</p>
+            <InlineLoading message="Loading cycle counts..." />
           ) : cycleCounts.length === 0 ? (
-            <p className="text-muted-foreground">No cycle counts found. Create one to get started.</p>
+            <EmptyState
+              icon={RefreshCw}
+              title="No cycle counts found"
+              description="Schedule a cycle count to audit your inventory and ensure accuracy."
+              actions={[{ label: "New Cycle Count", onClick: () => setShowCreateDialog(true), icon: Plus }]}
+              compact
+            />
           ) : (
             <Table>
               <TableHeader>

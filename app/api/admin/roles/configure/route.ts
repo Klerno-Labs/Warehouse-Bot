@@ -1,27 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSessionUser } from '@app/api/_utils/session';
-import { storage } from '@server/storage';
-import { Role } from '@prisma/client';
+import { NextResponse } from "next/server";
+import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
+import storage from "@/server/storage";
+import { Role } from "@prisma/client";
 
 /**
  * POST /api/admin/roles/configure
  * Configure tenant-specific role customization
  * Executive tier can customize role names and permissions
  */
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Only Executive and Admin can customize roles
-    if (!['Executive', 'Admin', 'SuperAdmin'].includes(user.role)) {
-      return NextResponse.json(
-        { error: 'Only executives can customize roles' },
-        { status: 403 }
-      );
-    }
+    const roleCheck = requireRole(context, ["Executive", "Admin", "SuperAdmin"]);
+    if (roleCheck instanceof NextResponse) return roleCheck;
 
     const { role, customName, description, permissions } = await req.json();
 
@@ -46,21 +40,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Create or update role configuration
-    const config = await storage.prisma.tenantRoleConfig.upsert({
+    const config = await storage.tenantRoleConfig.upsert({
       where: {
-        tenantId_customName: {
-          tenantId: user.tenantId,
-          customName: customName || `${role} Role`,
+        tenantId_role: {
+          tenantId: context.user.tenantId,
+          role: role,
         },
       },
       create: {
-        tenantId: user.tenantId,
-        baseRole: role,
-        customName: customName || `${role} Role`,
+        tenantId: context.user.tenantId,
+        role: role,
+        customName: customName || null,
         description: description || null,
         permissions: permissions,
       },
       update: {
+        customName: customName || null,
         description: description || null,
         permissions: permissions,
       },
@@ -70,18 +65,14 @@ export async function POST(req: NextRequest) {
       success: true,
       config: {
         id: config.id,
-        baseRole: config.baseRole,
+        role: config.role,
         customName: config.customName,
         description: config.description,
         permissions: config.permissions,
       },
     });
   } catch (error) {
-    console.error('Error configuring role:', error);
-    return NextResponse.json(
-      { error: 'Failed to configure role' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -89,27 +80,25 @@ export async function POST(req: NextRequest) {
  * GET /api/admin/roles/configure
  * Get tenant role configurations
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const context = await requireAuth();
+    if (context instanceof NextResponse) return context;
 
     // Get all role configurations for this tenant
-    const configs = await storage.prisma.tenantRoleConfig.findMany({
+    const configs = await storage.tenantRoleConfig.findMany({
       where: {
-        tenantId: user.tenantId,
+        tenantId: context.user.tenantId,
       },
       orderBy: {
-        baseRole: 'asc',
+        role: 'asc',
       },
     });
 
     return NextResponse.json({
       configs: configs.map((config) => ({
         id: config.id,
-        baseRole: config.baseRole,
+        role: config.role,
         customName: config.customName,
         description: config.description,
         permissions: config.permissions,
@@ -117,10 +106,6 @@ export async function GET(req: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('Error fetching role configs:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch role configurations' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
