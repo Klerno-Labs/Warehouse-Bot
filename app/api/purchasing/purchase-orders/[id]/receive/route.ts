@@ -22,13 +22,14 @@ const receiveSchema = z.object({
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await requireAuth();
+    const { id } = await params;
     if (context instanceof NextResponse) return context;
 
-    const purchaseOrder = await storage.getPurchaseOrderById(params.id);
+    const purchaseOrder = await storage.getPurchaseOrderById(id);
     if (!purchaseOrder || purchaseOrder.tenantId !== context.user.tenantId) {
       return NextResponse.json({ error: "Purchase order not found" }, { status: 404 });
     }

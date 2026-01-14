@@ -5,10 +5,11 @@ import { generateSalesOrderPDF, generateInvoicePDF, generatePackingSlipPDF } fro
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await requireAuth();
+    const { id } = await params;
     if (context instanceof NextResponse) return context;
 
     const { searchParams } = new URL(request.url);
@@ -16,7 +17,7 @@ export async function GET(
 
     const order = await prisma.salesOrder.findFirst({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
       include: {

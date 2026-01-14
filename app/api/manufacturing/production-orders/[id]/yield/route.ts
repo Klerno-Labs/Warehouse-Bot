@@ -5,18 +5,19 @@ import { calculateYield } from "@server/manufacturing";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await requireAuth();
+    const { id } = await params;
     if (context instanceof NextResponse) return context;
 
-    const rawOrder = await storage.getProductionOrderById(params.id);
+    const rawOrder = await storage.getProductionOrderById(id);
     const order = await requireTenantResource(context, rawOrder, "Production order");
     if (order instanceof NextResponse) return order;
 
     // Calculate yield metrics
-    const yieldAnalysis = await calculateYield(storage.prisma, params.id);
+    const yieldAnalysis = await calculateYield(storage.prisma, id);
 
     return NextResponse.json({ yieldAnalysis });
   } catch (error) {

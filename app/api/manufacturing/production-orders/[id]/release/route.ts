@@ -4,13 +4,14 @@ import { requireAuth, requireTenantResource, handleApiError, createAuditLog } fr
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await requireAuth();
+    const { id } = await params;
     if (context instanceof NextResponse) return context;
 
-    const rawOrder = await storage.getProductionOrderById(params.id);
+    const rawOrder = await storage.getProductionOrderById(id);
     const order = await requireTenantResource(context, rawOrder, "Production order");
     if (order instanceof NextResponse) return order;
 
@@ -30,7 +31,7 @@ export async function POST(
       );
     }
 
-    const updatedOrder = await storage.updateProductionOrder(params.id, {
+    const updatedOrder = await storage.updateProductionOrder(id, {
       status: "RELEASED",
       releasedByUserId: context.user.id,
       releasedAt: new Date(),

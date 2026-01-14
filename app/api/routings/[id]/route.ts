@@ -17,7 +17,7 @@ export async function PATCH(
     const roleCheck = requireRole(context, ['Admin', 'Supervisor']);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { name, description, itemId, isDefault, steps } = body;
 
@@ -103,7 +103,7 @@ export async function DELETE(
     const roleCheck = requireRole(context, ['Admin', 'Supervisor']);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const { id } = params;
+    const { id } = await params;
 
     // Verify routing belongs to tenant
     const routing = await storage.productionRouting.findUnique({

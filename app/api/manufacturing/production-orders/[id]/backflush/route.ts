@@ -11,13 +11,14 @@ const backflushSchema = z.object({
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await requireAuth();
+    const { id } = await params;
     if (context instanceof NextResponse) return context;
 
-    const rawOrder = await storage.getProductionOrderById(params.id);
+    const rawOrder = await storage.getProductionOrderById(id);
     const order = await requireTenantResource(context, rawOrder, "Production order");
     if (order instanceof NextResponse) return order;
 
@@ -44,7 +45,7 @@ export async function POST(
     const backflushedComponents = await backflushConsumption(
       storage.prisma,
       context.user.tenantId,
-      params.id,
+      id,
       validatedData.qtyProduced,
       validatedData.fromLocationId,
       context.user.id
@@ -52,7 +53,7 @@ export async function POST(
 
     // Update order status to IN_PROGRESS if not already
     if (order.status === "RELEASED") {
-      await storage.updateProductionOrder(params.id, {
+      await storage.updateProductionOrder(id, {
         status: "IN_PROGRESS",
         actualStart: new Date(),
       });
@@ -62,7 +63,7 @@ export async function POST(
       context,
       "CREATE",
       "ProductionConsumption",
-      params.id,
+      id,
       `Backflushed ${backflushedComponents.length} components for ${validatedData.qtyProduced} units of order ${order.orderNumber}`
     );
 

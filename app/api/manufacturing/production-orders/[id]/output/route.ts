@@ -17,13 +17,14 @@ const recordOutputSchema = z.object({
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await requireAuth();
+    const { id } = await params;
     if (context instanceof NextResponse) return context;
 
-    const rawOrder = await storage.getProductionOrderById(params.id);
+    const rawOrder = await storage.getProductionOrderById(id);
     const order = await requireTenantResource(context, rawOrder, "Production order");
     if (order instanceof NextResponse) return order;
 
@@ -60,7 +61,7 @@ export async function POST(
 
     // Create output record
     const output = await storage.createOutput({
-      productionOrderId: params.id,
+      productionOrderId: id,
       itemId: order.itemId,
       qtyProduced: validatedData.qtyProduced,
       qtyRejected: validatedData.qtyRejected,
@@ -78,7 +79,7 @@ export async function POST(
     });
 
     // Update production order quantities
-    const updatedOrder = await storage.updateProductionOrder(params.id, {
+    const updatedOrder = await storage.updateProductionOrder(id, {
       qtyCompleted: order.qtyCompleted + validatedData.qtyProduced,
       qtyRejected: order.qtyRejected + validatedData.qtyRejected,
       status: order.status === "RELEASED" ? "IN_PROGRESS" : order.status,
@@ -88,7 +89,7 @@ export async function POST(
     // Check if order is now complete
     const totalProduced = updatedOrder.qtyCompleted + updatedOrder.qtyRejected;
     if (totalProduced >= updatedOrder.qtyOrdered) {
-      await storage.updateProductionOrder(params.id, {
+      await storage.updateProductionOrder(id, {
         status: "COMPLETED",
         actualEnd: new Date(),
       });

@@ -19,13 +19,14 @@ const consumeComponentSchema = z.object({
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await requireAuth();
+    const { id } = await params;
     if (context instanceof NextResponse) return context;
 
-    const rawOrder = await storage.getProductionOrderById(params.id);
+    const rawOrder = await storage.getProductionOrderById(id);
     const order = await requireTenantResource(context, rawOrder, "Production order");
     if (order instanceof NextResponse) return order;
 
@@ -51,7 +52,7 @@ export async function POST(
 
     // Create consumption record
     const consumption = await storage.createConsumption({
-      productionOrderId: params.id,
+      productionOrderId: id,
       bomComponentId: validatedData.bomComponentId,
       itemId: validatedData.itemId,
       qtyConsumed: validatedData.qtyConsumed,
@@ -69,7 +70,7 @@ export async function POST(
 
     // Update order status to IN_PROGRESS if not already
     if (order.status === "RELEASED") {
-      await storage.updateProductionOrder(params.id, {
+      await storage.updateProductionOrder(id, {
         status: "IN_PROGRESS",
         actualStart: new Date(),
       });

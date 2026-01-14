@@ -4,16 +4,17 @@ import { requireAuth, requireSiteAccess, handleApiError } from "@app/api/_utils/
 
 export async function GET(
   _req: Request,
-  { params }: { params: { siteId: string } },
+  { params }: { params: Promise<{ siteId: string }> },
 ) {
   try {
     const context = await requireAuth();
+    const { siteId } = await params;
     if (context instanceof NextResponse) return context;
 
-    const siteCheck = requireSiteAccess(context, params.siteId);
+    const siteCheck = requireSiteAccess(context, siteId);
     if (siteCheck instanceof NextResponse) return siteCheck;
 
-    const devices = await storage.getDevicesBySite(params.siteId);
+    const devices = await storage.getDevicesBySite(siteId);
     return NextResponse.json(devices);
   } catch (error) {
     return handleApiError(error);

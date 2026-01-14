@@ -8,13 +8,14 @@ import storage from '@/server/storage';
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const context = await requireAuth();
+    const { id } = await params;
   if (context instanceof NextResponse) return context;
 
   try {
-    const jobId = params.id;
+    const jobId = id;
 
     // Find the production order
     const productionOrder = await storage.productionOrder.findFirst({
