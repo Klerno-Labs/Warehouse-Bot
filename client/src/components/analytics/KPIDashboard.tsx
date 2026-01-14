@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -101,7 +101,7 @@ function KPICard({ kpi }: { kpi: KPI }) {
   );
 }
 
-export function KPIDashboard() {
+export const KPIDashboard = memo(function KPIDashboard() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState(30);
@@ -292,3 +292,4 @@ export function KPIDashboard() {
     </div>
   );
 }
+});
