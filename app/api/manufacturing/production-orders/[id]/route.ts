@@ -27,13 +27,14 @@ const updateProductionOrderSchema = z.object({
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const rawOrder = await storage.getProductionOrderById(params.id);
+    const rawOrder = await storage.getProductionOrderById(id);
     const order = await requireTenantResource(context, rawOrder, "Production order");
     if (order instanceof NextResponse) return order;
 
@@ -45,13 +46,14 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const existing = await storage.getProductionOrderById(params.id);
+    const existing = await storage.getProductionOrderById(id);
     const validatedExisting = await requireTenantResource(context, existing, "Production order");
     if (validatedExisting instanceof NextResponse) return validatedExisting;
 
@@ -125,7 +127,7 @@ export async function PUT(
       updateData.notes = validatedData.notes;
     }
 
-    const order = await storage.updateProductionOrder(params.id, updateData);
+    const order = await storage.updateProductionOrder(id, updateData);
 
     await createAuditLog(
       context,
@@ -143,13 +145,14 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const rawOrder = await storage.getProductionOrderById(params.id);
+    const rawOrder = await storage.getProductionOrderById(id);
     const order = await requireTenantResource(context, rawOrder, "Production order");
     if (order instanceof NextResponse) return order;
 
@@ -172,13 +175,13 @@ export async function DELETE(
       );
     }
 
-    await storage.deleteProductionOrder(params.id);
+    await storage.deleteProductionOrder(id);
 
     await createAuditLog(
       context,
       "DELETE",
       "ProductionOrder",
-      params.id,
+      id,
       `Deleted production order ${order.orderNumber}`
     );
 

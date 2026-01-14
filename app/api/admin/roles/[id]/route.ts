@@ -4,13 +4,14 @@ import { storage } from "@server/storage";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const context = await requireAuth();
   if (context instanceof NextResponse) return context;
 
   const tenantId = context.user.tenantId;
-  const roleId = params.id;
+  const { id } = await params;
+    const roleId = id;
 
   try {
     const role = await storage.getRoleById(roleId);
@@ -41,13 +42,14 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const context = await requireAuth();
   if (context instanceof NextResponse) return context;
 
   const tenantId = context.user.tenantId;
-  const roleId = params.id;
+  const { id } = await params;
+    const roleId = id;
 
   // Check if user has admin permissions
   if (!["Admin", "SuperAdmin", "Executive"].includes(context.user.role)) {
@@ -100,13 +102,14 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const context = await requireAuth();
   if (context instanceof NextResponse) return context;
 
   const tenantId = context.user.tenantId;
-  const roleId = params.id;
+  const { id } = await params;
+    const roleId = id;
 
   // Check if user has admin permissions
   if (!["Admin", "SuperAdmin", "Executive"].includes(context.user.role)) {

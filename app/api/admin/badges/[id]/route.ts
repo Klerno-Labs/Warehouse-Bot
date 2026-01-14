@@ -8,7 +8,7 @@ import { storage } from '@server/storage';
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -24,7 +24,7 @@ export async function DELETE(
       );
     }
 
-    const badgeId = params.id;
+    const { id: badgeId } = await params;
 
     // Get the badge
     const badge = await storage.prisma.badge.findUnique({
@@ -70,7 +70,7 @@ export async function DELETE(
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -86,7 +86,7 @@ export async function PUT(
       );
     }
 
-    const badgeId = params.id;
+    const { id: badgeId } = await params;
     const { isActive, badgeNumber } = await req.json();
 
     const badge = await storage.prisma.badge.findUnique({

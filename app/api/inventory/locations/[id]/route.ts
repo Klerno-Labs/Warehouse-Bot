@@ -5,16 +5,17 @@ import { updateLocationSchema } from "@shared/inventory";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
     const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const location = await storage.getLocationById(params.id);
+    const location = await storage.getLocationById(id);
     const tenantCheck = await requireTenantResource(context, location, "Location");
     if (tenantCheck instanceof NextResponse) return tenantCheck;
 

@@ -8,7 +8,7 @@ import { storage } from '@server/storage';
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -25,7 +25,8 @@ export async function DELETE(
       );
     }
 
-    const userId = params.id;
+    const { id } = await params;
+    const userId = id;
 
     // Get the user to be deleted
     const targetUser = await storage.prisma.user.findUnique({
@@ -87,7 +88,7 @@ export async function DELETE(
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -103,7 +104,8 @@ export async function PUT(
       );
     }
 
-    const userId = params.id;
+    const { id } = await params;
+    const userId = id;
     const { firstName, lastName, email, roleId, assignedDepartments, isActive } = await req.json();
 
     // Get the target user

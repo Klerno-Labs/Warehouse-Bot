@@ -8,9 +8,10 @@ import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middle
  */
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
@@ -32,7 +33,7 @@ export async function PATCH(
     // Verify department exists and belongs to tenant
     const existing = await storage.customDepartment.findFirst({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
     });
@@ -42,7 +43,7 @@ export async function PATCH(
     }
 
     const department = await storage.customDepartment.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         name: name !== undefined ? name : undefined,
         color: color !== undefined ? color : undefined,
@@ -67,9 +68,10 @@ export async function PATCH(
  */
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
@@ -79,7 +81,7 @@ export async function DELETE(
     // Verify department exists and belongs to tenant
     const existing = await storage.customDepartment.findFirst({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
     });
@@ -91,7 +93,7 @@ export async function DELETE(
     // Check if department is used in any routings
     const routingSteps = await storage.routingStep.findFirst({
       where: {
-        departmentId: params.id,
+        departmentId: id,
       },
     });
 
@@ -103,7 +105,7 @@ export async function DELETE(
     }
 
     await storage.customDepartment.delete({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     return NextResponse.json({ success: true });

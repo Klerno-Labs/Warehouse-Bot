@@ -8,15 +8,16 @@ import storage from '@/server/storage';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
     const lot = await storage.lot.findUnique({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
       include: {
@@ -70,9 +71,10 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
@@ -82,7 +84,7 @@ export async function PATCH(
 
     const existingLot = await storage.lot.findUnique({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
     });
@@ -116,7 +118,7 @@ export async function PATCH(
 
     const lot = await storage.lot.update({
       where: {
-        id: params.id,
+        id: id,
       },
       data: updateData,
       include: {
@@ -178,9 +180,10 @@ export async function PATCH(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
@@ -190,7 +193,7 @@ export async function DELETE(
 
     const lot = await storage.lot.findUnique({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
       include: {
@@ -224,12 +227,12 @@ export async function DELETE(
 
     // Delete lot history first
     await storage.lotHistory.deleteMany({
-      where: { lotId: params.id },
+      where: { lotId: id },
     });
 
     // Delete the lot
     await storage.lot.delete({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     return NextResponse.json({ success: true });

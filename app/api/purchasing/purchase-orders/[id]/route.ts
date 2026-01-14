@@ -13,13 +13,14 @@ const updatePOSchema = z.object({
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const rawPurchaseOrder = await storage.getPurchaseOrderById(params.id);
+    const rawPurchaseOrder = await storage.getPurchaseOrderById(id);
     const purchaseOrder = await requireTenantResource(context, rawPurchaseOrder, "Purchase order");
     if (purchaseOrder instanceof NextResponse) return purchaseOrder;
 
@@ -31,13 +32,14 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const existing = await storage.getPurchaseOrderById(params.id);
+    const existing = await storage.getPurchaseOrderById(id);
     const validatedExisting = await requireTenantResource(context, existing, "Purchase order");
     if (validatedExisting instanceof NextResponse) return validatedExisting;
 
@@ -72,7 +74,7 @@ export async function PUT(
       updateData.total = validatedExisting.subtotal + tax + shipping;
     }
 
-    const purchaseOrder = await storage.updatePurchaseOrder(params.id, updateData);
+    const purchaseOrder = await storage.updatePurchaseOrder(id, updateData);
 
     await createAuditLog(
       context,
@@ -90,13 +92,14 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const rawPurchaseOrder = await storage.getPurchaseOrderById(params.id);
+    const rawPurchaseOrder = await storage.getPurchaseOrderById(id);
     const purchaseOrder = await requireTenantResource(context, rawPurchaseOrder, "Purchase order");
     if (purchaseOrder instanceof NextResponse) return purchaseOrder;
 
@@ -108,13 +111,13 @@ export async function DELETE(
       );
     }
 
-    await storage.deletePurchaseOrder(params.id);
+    await storage.deletePurchaseOrder(id);
 
     await createAuditLog(
       context,
       "DELETE",
       "PurchaseOrder",
-      params.id,
+      id,
       `Deleted PO ${purchaseOrder.poNumber}`
     );
 

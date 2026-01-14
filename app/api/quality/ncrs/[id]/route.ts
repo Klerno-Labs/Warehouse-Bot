@@ -8,15 +8,16 @@ import storage from '@/server/storage';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
     const ncr = await storage.nonConformanceReport.findUnique({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
       include: {
@@ -51,9 +52,10 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
@@ -63,7 +65,7 @@ export async function PATCH(
 
     const existingNCR = await storage.nonConformanceReport.findUnique({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
     });
@@ -101,7 +103,7 @@ export async function PATCH(
 
     const ncr = await storage.nonConformanceReport.update({
       where: {
-        id: params.id,
+        id: id,
       },
       data: updateData,
       include: {

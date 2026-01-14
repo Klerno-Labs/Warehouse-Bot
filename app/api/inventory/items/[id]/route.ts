@@ -5,16 +5,17 @@ import { updateItemSchema } from "@shared/inventory";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
     const roleCheck = requireRole(context, ["Admin", "Supervisor", "Inventory"]);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const item = await storage.getItemById(params.id);
+    const item = await storage.getItemById(id);
     if (!item) {
       return NextResponse.json({ error: "Item not found" }, { status: 404 });
     }

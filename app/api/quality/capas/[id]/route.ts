@@ -8,15 +8,16 @@ import storage from '@/server/storage';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
     const capa = await storage.cAPA.findUnique({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
       include: {
@@ -45,9 +46,10 @@ export async function GET(
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
@@ -57,7 +59,7 @@ export async function PATCH(
 
     const existingCAPA = await storage.cAPA.findUnique({
       where: {
-        id: params.id,
+        id: id,
         tenantId: context.user.tenantId,
       },
     });
@@ -101,7 +103,7 @@ export async function PATCH(
 
     const capa = await storage.cAPA.update({
       where: {
-        id: params.id,
+        id: id,
       },
       data: updateData,
       include: {

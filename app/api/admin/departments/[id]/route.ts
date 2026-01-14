@@ -8,7 +8,7 @@ import { storage } from '@server/storage';
  */
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -24,7 +24,8 @@ export async function PUT(
       );
     }
 
-    const deptId = params.id;
+    const { id } = await params;
+    const deptId = id;
     const { name } = await req.json();
 
     // Get department
@@ -78,7 +79,7 @@ export async function PUT(
  */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await getSessionUser();
@@ -94,7 +95,8 @@ export async function DELETE(
       );
     }
 
-    const deptId = params.id;
+    const { id } = await params;
+    const deptId = id;
 
     const department = await storage.prisma.department.findUnique({
       where: { id: deptId },

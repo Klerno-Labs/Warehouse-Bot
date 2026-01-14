@@ -13,13 +13,14 @@ const updateBOMSchema = z.object({
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const rawBom = await storage.getBOMById(params.id);
+    const rawBom = await storage.getBOMById(id);
     const bom = await requireTenantResource(context, rawBom, "BOM");
     if (bom instanceof NextResponse) return bom;
 
@@ -31,13 +32,14 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const existing = await storage.getBOMById(params.id);
+    const existing = await storage.getBOMById(id);
     const validatedExisting = await requireTenantResource(context, existing, "BOM");
     if (validatedExisting instanceof NextResponse) return validatedExisting;
 
@@ -78,7 +80,7 @@ export async function PUT(
       updateData.notes = validatedData.notes;
     }
 
-    const bom = await storage.updateBOM(params.id, updateData);
+    const bom = await storage.updateBOM(id, updateData);
 
     await createAuditLog(
       context,
@@ -96,13 +98,14 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const rawBom = await storage.getBOMById(params.id);
+    const rawBom = await storage.getBOMById(id);
     const bom = await requireTenantResource(context, rawBom, "BOM");
     if (bom instanceof NextResponse) return bom;
 
@@ -122,13 +125,13 @@ export async function DELETE(
       );
     }
 
-    await storage.deleteBOM(params.id);
+    await storage.deleteBOM(id);
 
     await createAuditLog(
       context,
       "DELETE",
       "BillOfMaterial",
-      params.id,
+      id,
       `Deleted BOM ${bom.bomNumber} v${bom.version}`
     );
 

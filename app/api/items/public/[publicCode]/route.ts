@@ -3,10 +3,10 @@ import { storage } from "@server/storage";
 
 export async function GET(
   req: Request,
-  { params }: { params: { publicCode: string } }
+  { params }: { params: Promise<{ publicCode: string }> }
 ) {
   try {
-    const { publicCode } = params;
+    const { publicCode } = await params;
 
     // For now, we'll treat publicCode as SKU since we don't have a publicCode field
     // This is a placeholder implementation for the QR code scan functionality

@@ -22,13 +22,14 @@ const updateSupplierSchema = z.object({
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const rawSupplier = await storage.getSupplierById(params.id);
+    const rawSupplier = await storage.getSupplierById(id);
     const supplier = await requireTenantResource(context, rawSupplier, "Supplier");
     if (supplier instanceof NextResponse) return supplier;
 
@@ -40,20 +41,21 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const existing = await storage.getSupplierById(params.id);
+    const existing = await storage.getSupplierById(id);
     const validatedExisting = await requireTenantResource(context, existing, "Supplier");
     if (validatedExisting instanceof NextResponse) return validatedExisting;
 
     const validatedData = await validateBody(req, updateSupplierSchema);
     if (validatedData instanceof NextResponse) return validatedData;
 
-    const supplier = await storage.updateSupplier(params.id, {
+    const supplier = await storage.updateSupplier(id, {
       ...validatedData,
       email: validatedData.email === "" ? null : validatedData.email,
     });
@@ -74,23 +76,24 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const rawSupplier = await storage.getSupplierById(params.id);
+    const rawSupplier = await storage.getSupplierById(id);
     const supplier = await requireTenantResource(context, rawSupplier, "Supplier");
     if (supplier instanceof NextResponse) return supplier;
 
-    await storage.deleteSupplier(params.id);
+    await storage.deleteSupplier(id);
 
     await createAuditLog(
       context,
       "DELETE",
       "Supplier",
-      params.id,
+      id,
       `Deleted supplier: ${supplier.name}`
     );
 
