@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     // Apply minimum value filter if specified
     if (minValue) {
-      filteredItems = filteredItems.filter(a => a.inventoryValue >= minValue);
+      filteredItems = filteredItems.filter(a => parseFloat(a.metrics.inventoryValue) >= minValue);
     }
 
     // Take top N items
