@@ -10,7 +10,7 @@ import { z } from "zod";
 // patterns across 35+ API routes into reusable functions
 // ============================================================================
 
-export type UserRole = "Admin" | "Supervisor" | "Inventory" | "Manufacturing" | "Purchasing" | "Sales" | "Operator" | "Viewer";
+export type UserRole = "Operator" | "Supervisor" | "Inventory" | "Purchasing" | "Maintenance" | "QC" | "Sales" | "Engineering" | "Admin" | "Executive" | "SuperAdmin" | "Viewer";
 
 export type AuthenticatedContext = {
   user: {
