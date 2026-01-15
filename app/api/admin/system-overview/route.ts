@@ -187,10 +187,10 @@ export async function GET() {
           status: 'PENDING_APPROVAL',
         },
       }).catch(() => 0),
-      prisma.purchaseOrderReceipt.count({
+      prisma.receipt.count({
         where: {
-          purchaseOrder: { tenantId },
-          receivedAt: { gte: today },
+          tenantId,
+          receiptDate: { gte: today },
         },
       }).catch(() => 0),
     ]);
