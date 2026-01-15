@@ -19,9 +19,9 @@ export async function POST(req: Request) {
 
     const { role, customName, description, permissions } = await req.json();
 
-    if (!role || !permissions) {
+    if (!role || !permissions || !customName) {
       return NextResponse.json(
-        { error: 'Role and permissions are required' },
+        { error: 'Role, customName, and permissions are required' },
         { status: 400 }
       );
     }
@@ -39,23 +39,23 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create or update role configuration
+    // Create or update role configuration using the correct unique constraint
     const config = await storage.prisma.tenantRoleConfig.upsert({
       where: {
-        tenantId_role: {
+        tenantId_customName: {
           tenantId: context.user.tenantId,
-          role: role,
+          customName: customName,
         },
       },
       create: {
         tenantId: context.user.tenantId,
-        role: role,
-        customName: customName || null,
+        baseRole: role,
+        customName: customName,
         description: description || null,
         permissions: permissions,
       },
       update: {
-        customName: customName || null,
+        baseRole: role,
         description: description || null,
         permissions: permissions,
       },
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       success: true,
       config: {
         id: config.id,
-        role: config.role,
+        baseRole: config.baseRole,
         customName: config.customName,
         description: config.description,
         permissions: config.permissions,
@@ -91,14 +91,14 @@ export async function GET() {
         tenantId: context.user.tenantId,
       },
       orderBy: {
-        role: 'asc',
+        baseRole: 'asc',
       },
     });
 
     return NextResponse.json({
       configs: configs.map((config) => ({
         id: config.id,
-        role: config.role,
+        baseRole: config.baseRole,
         customName: config.customName,
         description: config.description,
         permissions: config.permissions,
