@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       where: {
         tenantId: context.user.tenantId,
         status: {
-          in: ['PENDING', 'IN_PROGRESS', 'ACTIVE', 'PAUSED'],
+          in: ['PENDING', 'IN_PROGRESS', 'RELEASED', 'PAUSED'],
         },
       },
       include: {

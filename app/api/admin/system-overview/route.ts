@@ -206,7 +206,7 @@ export async function GET() {
       prisma.salesOrder.count({
         where: {
           tenantId,
-          status: { in: ['PENDING', 'CONFIRMED', 'ALLOCATED', 'PICKING'] },
+          status: { in: ['DRAFT', 'CONFIRMED', 'ALLOCATED', 'PICKING'] },
         },
       }).catch(() => 0),
       prisma.shipment.count({

@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         salesOrderLines: {
           where: {
             salesOrder: {
-              status: { in: ['CONFIRMED', 'IN_PROGRESS', 'PICKING'] },
+              status: { in: ['CONFIRMED', 'ALLOCATED', 'PICKING'] },
             },
           },
         },
