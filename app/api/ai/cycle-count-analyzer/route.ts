@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            countedAt: 'desc',
           },
           take: 5,
         },
