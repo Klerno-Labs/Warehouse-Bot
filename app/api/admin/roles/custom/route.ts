@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 import storage from "@/server/storage";
-import { Role } from "@prisma/client";
+import { Role } from "@shared/prisma-enums";
 
 /**
  * POST /api/admin/roles/custom
