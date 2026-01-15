@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     }
 
     // Create or update role configuration
-    const config = await storage.tenantRoleConfig.upsert({
+    const config = await storage.prisma.tenantRoleConfig.upsert({
       where: {
         tenantId_role: {
           tenantId: context.user.tenantId,
@@ -86,7 +86,7 @@ export async function GET() {
     if (context instanceof NextResponse) return context;
 
     // Get all role configurations for this tenant
-    const configs = await storage.tenantRoleConfig.findMany({
+    const configs = await storage.prisma.tenantRoleConfig.findMany({
       where: {
         tenantId: context.user.tenantId,
       },
