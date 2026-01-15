@@ -237,14 +237,14 @@ export async function GET() {
       take: 10,
       include: {
         user: {
-          select: { name: true, email: true },
+          select: { firstName: true, lastName: true, email: true },
         },
       },
     }).catch(() => []);
 
     const recentActivity = recentAuditEvents.map(event => ({
       id: event.id,
-      user: event.user?.name || event.user?.email || 'System',
+      user: event.user ? `${event.user.firstName} ${event.user.lastName}`.trim() || event.user.email : 'System',
       action: event.action,
       entity: `${event.entityType}${event.entityId ? ` (${event.entityId.slice(0, 8)})` : ''}`,
       timestamp: event.timestamp.toISOString(),
