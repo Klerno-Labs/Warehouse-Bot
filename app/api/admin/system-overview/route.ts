@@ -37,7 +37,7 @@ export async function GET() {
       select: { role: true },
     });
 
-    const usersByRole = users.reduce((acc, u) => {
+    const usersByRole = users.reduce((acc: Record<string, number>, u: typeof users[number]) => {
       acc[u.role] = (acc[u.role] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -81,15 +81,15 @@ export async function GET() {
 
     // Create a map of department name to job count
     const deptJobCounts = new Map<string, number>();
-    jobOperationCounts.forEach(op => {
+    jobOperationCounts.forEach((op: typeof jobOperationCounts[number]) => {
       deptJobCounts.set(op.department.toLowerCase(), op._count.id);
     });
 
-    const mostUsedDepartments = departments.map((dept) => ({
+    const mostUsedDepartments = departments.map((dept: typeof departments[number]) => ({
       name: dept.name,
       jobCount: deptJobCounts.get(dept.name.toLowerCase()) || 0,
       color: dept.color,
-    })).sort((a, b) => b.jobCount - a.jobCount).slice(0, 5);
+    })).sort((a: { jobCount: number }, b: { jobCount: number }) => b.jobCount - a.jobCount).slice(0, 5);
 
     // Routings statistics
     const totalRoutings = await storage.prisma.productionRouting.count({
@@ -160,11 +160,11 @@ export async function GET() {
 
     // Calculate low stock and total value from the balances
     const lowStockItemsCount = inventoryBalancesWithItems.filter(
-      b => b.item.reorderPointBase !== null && b.qtyBase <= (b.item.reorderPointBase || 0)
+      (b: typeof inventoryBalancesWithItems[number]) => b.item.reorderPointBase !== null && b.qtyBase <= (b.item.reorderPointBase || 0)
     ).length;
 
     const inventoryTotalValue = inventoryBalancesWithItems.reduce(
-      (sum, b) => sum + (b.qtyBase * (b.item.costBase || 0)), 0
+      (sum: number, b: typeof inventoryBalancesWithItems[number]) => sum + (b.qtyBase * (b.item.costBase || 0)), 0
     );
 
     const inventory = {
@@ -242,7 +242,7 @@ export async function GET() {
       },
     }).catch(() => []);
 
-    const recentActivity = recentAuditEvents.map(event => ({
+    const recentActivity = recentAuditEvents.map((event: typeof recentAuditEvents[number]) => ({
       id: event.id,
       user: event.user ? `${event.user.firstName} ${event.user.lastName}`.trim() || event.user.email : 'System',
       action: event.action,

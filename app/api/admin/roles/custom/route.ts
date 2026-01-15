@@ -113,7 +113,7 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      roles: customRoles.map((role) => ({
+      roles: customRoles.map((role: typeof customRoles[number]) => ({
         id: role.id,
         baseRole: role.baseRole,
         customName: role.customName,

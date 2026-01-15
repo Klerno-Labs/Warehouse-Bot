@@ -23,8 +23,8 @@ export async function GET() {
     ]);
 
     // Count users for each role
-    const rolesWithCounts = roles.map(role => {
-      const userCount = users.filter(u => u.customRoleId === role.id).length;
+    const rolesWithCounts = roles.map((role: typeof roles[number]) => {
+      const userCount = users.filter((u: typeof users[number]) => u.customRoleId === role.id).length;
       return {
         ...role,
         userCount,
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
     // Check if role name already exists
     const existingRoles = await storage.getRolesByTenant(tenantId);
-    if (existingRoles.some(r => r.customName.toLowerCase() === customName.toLowerCase())) {
+    if (existingRoles.some((r: typeof existingRoles[number]) => r.customName.toLowerCase() === customName.toLowerCase())) {
       return NextResponse.json(
         { error: "Role name already exists" },
         { status: 400 }

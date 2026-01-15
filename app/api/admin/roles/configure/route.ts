@@ -96,7 +96,7 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      configs: configs.map((config) => ({
+      configs: configs.map((config: typeof configs[number]) => ({
         id: config.id,
         baseRole: config.baseRole,
         customName: config.customName,

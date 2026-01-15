@@ -85,7 +85,7 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      tenants: accessList.map(access => ({
+      tenants: accessList.map((access: typeof accessList[number]) => ({
         id: access.tenant.id,
         name: access.tenant.name,
         slug: access.tenant.slug,

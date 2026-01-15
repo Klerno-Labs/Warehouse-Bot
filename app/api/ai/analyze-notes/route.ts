@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     // Filter by item if specified
     const filteredNotes = itemSku
-      ? notes.filter((note) => note.productionOrder.item.sku === itemSku)
+      ? notes.filter((note: typeof notes[number]) => note.productionOrder.item.sku === itemSku)
       : notes;
 
     if (filteredNotes.length === 0) {
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     // Format notes for AI analysis
     const notesText = filteredNotes
-      .map((note) => {
+      .map((note: typeof notes[number]) => {
         const userName = `${note.createdBy.firstName} ${note.createdBy.lastName}`;
         const date = new Date(note.createdAt).toLocaleDateString();
         const orderNumber = note.productionOrder.orderNumber;
