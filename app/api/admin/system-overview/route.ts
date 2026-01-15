@@ -178,13 +178,13 @@ export async function GET() {
       prisma.purchaseOrder.count({
         where: {
           tenantId,
-          status: { in: ['DRAFT', 'SUBMITTED', 'APPROVED', 'ORDERED'] },
+          status: { in: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'SENT'] },
         },
       }).catch(() => 0),
       prisma.purchaseOrder.count({
         where: {
           tenantId,
-          status: 'SUBMITTED',
+          status: 'PENDING_APPROVAL',
         },
       }).catch(() => 0),
       prisma.purchaseOrderReceipt.count({
