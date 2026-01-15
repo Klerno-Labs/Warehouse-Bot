@@ -16,7 +16,7 @@ export async function GET() {
     if (roleCheck instanceof NextResponse) return roleCheck;
 
     // Get tenant info
-    const tenant = await storage.tenant.findUnique({
+    const tenant = await storage.prisma.tenant.findUnique({
       where: { id: context.user.tenantId },
       select: {
         id: true,
@@ -27,11 +27,11 @@ export async function GET() {
     });
 
     // Count users
-    const totalUsers = await storage.user.count({
+    const totalUsers = await storage.prisma.user.count({
       where: { tenantId: context.user.tenantId },
     });
 
-    const activeUsers = await storage.user.count({
+    const activeUsers = await storage.prisma.user.count({
       where: {
         tenantId: context.user.tenantId,
         isActive: true,
@@ -39,12 +39,12 @@ export async function GET() {
     });
 
     // Count departments
-    const totalDepartments = await storage.customDepartment.count({
+    const totalDepartments = await storage.prisma.customDepartment.count({
       where: { tenantId: context.user.tenantId },
     });
 
     // Count routings
-    const totalRoutings = await storage.productionRouting.count({
+    const totalRoutings = await storage.prisma.productionRouting.count({
       where: { tenantId: context.user.tenantId },
     });
 

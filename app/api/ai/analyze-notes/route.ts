@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch notes from production orders
-    const notes = await storage.productionOrderNote.findMany({
+    const notes = await storage.prisma.productionOrderNote.findMany({
       where,
       include: {
         productionOrder: {

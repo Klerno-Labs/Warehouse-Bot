@@ -20,11 +20,11 @@ export async function GET() {
     const tenantId = context.user.tenantId;
 
     // Users statistics
-    const totalUsers = await storage.user.count({
+    const totalUsers = await storage.prisma.user.count({
       where: { tenantId },
     });
 
-    const activeUsers = await storage.user.count({
+    const activeUsers = await storage.prisma.user.count({
       where: {
         tenantId,
         isActive: true,
@@ -32,7 +32,7 @@ export async function GET() {
     });
 
     // Get users by role
-    const users = await storage.user.findMany({
+    const users = await storage.prisma.user.findMany({
       where: { tenantId },
       select: { role: true },
     });
@@ -43,11 +43,11 @@ export async function GET() {
     }, {} as Record<string, number>);
 
     // Departments statistics
-    const totalDepartments = await storage.customDepartment.count({
+    const totalDepartments = await storage.prisma.customDepartment.count({
       where: { tenantId },
     });
 
-    const activeDepartments = await storage.customDepartment.count({
+    const activeDepartments = await storage.prisma.customDepartment.count({
       where: {
         tenantId,
         isActive: true,
@@ -55,7 +55,7 @@ export async function GET() {
     });
 
     // Get most used departments with actual job operation counts
-    const departments = await storage.customDepartment.findMany({
+    const departments = await storage.prisma.customDepartment.findMany({
       where: {
         tenantId,
         isActive: true,
@@ -92,18 +92,18 @@ export async function GET() {
     })).sort((a, b) => b.jobCount - a.jobCount).slice(0, 5);
 
     // Routings statistics
-    const totalRoutings = await storage.productionRouting.count({
+    const totalRoutings = await storage.prisma.productionRouting.count({
       where: { tenantId },
     });
 
-    const activeRoutings = await storage.productionRouting.count({
+    const activeRoutings = await storage.prisma.productionRouting.count({
       where: {
         tenantId,
         isActive: true,
       },
     });
 
-    const defaultRoutings = await storage.productionRouting.count({
+    const defaultRoutings = await storage.prisma.productionRouting.count({
       where: {
         tenantId,
         isDefault: true,

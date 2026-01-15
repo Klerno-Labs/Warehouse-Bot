@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if user has access to this tenant
-    const access = await storage.userTenantAccess.findUnique({
+    const access = await storage.prisma.userTenantAccess.findUnique({
       where: {
         userId_tenantId: {
           userId: context.user.id,
@@ -62,7 +62,7 @@ export async function GET() {
 
   try {
     // Get all tenants user has access to
-    const accessList = await storage.userTenantAccess.findMany({
+    const accessList = await storage.prisma.userTenantAccess.findMany({
       where: {
         userId: context.user.id
       },

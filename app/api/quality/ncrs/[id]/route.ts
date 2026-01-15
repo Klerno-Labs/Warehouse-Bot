@@ -15,7 +15,7 @@ export async function GET(
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const ncr = await storage.nonConformanceReport.findUnique({
+    const ncr = await storage.prisma.nonConformanceReport.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -63,7 +63,7 @@ export async function PATCH(
     const roleCheck = requireRole(context, ['Admin', 'Supervisor'] as any);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const existingNCR = await storage.nonConformanceReport.findUnique({
+    const existingNCR = await storage.prisma.nonConformanceReport.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -101,7 +101,7 @@ export async function PATCH(
     if (approvedBy !== undefined) updateData.approvedBy = approvedBy;
     if (closedAt !== undefined) updateData.closedAt = closedAt ? new Date(closedAt) : null;
 
-    const ncr = await storage.nonConformanceReport.update({
+    const ncr = await storage.prisma.nonConformanceReport.update({
       where: {
         id: id,
       },

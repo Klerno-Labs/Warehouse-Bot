@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // Get all items with inventory balances
-    const items = await storage.item.findMany({
+    const items = await storage.prisma.item.findMany({
       where: {
         tenantId: context.user.tenantId,
         ...(includeCategories && { category: { in: includeCategories } }),

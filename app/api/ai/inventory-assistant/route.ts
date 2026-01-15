@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const discrepancy = expectedQty - actualQty;
 
     // Get item details
-    const item = await storage.item.findUnique({
+    const item = await storage.prisma.item.findUnique({
       where: { id: itemId },
       include: {
         balances: {
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const recentEvents = await storage.inventoryEvent.findMany({
+    const recentEvents = await storage.prisma.inventoryEvent.findMany({
       where: {
         tenantId: context.user.tenantId,
         itemId,
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Get recent production consumption
-    const recentConsumptions = await storage.productionConsumption.findMany({
+    const recentConsumptions = await storage.prisma.productionConsumption.findMany({
       where: {
         itemId,
         ...(locationId && { fromLocationId: locationId }),
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Get recent cycle counts
-    const recentCycleCounts = await storage.cycleCountLine.findMany({
+    const recentCycleCounts = await storage.prisma.cycleCountLine.findMany({
       where: {
         itemId,
         ...(locationId && { locationId }),
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Get recent sales shipments
-    const recentShipments = await storage.shipmentLine.findMany({
+    const recentShipments = await storage.prisma.shipmentLine.findMany({
       where: {
         itemId,
         shipment: {
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Get recent receipts
-    const recentReceipts = await storage.receiptLine.findMany({
+    const recentReceipts = await storage.prisma.receiptLine.findMany({
       where: {
         itemId,
         createdAt: { gte: thirtyDaysAgo },
