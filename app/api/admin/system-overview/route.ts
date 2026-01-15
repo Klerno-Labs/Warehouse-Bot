@@ -233,7 +233,7 @@ export async function GET() {
     // Recent activity from audit events
     const recentAuditEvents = await prisma.auditEvent.findMany({
       where: { tenantId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { timestamp: 'desc' },
       take: 10,
       include: {
         user: {
@@ -247,7 +247,7 @@ export async function GET() {
       user: event.user?.name || event.user?.email || 'System',
       action: event.action,
       entity: `${event.entityType}${event.entityId ? ` (${event.entityId.slice(0, 8)})` : ''}`,
-      timestamp: event.createdAt.toISOString(),
+      timestamp: event.timestamp.toISOString(),
     }));
 
     return NextResponse.json({
