@@ -247,8 +247,8 @@ export default function DocumentsPage() {
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
-                        label={({ name, percent }: { name: string; percent: number }) =>
-                          `${name.replace(/_/g, " ")}: ${(percent * 100).toFixed(0)}%`
+                        label={({ name, percent }) =>
+                          `${String(name ?? "").replace(/_/g, " ")}: ${((percent ?? 0) * 100).toFixed(0)}%`
                         }
                       >
                         {dashboard.byType.map((entry, index) => (
