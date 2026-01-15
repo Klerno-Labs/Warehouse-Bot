@@ -291,5 +291,4 @@ export const KPIDashboard = memo(function KPIDashboard() {
       </Tabs>
     </div>
   );
-}
 });
