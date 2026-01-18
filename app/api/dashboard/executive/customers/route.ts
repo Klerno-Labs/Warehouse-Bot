@@ -30,12 +30,12 @@ export async function GET() {
       }, 0);
     };
 
-    const customerMetrics = customers.map(customer => {
+    const customerMetrics = customers.map((customer: typeof customers[number]) => {
       // Sales for this customer
-      const customerSales = sales.filter(s => s.customerId === customer.id);
-      const currentMonthSales = customerSales.filter(s => new Date(s.createdAt) >= startOfMonth);
+      const customerSales = sales.filter((s: typeof sales[number]) => s.customerId === customer.id);
+      const currentMonthSales = customerSales.filter((s: typeof customerSales[number]) => new Date(s.createdAt) >= startOfMonth);
       const lastMonthSales = customerSales.filter(
-        s => new Date(s.createdAt) >= startOfLastMonth && new Date(s.createdAt) <= endOfLastMonth
+        (s: typeof customerSales[number]) => new Date(s.createdAt) >= startOfLastMonth && new Date(s.createdAt) <= endOfLastMonth
       );
 
       // Calculate actual revenue from sales
@@ -46,22 +46,22 @@ export async function GET() {
         : 0;
 
       // Find production orders linked to this customer
-      const customerProduction = productionOrders.filter(po => po.customerId === customer.id);
-      const activeOrders = customerProduction.filter(po =>
+      const customerProduction = productionOrders.filter((po: typeof productionOrders[number]) => po.customerId === customer.id);
+      const activeOrders = customerProduction.filter((po: typeof customerProduction[number]) =>
         po.status === 'IN_PROGRESS' || po.status === 'RELEASED' || po.status === 'PLANNED'
       ).length;
-      const completedOrders = customerProduction.filter(po => po.status === 'COMPLETED');
+      const completedOrders = customerProduction.filter((po: typeof customerProduction[number]) => po.status === 'COMPLETED');
 
       // On-time delivery rate from completed orders
       const onTimeOrders = completedOrders.filter(
-        o => o.actualEnd && o.scheduledEnd && new Date(o.actualEnd) <= new Date(o.scheduledEnd)
+        (o: typeof completedOrders[number]) => o.actualEnd && o.scheduledEnd && new Date(o.actualEnd) <= new Date(o.scheduledEnd)
       );
       const onTimeRate = completedOrders.length > 0
         ? (onTimeOrders.length / completedOrders.length) * 100
         : 100;
 
       // Last order date from sales
-      const sortedSales = [...customerSales].sort((a, b) =>
+      const sortedSales = [...customerSales].sort((a: typeof customerSales[number], b: typeof customerSales[number]) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       const lastOrderDate = sortedSales.length > 0 ? sortedSales[0].createdAt : null;
@@ -84,20 +84,20 @@ export async function GET() {
     });
 
     // Sort by revenue (highest first)
-    customerMetrics.sort((a, b) => b.totalRevenue - a.totalRevenue);
+    customerMetrics.sort((a: { totalRevenue: number }, b: { totalRevenue: number }) => b.totalRevenue - a.totalRevenue);
 
     // Get top 10 customers
     const topCustomers = customerMetrics.slice(0, 10);
 
     // Calculate summary statistics
-    const totalRevenue = customerMetrics.reduce((sum, c) => sum + c.totalRevenue, 0);
+    const totalRevenue = customerMetrics.reduce((sum: number, c: { totalRevenue: number }) => sum + c.totalRevenue, 0);
     const avgOrderValue = sales.length > 0 ? calculateRevenue(sales) / sales.length : 0;
 
     return NextResponse.json({
       topCustomers,
       summary: {
         totalCustomers: customers.length,
-        activeCustomers: customerMetrics.filter(c => c.status === "active").length,
+        activeCustomers: customerMetrics.filter((c: { status: string }) => c.status === "active").length,
         totalRevenue: Math.round(totalRevenue),
         avgOrderValue: Math.round(avgOrderValue),
       },

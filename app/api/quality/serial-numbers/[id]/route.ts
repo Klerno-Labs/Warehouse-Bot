@@ -15,7 +15,7 @@ export async function GET(
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const serialNumber = await storage.serialNumber.findUnique({
+    const serialNumber = await storage.prisma.serialNumber.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -70,7 +70,7 @@ export async function PATCH(
     const roleCheck = requireRole(context, ['Admin', 'Supervisor', 'Inventory'] as any);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const existingSerial = await storage.serialNumber.findUnique({
+    const existingSerial = await storage.prisma.serialNumber.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -104,7 +104,7 @@ export async function PATCH(
     if (shippedDate !== undefined) updateData.shippedDate = shippedDate ? new Date(shippedDate) : null;
     if (notes !== undefined) updateData.notes = notes;
 
-    const serialNumber = await storage.serialNumber.update({
+    const serialNumber = await storage.prisma.serialNumber.update({
       where: {
         id: id,
       },
@@ -162,7 +162,7 @@ export async function PATCH(
 
     if (historyEntries.length > 0) {
       await Promise.all(
-        historyEntries.map((entry) => storage.serialNumberHistory.create({ data: entry }))
+        historyEntries.map((entry) => storage.prisma.serialNumberHistory.create({ data: entry }))
       );
     }
 

@@ -15,7 +15,7 @@ export async function GET(
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const lot = await storage.lot.findUnique({
+    const lot = await storage.prisma.lot.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -82,7 +82,7 @@ export async function PATCH(
     const roleCheck = requireRole(context, ['Admin', 'Supervisor', 'Inventory'] as any);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const existingLot = await storage.lot.findUnique({
+    const existingLot = await storage.prisma.lot.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -116,7 +116,7 @@ export async function PATCH(
     if (notes !== undefined) updateData.notes = notes;
     if (qtyAvailable !== undefined) updateData.qtyAvailable = qtyAvailable;
 
-    const lot = await storage.lot.update({
+    const lot = await storage.prisma.lot.update({
       where: {
         id: id,
       },
@@ -130,7 +130,7 @@ export async function PATCH(
 
     // Create history entry for significant changes
     if (status !== undefined && status !== existingLot.status) {
-      await storage.lotHistory.create({
+      await storage.prisma.lotHistory.create({
         data: {
           lotId: lot.id,
           eventType: status === 'HOLD' ? 'HOLD' : status === 'AVAILABLE' ? 'RELEASE' : 'STATUS_CHANGED',
@@ -143,7 +143,7 @@ export async function PATCH(
     }
 
     if (qcStatus !== undefined && qcStatus !== existingLot.qcStatus) {
-      await storage.lotHistory.create({
+      await storage.prisma.lotHistory.create({
         data: {
           lotId: lot.id,
           eventType: qcStatus === 'PASSED' ? 'QC_PASSED' : qcStatus === 'FAILED' ? 'QC_FAILED' : 'QC_UPDATED',
@@ -156,7 +156,7 @@ export async function PATCH(
     }
 
     if (qtyAvailable !== undefined && qtyAvailable !== existingLot.qtyAvailable) {
-      await storage.lotHistory.create({
+      await storage.prisma.lotHistory.create({
         data: {
           lotId: lot.id,
           eventType: 'CONSUMED',
@@ -191,7 +191,7 @@ export async function DELETE(
     const roleCheck = requireRole(context, ['Admin']);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const lot = await storage.lot.findUnique({
+    const lot = await storage.prisma.lot.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -226,12 +226,12 @@ export async function DELETE(
     }
 
     // Delete lot history first
-    await storage.lotHistory.deleteMany({
+    await storage.prisma.lotHistory.deleteMany({
       where: { lotId: id },
     });
 
     // Delete the lot
-    await storage.lot.delete({
+    await storage.prisma.lot.delete({
       where: { id: id },
     });
 

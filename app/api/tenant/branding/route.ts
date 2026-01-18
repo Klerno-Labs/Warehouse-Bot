@@ -11,7 +11,7 @@ export async function GET() {
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const tenant = await storage.tenant.findUnique({
+    const tenant = await storage.prisma.tenant.findUnique({
       where: { id: context.user.tenantId },
       select: {
         id: true,
@@ -60,7 +60,7 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const { brandLogo, brandColor, brandColorSecondary, favicon, customCSS } = body;
 
-    const updatedTenant = await storage.tenant.update({
+    const updatedTenant = await storage.prisma.tenant.update({
       where: { id: context.user.tenantId },
       data: {
         brandLogo: brandLogo !== undefined ? brandLogo : undefined,

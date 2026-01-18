@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
-      departments: departments.map((dept) => ({
+      departments: departments.map((dept: typeof departments[number]) => ({
         id: dept.id,
         name: dept.name,
         siteId: dept.siteId,

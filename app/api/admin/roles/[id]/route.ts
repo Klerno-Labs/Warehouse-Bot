@@ -75,7 +75,7 @@ export async function PUT(
     if (updates.customName && updates.customName !== role.customName) {
       const existingRoles = await storage.getRolesByTenant(tenantId);
       if (existingRoles.some(
-        r => r.id !== roleId && r.customName.toLowerCase() === updates.customName.toLowerCase()
+        (r: typeof existingRoles[number]) => r.id !== roleId && r.customName.toLowerCase() === updates.customName.toLowerCase()
       )) {
         return NextResponse.json(
           { error: "Role name already exists" },

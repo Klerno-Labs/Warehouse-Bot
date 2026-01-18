@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // Get all items with inventory balances
-    const items = await storage.item.findMany({
+    const items = await storage.prisma.item.findMany({
       where: {
         tenantId: context.user.tenantId,
         ...(includeCategories && { category: { in: includeCategories } }),
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            countedAt: 'desc',
           },
           take: 5,
         },
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         salesOrderLines: {
           where: {
             salesOrder: {
-              status: { in: ['CONFIRMED', 'IN_PROGRESS', 'PICKING'] },
+              status: { in: ['CONFIRMED', 'ALLOCATED', 'PICKING'] },
             },
           },
         },
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Analyze each item and calculate priority score
-    const analyzedItems = items.map(item => {
+    const analyzedItems = items.map((item: typeof items[number]) => {
       const analysis = analyzeItemForCycleCount(item, minValue);
       return {
         item: {
@@ -92,18 +92,20 @@ export async function POST(req: NextRequest) {
       };
     });
 
+    type AnalyzedItem = typeof analyzedItems[number];
+
     // Filter based on count type
     let filteredItems = analyzedItems;
     if (countType === 'ABC') {
       // ABC analysis: Focus on high-value items
       filteredItems = analyzedItems
-        .filter(a => a.abcClass === 'A' || a.abcClass === 'B')
-        .sort((a, b) => b.priorityScore - a.priorityScore);
+        .filter((a: AnalyzedItem) => a.abcClass === 'A' || a.abcClass === 'B')
+        .sort((a: AnalyzedItem, b: AnalyzedItem) => b.priorityScore - a.priorityScore);
     } else if (countType === 'HIGH_RISK') {
       // Focus on items with highest risk factors
       filteredItems = analyzedItems
-        .filter(a => a.priorityScore >= 70)
-        .sort((a, b) => b.priorityScore - a.priorityScore);
+        .filter((a: AnalyzedItem) => a.priorityScore >= 70)
+        .sort((a: AnalyzedItem, b: AnalyzedItem) => b.priorityScore - a.priorityScore);
     } else if (countType === 'RANDOM') {
       // Random sampling with weighted probability
       filteredItems = weightedRandomSample(analyzedItems, maxItems);
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
 
     // Apply minimum value filter if specified
     if (minValue) {
-      filteredItems = filteredItems.filter(a => a.inventoryValue >= minValue);
+      filteredItems = filteredItems.filter((a: AnalyzedItem) => parseFloat(a.metrics.inventoryValue) >= minValue);
     }
 
     // Take top N items

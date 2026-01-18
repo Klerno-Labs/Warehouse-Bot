@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, requireRole, handleApiError } from "@app/api/_utils/middleware";
 import storage from "@/server/storage";
-import { Role } from "@prisma/client";
+import { Role } from "@shared/prisma-enums";
 
 /**
  * POST /api/admin/roles/custom
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     }
 
     // Check if custom name already exists for this tenant
-    const existing = await storage.tenantRoleConfig.findUnique({
+    const existing = await storage.prisma.tenantRoleConfig.findUnique({
       where: {
         tenantId_customName: {
           tenantId: context.user.tenantId,
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     }
 
     // Create custom role
-    const customRole = await storage.tenantRoleConfig.create({
+    const customRole = await storage.prisma.tenantRoleConfig.create({
       data: {
         tenantId: context.user.tenantId,
         baseRole: baseRole,
@@ -96,7 +96,7 @@ export async function GET() {
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const customRoles = await storage.tenantRoleConfig.findMany({
+    const customRoles = await storage.prisma.tenantRoleConfig.findMany({
       where: {
         tenantId: context.user.tenantId,
       },
@@ -113,7 +113,7 @@ export async function GET() {
     });
 
     return NextResponse.json({
-      roles: customRoles.map((role) => ({
+      roles: customRoles.map((role: typeof customRoles[number]) => ({
         id: role.id,
         baseRole: role.baseRole,
         customName: role.customName,

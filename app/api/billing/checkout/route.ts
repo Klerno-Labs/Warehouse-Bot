@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const context = await requireAuth();
   if (context instanceof NextResponse) return context;
 
-  const roleCheck = requireRole(context, ["Owner", "Admin"]);
+  const roleCheck = requireRole(context, ["Executive", "Admin", "SuperAdmin"]);
   if (roleCheck instanceof NextResponse) {
     return NextResponse.json({ error: "Only admins can manage billing" }, { status: 403 });
   }

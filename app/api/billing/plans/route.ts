@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Format for frontend
-    const formattedPlans = plans.map((plan) => ({
+    const formattedPlans = plans.map((plan: typeof plans[number]) => ({
       id: plan.id,
       name: plan.name,
       tier: plan.tier,

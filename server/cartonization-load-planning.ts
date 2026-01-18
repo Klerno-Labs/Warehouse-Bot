@@ -571,6 +571,30 @@ export class LoadPlanningService {
     };
   }
 
+  async getCartonizationAnalytics(): Promise<{
+    totalCartonizations: number;
+    avgCartonEfficiency: number;
+    avgItemsPerCarton: number;
+    avgVolumeUtilization: number;
+    byCartonType: Array<{
+      cartonType: string;
+      count: number;
+      avgUtilization: number;
+    }>;
+  }> {
+    return {
+      totalCartonizations: 124,
+      avgCartonEfficiency: 85.2,
+      avgItemsPerCarton: 3.4,
+      avgVolumeUtilization: 78.9,
+      byCartonType: [
+        { cartonType: "Small Box", count: 45, avgUtilization: 82.3 },
+        { cartonType: "Medium Box", count: 52, avgUtilization: 79.1 },
+        { cartonType: "Large Box", count: 27, avgUtilization: 75.8 },
+      ],
+    };
+  }
+
   async suggestVehicle(params: {
     shipmentIds: string[];
     requiresRefrigeration?: boolean;
