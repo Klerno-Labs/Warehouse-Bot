@@ -31,7 +31,7 @@ export async function PATCH(
     } = body;
 
     // Verify department exists and belongs to tenant
-    const existing = await storage.customDepartment.findFirst({
+    const existing = await storage.prisma.customDepartment.findFirst({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -42,7 +42,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Department not found" }, { status: 404 });
     }
 
-    const department = await storage.customDepartment.update({
+    const department = await storage.prisma.customDepartment.update({
       where: { id: id },
       data: {
         name: name !== undefined ? name : undefined,
@@ -79,7 +79,7 @@ export async function DELETE(
     if (roleCheck instanceof NextResponse) return roleCheck;
 
     // Verify department exists and belongs to tenant
-    const existing = await storage.customDepartment.findFirst({
+    const existing = await storage.prisma.customDepartment.findFirst({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -91,7 +91,7 @@ export async function DELETE(
     }
 
     // Check if department is used in any routings
-    const routingSteps = await storage.routingStep.findFirst({
+    const routingSteps = await storage.prisma.routingStep.findFirst({
       where: {
         departmentId: id,
       },
@@ -104,7 +104,7 @@ export async function DELETE(
       );
     }
 
-    await storage.customDepartment.delete({
+    await storage.prisma.customDepartment.delete({
       where: { id: id },
     });
 

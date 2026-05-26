@@ -264,8 +264,8 @@ export default function ValuationPage() {
                       cx="50%"
                       cy="50%"
                       outerRadius={100}
-                      label={({ category, percent }) =>
-                        `${category}: ${(percent * 100).toFixed(0)}%`
+                      label={({ name, percent }) =>
+                        `${name ?? ""}: ${((percent ?? 0) * 100).toFixed(0)}%`
                       }
                     >
                       {categoryChartData.map((entry, index) => (
@@ -273,7 +273,7 @@ export default function ValuationPage() {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number) => [`$${value.toLocaleString()}`, "Value"]}
+                      formatter={(value) => [`$${Number(value).toLocaleString()}`, "Value"]}
                     />
                     <Legend />
                   </PieChart>
@@ -341,8 +341,8 @@ export default function ValuationPage() {
                   <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" />
                   <YAxis yAxisId="right" orientation="right" stroke="#22c55e" />
                   <Tooltip
-                    formatter={(value: number, name: string) => [
-                      name === "value" ? `$${value.toLocaleString()}` : value.toLocaleString(),
+                    formatter={(value, name) => [
+                      name === "value" ? `$${Number(value).toLocaleString()}` : Number(value).toLocaleString(),
                       name === "value" ? "Value" : "Quantity",
                     ]}
                   />

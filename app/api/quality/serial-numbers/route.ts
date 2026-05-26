@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       where.serialNumber = { contains: search, mode: 'insensitive' };
     }
 
-    const serialNumbers = await storage.serialNumber.findMany({
+    const serialNumbers = await storage.prisma.serialNumber.findMany({
       where,
       include: {
         item: {
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for duplicate serial numbers
-    const existingSerials = await storage.serialNumber.findMany({
+    const existingSerials = await storage.prisma.serialNumber.findMany({
       where: {
         tenantId: context.user.tenantId,
         itemId,
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
     // Create serial numbers in bulk
     const createdSerials = await Promise.all(
       serialNumberList.map(async (serialNumber: string) => {
-        const serial = await storage.serialNumber.create({
+        const serial = await storage.prisma.serialNumber.create({
           data: {
             tenantId: context.user.tenantId,
             itemId,
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Create history entry
-        await storage.serialNumberHistory.create({
+        await storage.prisma.serialNumberHistory.create({
           data: {
             serialNumberId: serial.id,
             eventType: 'RECEIVED',

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@server/prisma";
-import { SubscriptionStatus } from "@prisma/client";
+import { SubscriptionStatus } from "@shared/prisma-enums";
 import { logger } from "@server/logger";
 
 // Initialize Stripe
@@ -132,14 +132,14 @@ async function handleSubscriptionUpdated(subscription: any) {
   }
 
   const statusMap: Record<string, SubscriptionStatus> = {
-    active: "ACTIVE",
-    past_due: "PAST_DUE",
-    canceled: "CANCELED",
-    unpaid: "UNPAID",
-    trialing: "TRIALING",
-    incomplete: "UNPAID",
-    incomplete_expired: "CANCELED",
-    paused: "PAUSED",
+    active: SubscriptionStatus.ACTIVE,
+    past_due: SubscriptionStatus.PAST_DUE,
+    canceled: SubscriptionStatus.CANCELED,
+    unpaid: SubscriptionStatus.UNPAID,
+    trialing: SubscriptionStatus.TRIALING,
+    incomplete: SubscriptionStatus.UNPAID,
+    incomplete_expired: SubscriptionStatus.CANCELED,
+    paused: SubscriptionStatus.PAUSED,
   };
 
   await prisma.subscription.updateMany({

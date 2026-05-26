@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     const slug = await generateUniqueSlug(data.companyName);
 
     // Create tenant, subscription, user, and default site in a transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: typeof prisma) => {
       // 1. Create tenant
       const tenant = await tx.tenant.create({
         data: {

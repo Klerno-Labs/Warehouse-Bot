@@ -15,7 +15,7 @@ export async function GET(
     const context = await requireAuth();
     if (context instanceof NextResponse) return context;
 
-    const inspection = await storage.qualityInspection.findUnique({
+    const inspection = await storage.prisma.qualityInspection.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -68,7 +68,7 @@ export async function PATCH(
     const roleCheck = requireRole(context, ['Admin', 'Supervisor'] as any);
     if (roleCheck instanceof NextResponse) return roleCheck;
 
-    const existingInspection = await storage.qualityInspection.findUnique({
+    const existingInspection = await storage.prisma.qualityInspection.findUnique({
       where: {
         id: id,
         tenantId: context.user.tenantId,
@@ -123,7 +123,7 @@ export async function PATCH(
       );
     }
 
-    const inspection = await storage.qualityInspection.update({
+    const inspection = await storage.prisma.qualityInspection.update({
       where: {
         id: id,
       },
@@ -139,7 +139,7 @@ export async function PATCH(
 
     // Auto-update lot QC status if this is a lot inspection
     if (inspection.lotId && overallResult) {
-      await storage.lot.update({
+      await storage.prisma.lot.update({
         where: { id: inspection.lotId },
         data: {
           qcStatus: overallResult === 'ACCEPT' ? 'PASSED' : overallResult === 'REJECT' ? 'FAILED' : 'CONDITIONAL',

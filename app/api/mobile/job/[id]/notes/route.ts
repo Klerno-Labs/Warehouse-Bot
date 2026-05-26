@@ -25,7 +25,7 @@ export async function POST(
     const jobId = id;
 
     // Find the production order
-    const productionOrder = await storage.productionOrder.findFirst({
+    const productionOrder = await storage.prisma.productionOrder.findFirst({
       where: {
         OR: [
           { id: jobId },
@@ -40,7 +40,7 @@ export async function POST(
     }
 
     // Create the note
-    const note = await storage.productionOrderNote.create({
+    const note = await storage.prisma.productionOrderNote.create({
       data: {
         productionOrderId: productionOrder.id,
         content,

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Find user by badge number
-    const badge = await storage.badge.findFirst({
+    const badge = await storage.prisma.badge.findFirst({
       where: {
         badgeNumber,
         isActive: true,

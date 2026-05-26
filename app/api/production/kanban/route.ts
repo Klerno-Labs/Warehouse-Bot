@@ -12,11 +12,11 @@ export async function GET(req: NextRequest) {
     if (context instanceof NextResponse) return context;
 
     // Fetch all production orders with their current step information
-    const productionOrders = await storage.productionOrder.findMany({
+    const productionOrders = await storage.prisma.productionOrder.findMany({
       where: {
         tenantId: context.user.tenantId,
         status: {
-          in: ['PENDING', 'IN_PROGRESS', 'ACTIVE', 'PAUSED'],
+          in: ['PENDING', 'IN_PROGRESS', 'RELEASED', 'PAUSED'],
         },
       },
       include: {

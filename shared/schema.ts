@@ -1,4 +1,4 @@
-import type { Role } from "@prisma/client";
+import type { Role } from "./prisma-enums";
 
 // Module ID type for routing
 export type ModuleId = "inventory" | "cycle-counts" | "jobs" | "dashboards";

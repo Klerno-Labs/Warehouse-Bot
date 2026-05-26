@@ -18,7 +18,7 @@ export async function GET(
     const jobId = id;
 
     // Fetch production order with all related data
-    const productionOrder = await storage.productionOrder.findFirst({
+    const productionOrder = await storage.prisma.productionOrder.findFirst({
       where: {
         OR: [
           { id: jobId },
@@ -72,7 +72,7 @@ export async function GET(
     }
 
     // Get job notes
-    const notes = await storage.productionOrderNote.findMany({
+    const notes = await storage.prisma.productionOrderNote.findMany({
       where: {
         productionOrderId: productionOrder.id,
       },

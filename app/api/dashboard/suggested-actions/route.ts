@@ -47,7 +47,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   const now = new Date();
 
   // Check for out of stock items
-  const outOfStockItems = await storage.inventoryBalance.findMany({
+  const outOfStockItems = await storage.prisma.inventoryBalance.findMany({
     where: {
       tenantId: user.tenantId,
       qtyBase: 0,
@@ -84,7 +84,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   }
 
   // Check for low stock items
-  const lowStockItems = await storage.inventoryBalance.findMany({
+  const lowStockItems = await storage.prisma.inventoryBalance.findMany({
     where: {
       tenantId: user.tenantId,
       item: {
@@ -125,7 +125,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   }
 
   // Check for pending receipts (old purchase orders)
-  const oldPendingPOs = await storage.purchaseOrder.findMany({
+  const oldPendingPOs = await storage.prisma.purchaseOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['APPROVED', 'SENT'] },
@@ -153,7 +153,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   }
 
   // Check for pending production orders
-  const pendingProduction = await storage.productionOrder.findMany({
+  const pendingProduction = await storage.prisma.productionOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['PLANNED', 'RELEASED'] },
@@ -198,7 +198,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   }
 
   // Check for pending sales orders
-  const pendingSalesOrders = await storage.salesOrder.findMany({
+  const pendingSalesOrders = await storage.prisma.salesOrder.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['CONFIRMED', 'PICKING'] },
@@ -246,7 +246,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  const itemsNeedingCount = await storage.item.findMany({
+  const itemsNeedingCount = await storage.prisma.item.findMany({
     where: {
       tenantId: user.tenantId,
       isActive: true,
@@ -277,7 +277,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   }
 
   // Check for quality inspections pending
-  const pendingInspections = await storage.qualityInspection.findMany({
+  const pendingInspections = await storage.prisma.qualityInspection.findMany({
     where: {
       tenantId: user.tenantId,
       status: 'PENDING',
@@ -301,7 +301,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   }
 
   // Check for open NCRs
-  const openNCRs = await storage.nonConformanceReport.findMany({
+  const openNCRs = await storage.prisma.nonConformanceReport.findMany({
     where: {
       tenantId: user.tenantId,
       status: { in: ['OPEN', 'IN_REVIEW'] },
@@ -328,7 +328,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
-  const deadStockCount = await storage.inventoryBalance.count({
+  const deadStockCount = await storage.prisma.inventoryBalance.count({
     where: {
       tenantId: user.tenantId,
       qtyBase: { gt: 0 },
@@ -363,7 +363,7 @@ async function generateSuggestedActions(user: UserContext): Promise<SuggestedAct
   // Role-specific suggestions
   if (user.role === 'Purchasing' || user.role === 'Admin') {
     // Check vendor performance
-    const recentReceipts = await storage.receipt.findMany({
+    const recentReceipts = await storage.prisma.receipt.findMany({
       where: {
         tenantId: user.tenantId,
         createdAt: {

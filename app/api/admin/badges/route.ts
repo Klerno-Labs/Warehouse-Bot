@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json({
-      badges: badges.map((badge) => ({
+      badges: badges.map((badge: typeof badges[number]) => ({
         id: badge.id,
         badgeNumber: badge.badgeNumber,
         isActive: badge.isActive,
